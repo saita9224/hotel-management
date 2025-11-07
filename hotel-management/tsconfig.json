@@ -1,0 +1,17 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+, "app/(tabs)/inventory.jsx", "app/(tabs)/index.jsx", "app/(tabs)/expenses.jsx", "app/(tabs)/_layout.jsx", "app/(tabs)/orders.jsx", "app/(tabs)/reports.jsx", "app/_layout.jsx", "app/modal.jsx", "app/theme/colors.js"  ]
+}
