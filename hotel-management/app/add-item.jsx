@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Colors } from './theme/colors';
+import { Colors } from '../app/theme/colors';
 
 
 export default function AddItem() {

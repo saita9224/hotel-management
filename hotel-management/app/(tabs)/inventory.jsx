@@ -8,24 +8,20 @@ import {
   TouchableOpacity,
   useColorScheme,
   ScrollView,
-  SafeAreaView,
-  Platform,
-  StatusBar,
   Alert,
 } from 'react-native';
 import { Colors } from '../theme/colors';
-
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useInventory } from '../context/InventoryContext'; // ✅ Import context
+import { useInventory } from '../context/InventoryContext';
 
 export default function InventoryScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const router = useRouter();
 
-  const { inventory, deleteItem } = useInventory(); // ✅ Use shared inventory
+  const { inventory, deleteItem } = useInventory();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -40,18 +36,14 @@ export default function InventoryScreen() {
 
   // ✅ Handle delete using context
   const handleDelete = (item) => {
-    Alert.alert(
-      'Delete Item',
-      `Are you sure you want to delete "${item.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteItem(item.id),
-        },
-      ]
-    );
+    Alert.alert('Delete Item', `Are you sure you want to delete "${item.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => deleteItem(item.id),
+      },
+    ]);
   };
 
   // ✅ Navigate to Deduct Screen
@@ -65,7 +57,6 @@ export default function InventoryScreen() {
   // ✅ Render each item card
   const renderItem = ({ item }) => {
     const lowStock = item.quantity < 10;
-
     return (
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <View style={styles.cardHeader}>
@@ -103,12 +94,7 @@ export default function InventoryScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-      <View
-        style={[
-          styles.container,
-          { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0 },
-        ]}
-      >
+      <View style={styles.container}>
         {/* Header */}
         <View style={styles.headerContainer}>
           <Text style={[styles.title, { color: theme.accent }]}>Inventory</Text>

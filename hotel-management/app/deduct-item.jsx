@@ -7,13 +7,16 @@ import {
   StyleSheet,
   SafeAreaView,
   useColorScheme,
+  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Colors } from './theme/colors'; // note: same level as inventory.jsx
+import { useInventory } from './context/InventoryContext'; // ✅ import context
+import { Colors } from './theme/colors'; // ✅ fixed path if theme folder is inside app/theme
 
 export default function DeductItem() {
   const router = useRouter();
   const { id, name, quantity } = useLocalSearchParams();
+  const { deductItem } = useInventory(); // ✅ use context
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
 
@@ -21,9 +24,24 @@ export default function DeductItem() {
   const [reason, setReason] = useState('');
 
   const handleSubmit = () => {
-    console.log('Deducting:', { id, name, usedQuantity, reason });
-    // TODO: connect to DB later
-    router.back();
+    const used = parseFloat(usedQuantity);
+    if (!used || used <= 0) {
+      Alert.alert('Invalid Quantity', 'Please enter a valid quantity to deduct.');
+      return;
+    }
+    if (used > quantity) {
+      Alert.alert('Not Enough Stock', 'You cannot deduct more than the available quantity.');
+      return;
+    }
+
+    // ✅ Deduct from inventory immediately
+    deductItem(id, used);
+
+    Alert.alert(
+      'Success',
+      `${used} units deducted from ${name}.\nReason: ${reason || 'N/A'}`,
+      [{ text: 'OK', onPress: () => router.back() }]
+    );
   };
 
   return (
@@ -67,7 +85,7 @@ export default function DeductItem() {
         onPress={handleSubmit}
         style={[styles.btn, { backgroundColor: theme.accent }]}
       >
-        <Text style={styles.btnText}>Save</Text>
+        <Text style={styles.btnText}>Deduct</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
