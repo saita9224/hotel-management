@@ -33,8 +33,12 @@ export default function OrdersScreen() {
       ]}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={[styles.orderName, { color: theme.text }]}>{item.name}</Text>
-        <Text style={{ color: theme.accent, fontWeight: "600" }}>#{item.id}</Text>
+        <Text style={[styles.orderName, { color: theme.text }]}>
+          {item.name}
+        </Text>
+        <Text style={{ color: theme.accent, fontWeight: "600" }}>
+          #{item.id}
+        </Text>
       </View>
       <Text style={{ color: theme.text, opacity: 0.8 }}>
         Qty: {item.quantity} • KES {item.total?.toFixed(2)}
@@ -96,7 +100,9 @@ export default function OrdersScreen() {
           <Text style={[styles.summaryValue, { color: theme.text }]}>
             {pendingOrders}
           </Text>
-          <Text style={[styles.summaryLabel, { color: theme.text }]}>Pending</Text>
+          <Text style={[styles.summaryLabel, { color: theme.text }]}>
+            Pending
+          </Text>
         </View>
       </View>
 
@@ -124,12 +130,22 @@ export default function OrdersScreen() {
       />
 
       {/* ➕ Floating Add Button */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.accent }]}
-        onPress={() => router.push("/add-order")} // ✅ full page navigation
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      <View style={styles.fabContainer}>
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: theme.accent }]}
+          onPress={() => router.push("/add-order")} // ✅ full page navigation
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+
+        {/* 👁️ Eye Icon (Restored) */}
+        <TouchableOpacity
+          style={[styles.eyeButton, { backgroundColor: theme.card }]}
+          onPress={() => router.push("/orders")} // adjust route if needed
+        >
+          <Ionicons name="eye-outline" size={26} color={theme.accent} />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -184,15 +200,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  fab: {
+  fabContainer: {
     position: "absolute",
     bottom: 20,
     right: 20,
+    alignItems: "center",
+  },
+  fab: {
     width: 60,
     height: 60,
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
     elevation: 5,
+  },
+  eyeButton: {
+    marginTop: 10,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 3,
   },
 });
