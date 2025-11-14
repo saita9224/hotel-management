@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// app/(tabs)/expenses.jsx
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -14,112 +15,224 @@ import { useExpenses } from "../context/ExpensesContext";
 import { router } from "expo-router";
 import PayBalanceModal from "../PayBalanceModal";
 
+/**
+ * Helper to format timestamp if present.
+ * We support:
+ *  - entry.timestamp (preferred)
+ *  - fallback entry.date from context
+ */
+const formatTimestamp = (entry) => {
+  if (!entry) return "";
+  if (entry.timestamp) return entry.timestamp;
+  if (entry.date) return entry.date;
+  return "";
+};
+
 export default function ExpensesScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
-  const { expenses, getTodaySummary } = useExpenses();
+  const { expenses = [], getTodaySummary = () => ({}), getExpensesByProduct } =
+    useExpenses();
 
+  const [expanded, setExpanded] = useState({});
   const [payModalVisible, setPayModalVisible] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [selectedEntryId, setSelectedEntryId] = useState(null);
 
-  const { totalExpense, totalPaid, totalOutstanding } = getTodaySummary();
+  const { totalExpense = 0, totalPaid = 0, totalOutstanding = 0 } =
+    getTodaySummary();
 
-  // Build list of groups (one row per group with computed balance)
-  const groupsMap = expenses.reduce((map, e) => {
-    map[e.group_id] = map[e.group_id] || {
-      group_id: e.group_id,
-      description: "",
-      supplier: "",
-      total: 0,
-      paid: 0,
-      quantity: 0,
-      lastDate: e.date,
-    };
+  // GROUP by product
+  const productGroups = useMemo(() => {
+    return expenses.reduce((acc, e) => {
+      const pid = e.product_id ?? "unknown";
+      if (!acc[pid]) {
+        acc[pid] = {
+          product_id: pid,
+          product_name: e.product_name || e.description || pid,
+          total_quantity: 0,
+          total_amount: 0,
+          total_paid: 0,
+        };
+      }
+      acc[pid].total_quantity += Number(e.quantity || 0);
+      acc[pid].total_amount += Number(e.total_amount || 0);
+      acc[pid].total_paid += Number(e.paid || 0);
+      return acc;
+    }, {});
+  }, [expenses]);
 
-    map[e.group_id].total += Number(e.total_amount || 0);
-    map[e.group_id].paid += Number(e.paid || 0);
-    map[e.group_id].quantity += Number(e.quantity || 0);
-    map[e.group_id].lastDate = e.date;
-    map[e.group_id].supplier = e.supplier || map[e.group_id].supplier || "";
+  const products = Object.values(productGroups);
 
-    if (!map[e.group_id].description || map[e.group_id].description === "Expense") {
-      map[e.group_id].description = e.description;
-    }
+  const toggleExpand = (id) => {
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
-    return map;
-  }, {});
-
-  const groups = Object.values(groupsMap);
-
-  const handleOpenPay = (group_id) => {
-    setSelectedGroup(group_id);
+  const openPayModalForEntry = (entryId) => {
+    setSelectedEntryId(entryId);
     setPayModalVisible(true);
   };
 
-  const renderGroup = ({ item }) => {
-    const balance = Math.max(item.total - item.paid, 0);
-    const paidInFull = balance <= 0;
+  // Render inner entry card
+  const renderEntry = (entry, idx) => {
+    const balance = Number(entry.total_amount || 0) - Number(entry.paid || 0);
+    const timestamp = formatTimestamp(entry);
+    const key = entry.id ?? `entry-${idx}`;
 
     return (
       <View
+        key={key}
         style={[
-          styles.groupCard,
+          styles.entryCard,
           { backgroundColor: theme.card, borderColor: theme.border },
         ]}
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <Text
-            style={[styles.groupTitle, { color: theme.text }]}
-            numberOfLines={1}
-          >
-            {item.description || item.group_id}
+          <Text style={[styles.entryTitle, { color: theme.text }]} numberOfLines={1}>
+            {entry.product_name} {entry.supplier ? `— ${entry.supplier}` : ""}
           </Text>
+
           <Text style={{ color: theme.accent, fontWeight: "600" }}>
-            {item.group_id}
+            {entry.id}
           </Text>
         </View>
 
-        <Text style={{ color: theme.text, opacity: 0.7 }}>
-          Supplier: {item.supplier || "N/A"}
-        </Text>
-        <Text style={{ color: theme.text, opacity: 0.6, fontSize: 12 }}>
-          Last Updated: {item.lastDate}
-        </Text>
-
-        <Text style={{ color: theme.text, opacity: 0.8, marginTop: 4 }}>
-          Total: KES {item.total.toFixed(2)}
-        </Text>
-        <Text style={{ color: theme.text, opacity: 0.8 }}>
-          Quantity: {item.quantity}
+        <Text style={{ color: theme.text, opacity: 0.85, marginTop: 6 }}>
+          Qty: {entry.quantity || 0} • Unit: KES {entry.unit_price || 0}
         </Text>
 
         <View
           style={{
             flexDirection: "row",
             justifyContent: "space-between",
-            marginTop: 8,
+            marginTop: 6,
+          }}
+        >
+          <Text style={{ color: theme.text }}>
+            Total: KES {Number(entry.total_amount || 0).toFixed(2)}
+          </Text>
+          <Text style={{ color: theme.text }}>
+            Paid: KES {Number(entry.paid || 0).toFixed(2)}
+          </Text>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginTop: 6,
             alignItems: "center",
           }}
         >
-          <Text style={{ color: theme.text, opacity: 0.7 }}>
-            Status: {paidInFull ? "Paid" : `Balance KES ${balance.toFixed(2)}`}
+          <Text style={{ color: theme.accent, fontWeight: "700" }}>
+            Balance: KES {balance.toFixed(2)}
           </Text>
 
-          {!paidInFull ? (
+          {balance > 0 ? (
             <TouchableOpacity
-              onPress={() => handleOpenPay(item.group_id)}
-              style={[styles.payBtn, { backgroundColor: theme.accent }]}
+              style={[styles.payBtnSmall, { backgroundColor: theme.accent }]}
+              onPress={() => openPayModalForEntry(entry.id)}
             >
-              <Text style={{ color: "#fff", fontWeight: "600" }}>
-                Pay Balance
-              </Text>
+              <Text style={{ color: "#fff", fontWeight: "600" }}>Pay</Text>
             </TouchableOpacity>
           ) : (
-            <Text style={{ color: theme.accent, fontWeight: "600" }}>
-              Completed
-            </Text>
+            <Text style={{ color: theme.accent, fontWeight: "600" }}>Paid</Text>
           )}
         </View>
+
+        {timestamp ? (
+          <Text
+            style={{
+              color: theme.tabBarInactive,
+              marginTop: 8,
+              fontSize: 12,
+            }}
+          >
+            {timestamp}
+          </Text>
+        ) : null}
+      </View>
+    );
+  };
+
+  // Render outer product group card
+  const renderProduct = ({ item }) => {
+    const totalBalance =
+      Number(item.total_amount || 0) - Number(item.total_paid || 0);
+
+    const entriesRaw =
+      typeof getExpensesByProduct === "function"
+        ? getExpensesByProduct(item.product_id)
+        : expenses.filter((e) => e.product_id === item.product_id);
+
+    const entries = entriesRaw
+      .slice()
+      .sort((a, b) => {
+        if (a.timestamp && b.timestamp)
+          return b.timestamp.localeCompare(a.timestamp);
+        if (a.date && b.date) return b.date.localeCompare(a.date);
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
+      });
+
+    return (
+      <View
+        style={[
+          styles.productCard,
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
+      >
+        <TouchableOpacity onPress={() => toggleExpand(item.product_id)}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[styles.productTitle, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {item.product_name}
+              </Text>
+
+              <Text style={{ color: theme.text, opacity: 0.75, marginTop: 4 }}>
+                Qty: {item.total_quantity} • Total: KES{" "}
+                {Number(item.total_amount || 0).toFixed(2)}
+              </Text>
+
+              <Text style={{ color: theme.text, opacity: 0.75 }}>
+                Paid: KES {Number(item.total_paid || 0).toFixed(2)}
+              </Text>
+            </View>
+
+            <View style={{ alignItems: "flex-end", marginLeft: 8 }}>
+              <Text style={{ color: theme.accent, fontWeight: "700" }}>
+                Balance
+              </Text>
+              <Text style={{ color: theme.accent, fontWeight: "700" }}>
+                KES {Number(totalBalance || 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {expanded[item.product_id] && (
+          <View style={{ marginTop: 10 }}>
+            {entries.length === 0 ? (
+              <Text
+                style={{
+                  color: theme.tabBarInactive,
+                  textAlign: "center",
+                }}
+              >
+                No entries
+              </Text>
+            ) : (
+              entries.map((entry, idx) => renderEntry(entry, idx))
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -142,9 +255,10 @@ export default function ExpensesScreen() {
             Today Expense
           </Text>
           <Text style={[styles.smallValue, { color: theme.text }]}>
-            KES {totalExpense.toFixed(2)}
+            KES {Number(totalExpense || 0).toFixed(2)}
           </Text>
         </View>
+
         <View
           style={[
             styles.smallCard,
@@ -153,9 +267,10 @@ export default function ExpensesScreen() {
         >
           <Text style={[styles.smallLabel, { color: theme.text }]}>Paid</Text>
           <Text style={[styles.smallValue, { color: theme.text }]}>
-            KES {totalPaid.toFixed(2)}
+            KES {Number(totalPaid || 0).toFixed(2)}
           </Text>
         </View>
+
         <View
           style={[
             styles.smallCard,
@@ -166,19 +281,18 @@ export default function ExpensesScreen() {
             Outstanding
           </Text>
           <Text style={[styles.smallValue, { color: theme.text }]}>
-            KES {totalOutstanding.toFixed(2)}
+            KES {Number(totalOutstanding || 0).toFixed(2)}
           </Text>
         </View>
       </View>
 
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>
-        Expense Groups
-      </Text>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>Products</Text>
 
       <FlatList
-        data={groups}
-        keyExtractor={(g) => g.group_id}
-        renderItem={renderGroup}
+        data={products}
+        keyExtractor={(p) => String(p.product_id)}
+        renderItem={renderProduct}
+        contentContainerStyle={{ paddingBottom: 140 }}
         ListEmptyComponent={
           <Text
             style={{
@@ -188,13 +302,12 @@ export default function ExpensesScreen() {
               marginTop: 20,
             }}
           >
-            No expenses yet. Use + to add an expense.
+            No expenses yet. Tap + to add.
           </Text>
         }
-        contentContainerStyle={{ paddingBottom: 120 }}
       />
 
-      {/* FAB to add expense */}
+      {/* Floating Add Button */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.accent }]}
         onPress={() => router.push("/add-expenses")}
@@ -202,11 +315,11 @@ export default function ExpensesScreen() {
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* Pay Balance Modal */}
+      {/* ✅ FIXED PROP NAME */}
       <PayBalanceModal
         visible={payModalVisible}
         onClose={() => setPayModalVisible(false)}
-        groupId={selectedGroup}
+        expenseId={selectedEntryId}
       />
     </SafeAreaView>
   );
@@ -230,20 +343,28 @@ const styles = StyleSheet.create({
   },
   smallLabel: { fontSize: 12, opacity: 0.8 },
   smallValue: { fontSize: 16, fontWeight: "700", marginTop: 6 },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginTop: 10,
-    marginBottom: 8,
-  },
-  groupCard: {
-    padding: 14,
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
+  productCard: {
+    padding: 12,
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 10,
   },
-  groupTitle: { fontSize: 16, fontWeight: "700", flex: 1 },
-  payBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+  productTitle: { fontSize: 16, fontWeight: "700" },
+  entryCard: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  entryTitle: { fontSize: 14, fontWeight: "700", marginBottom: 4 },
+  payBtnSmall: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: "flex-end",
+  },
   fab: {
     position: "absolute",
     bottom: 28,
