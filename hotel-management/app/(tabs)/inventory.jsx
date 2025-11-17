@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,114 +9,125 @@ import {
   useColorScheme,
   ScrollView,
   Alert,
-} from 'react-native';
-import { Colors } from '../theme/colors';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useInventory } from '../context/InventoryContext';
+} from "react-native";
+import { Colors } from "../theme/colors";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useInventory } from "../context/InventoryContext";
 
 export default function InventoryScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
   const router = useRouter();
 
-  const { inventory, deleteItem } = useInventory();
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
+  const { products, getProductTotal } = useInventory();
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const categories = ['All', 'Butchery', 'Vegetables', 'Kitchen', 'Drinks', 'Housekeeping'];
+  // 🔹 Auto-generate categories
+  const categories = useMemo(() => {
+    const unique = new Set(products.map((p) => p.category ?? ""));
+    return ["All", ...unique];
+  }, [products]);
 
-  // ✅ Filter data based on category + search
-  const filteredItems = inventory.filter((item) => {
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+  // 🔹 Build merged inventory list
+  const inventoryList = useMemo(
+    () =>
+      products.map((item) => ({
+        ...item,
+        quantity: getProductTotal(item.id),
+      })),
+    [products, getProductTotal]
+  );
+
+  // 🔹 Filter by category ONLY
+  const filteredItems = inventoryList.filter((item) => {
+    const cat = (item.category ?? "").toLowerCase();
+    const active = (selectedCategory ?? "").toLowerCase();
+
+    const matchesCategory = active === "all" || cat === active;
+    return matchesCategory;
   });
 
-  // ✅ Handle delete using context
-  const handleDelete = (item) => {
-    Alert.alert('Delete Item', `Are you sure you want to delete "${item.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => deleteItem(item.id),
-      },
-    ]);
-  };
-
-  // ✅ Navigate to Deduct Screen
+  // ➖ Deduct screen
   const handleDeduct = (item) => {
+    if (item.quantity <= 0) {
+      return Alert.alert("Out of Stock", `${item.name} has 0 quantity.`);
+    }
+
     router.push({
-      pathname: '/deduct-item',
-      params: { id: item.id, name: item.name, quantity: item.quantity },
+      pathname: "/deduct-item",
+      params: {
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+      },
     });
   };
 
-  // ✅ Render each item card
   const renderItem = ({ item }) => {
-    const lowStock = item.quantity < 10;
+    const low = item.quantity < 10 && item.quantity > 0;
+    const out = item.quantity === 0;
+
     return (
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <TouchableOpacity
+        style={[
+          styles.card,
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
+        onPress={() => handleDeduct(item)}
+      >
         <View style={styles.cardHeader}>
-          <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
-          {lowStock && <Text style={styles.lowStock}>Low Stock</Text>}
+          <Text style={[styles.itemName, { color: theme.text }]}>
+            {item.name}
+          </Text>
+
+          {low && <Text style={styles.lowStock}>Low Stock</Text>}
+          {out && <Text style={styles.outStock}>Out of Stock</Text>}
         </View>
 
-        <Text style={[styles.itemDetail, { color: theme.text }]}>Quantity: {item.quantity}</Text>
-        <Text style={[styles.itemDetail, { color: theme.text }]}>Category: {item.category}</Text>
-        <Text style={[styles.itemUpdated, { color: theme.tabBarInactive }]}>
-          Last Updated: {item.updated}
+        <Text style={[styles.itemDetail, { color: theme.text }]}>
+          Quantity: {item.quantity}
         </Text>
 
-        {/* ✅ Action Buttons */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: theme.accent }]}
-            onPress={() => handleDeduct(item)}
-          >
-            <Ionicons name="remove-circle-outline" size={20} color="#fff" />
-            <Text style={styles.actionText}>Deduct</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: '#D9534F' }]}
-            onPress={() => handleDelete(item)}
-          >
-            <Ionicons name="trash-outline" size={20} color="#fff" />
-            <Text style={styles.actionText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+        <Text style={[styles.itemDetail, { color: theme.text }]}>
+          Category: {item.category}
+        </Text>
+      </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: theme.background }]}
+    >
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.headerContainer}>
-          <Text style={[styles.title, { color: theme.accent }]}>Inventory</Text>
-        </View>
+        <Text style={[styles.title, { color: theme.accent }]}>Inventory</Text>
 
-        {/* Search Bar */}
+        {/* Search UI still exists but does NOT filter for now */}
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
           style={[
             styles.searchBar,
-            { backgroundColor: theme.card, color: theme.text, borderColor: theme.border },
+            {
+              backgroundColor: theme.card,
+              color: theme.text,
+              borderColor: theme.border,
+            },
           ]}
-          placeholder="Search inventory..."
+          placeholder="Search (inactive)..."
           placeholderTextColor={theme.tabBarInactive}
         />
 
         {/* Category Filter */}
-        <View style={[styles.categoryContainer, { backgroundColor: theme.card }]}>
+        <View
+          style={[styles.categoryContainer, { backgroundColor: theme.card }]}
+        >
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {categories.map((category) => {
-              const isSelected = category === selectedCategory;
+              const selected = category === selectedCategory;
               return (
                 <TouchableOpacity
                   key={category}
@@ -124,7 +135,7 @@ export default function InventoryScreen() {
                   style={[
                     styles.categoryPill,
                     {
-                      backgroundColor: isSelected ? theme.accent : theme.background,
+                      backgroundColor: selected ? theme.accent : theme.background,
                       borderColor: theme.border,
                     },
                   ]}
@@ -132,7 +143,7 @@ export default function InventoryScreen() {
                   <Text
                     style={[
                       styles.categoryText,
-                      { color: isSelected ? '#fff' : theme.text },
+                      { color: selected ? "#fff" : theme.text },
                     ]}
                   >
                     {category}
@@ -149,9 +160,14 @@ export default function InventoryScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={{ color: theme.text, textAlign: 'center', marginTop: 20 }}>
+            <Text
+              style={{
+                color: theme.text,
+                textAlign: "center",
+                marginTop: 20,
+              }}
+            >
               No items found.
             </Text>
           }
@@ -160,7 +176,7 @@ export default function InventoryScreen() {
         {/* Floating Add Button */}
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: theme.accent }]}
-          onPress={() => router.push('/add-item')}
+          onPress={() => router.push("/add-item")}
         >
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
@@ -172,8 +188,12 @@ export default function InventoryScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { flex: 1, paddingHorizontal: 20 },
-  headerContainer: { alignItems: 'center', marginBottom: 8 },
-  title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginVertical: 10,
+  },
   searchBar: {
     borderWidth: 1,
     borderRadius: 12,
@@ -195,51 +215,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginRight: 10,
   },
-  categoryText: { fontSize: 14, fontWeight: '500' },
+  categoryText: { fontSize: 14, fontWeight: "500" },
   listContainer: { paddingBottom: 100 },
   card: {
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemName: { fontSize: 16, fontWeight: '600' },
-  lowStock: { fontSize: 12, color: '#D9534F', fontWeight: 'bold' },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  itemName: { fontSize: 16, fontWeight: "600" },
+  lowStock: { fontSize: 12, color: "#E67E22", fontWeight: "bold" },
+  outStock: { fontSize: 12, color: "#D9534F", fontWeight: "bold" },
   itemDetail: { fontSize: 14, marginTop: 4 },
-  itemUpdated: { fontSize: 12, marginTop: 4 },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  actionText: {
-    color: '#fff',
-    fontWeight: '600',
-    marginLeft: 6,
-    fontSize: 13,
-  },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 10,
     right: 10,
     width: 55,
     height: 55,
     borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 5,
   },
 });

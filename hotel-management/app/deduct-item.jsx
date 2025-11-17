@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,39 +8,49 @@ import {
   SafeAreaView,
   useColorScheme,
   Alert,
-} from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useInventory } from './context/InventoryContext'; // ✅ import context
-import { Colors } from './theme/colors'; // ✅ fixed path if theme folder is inside app/theme
+} from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { useInventory } from "./context/InventoryContext"; 
+import { Colors } from "./theme/colors";
 
 export default function DeductItem() {
   const router = useRouter();
   const { id, name, quantity } = useLocalSearchParams();
-  const { deductItem } = useInventory(); // ✅ use context
+  const { deductStock } = useInventory(); // ✅ Correct context function
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
 
-  const [usedQuantity, setUsedQuantity] = useState('');
-  const [reason, setReason] = useState('');
+  const [usedQuantity, setUsedQuantity] = useState("");
+  const [reason, setReason] = useState("");
 
   const handleSubmit = () => {
     const used = parseFloat(usedQuantity);
+    const available = parseFloat(quantity);
+
     if (!used || used <= 0) {
-      Alert.alert('Invalid Quantity', 'Please enter a valid quantity to deduct.');
+      Alert.alert("Invalid Quantity", "Please enter a valid quantity to deduct.");
       return;
     }
-    if (used > quantity) {
-      Alert.alert('Not Enough Stock', 'You cannot deduct more than the available quantity.');
+    if (used > available) {
+      Alert.alert(
+        "Not Enough Stock",
+        `You cannot deduct more than available stock (${available}).`
+      );
       return;
     }
 
-    // ✅ Deduct from inventory immediately
-    deductItem(id, used);
+    // ➖ Deduct stock
+    const result = deductStock(id, used);
+
+    if (!result.ok) {
+      Alert.alert("Error", result.message);
+      return;
+    }
 
     Alert.alert(
-      'Success',
-      `${used} units deducted from ${name}.\nReason: ${reason || 'N/A'}`,
-      [{ text: 'OK', onPress: () => router.back() }]
+      "Success",
+      `${used} units deducted from ${name}.\nReason: ${reason || "N/A"}`,
+      [{ text: "OK", onPress: () => router.back() }]
     );
   };
 
@@ -57,7 +67,7 @@ export default function DeductItem() {
 
       <Text style={[styles.label, { color: theme.text }]}>Current Quantity</Text>
       <TextInput
-        value={quantity}
+        value={String(quantity)}
         editable={false}
         style={[styles.input, { backgroundColor: theme.card, color: theme.text }]}
       />
@@ -74,7 +84,7 @@ export default function DeductItem() {
 
       <Text style={[styles.label, { color: theme.text }]}>Reason</Text>
       <TextInput
-        placeholder="e.g. Kitchen use, Customer meal..."
+        placeholder="e.g. Customer meal, Kitchen use..."
         placeholderTextColor={theme.tabBarInactive}
         value={reason}
         onChangeText={setReason}
@@ -93,12 +103,12 @@ export default function DeductItem() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 20, textAlign: 'center' },
+  title: { fontSize: 22, fontWeight: "700", marginBottom: 20, textAlign: "center" },
   label: { fontSize: 14, marginTop: 10, marginBottom: 4 },
   input: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     padding: 10,
     fontSize: 14,
   },
@@ -106,7 +116,7 @@ const styles = StyleSheet.create({
     marginTop: 25,
     paddingVertical: 12,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  btnText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  btnText: { color: "#fff", fontWeight: "600", fontSize: 16 },
 });
