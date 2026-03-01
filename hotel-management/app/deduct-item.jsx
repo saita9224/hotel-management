@@ -10,8 +10,8 @@ import {
   Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { useInventory } from "./context/InventoryContext"; 
-import { Colors } from "./theme/colors";
+import { useInventory } from "../context/InventoryContext";
+import { Colors } from "../theme/colors";
 
 export default function DeductItem() {
   const router = useRouter();
@@ -28,13 +28,16 @@ export default function DeductItem() {
     const available = parseFloat(quantity);
 
     if (!used || used <= 0) {
-      Alert.alert("Invalid Quantity", "Please enter a valid quantity to deduct.");
+      Alert.alert(
+        "Invalid Quantity",
+        "Please enter a valid quantity to deduct.",
+      );
       return;
     }
     if (used > available) {
       Alert.alert(
         "Not Enough Stock",
-        `You cannot deduct more than available stock (${available}).`
+        `You cannot deduct more than available stock (${available}).`,
       );
       return;
     }
@@ -50,26 +53,36 @@ export default function DeductItem() {
     Alert.alert(
       "Success",
       `${used} units deducted from ${name}.\nReason: ${reason || "N/A"}`,
-      [{ text: "OK", onPress: () => router.back() }]
+      [{ text: "OK", onPress: () => router.back() }],
     );
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
       <Text style={[styles.title, { color: theme.accent }]}>Deduct Stock</Text>
 
       <Text style={[styles.label, { color: theme.text }]}>Item</Text>
       <TextInput
         value={name}
         editable={false}
-        style={[styles.input, { backgroundColor: theme.card, color: theme.text }]}
+        style={[
+          styles.input,
+          { backgroundColor: theme.card, color: theme.text },
+        ]}
       />
 
-      <Text style={[styles.label, { color: theme.text }]}>Current Quantity</Text>
+      <Text style={[styles.label, { color: theme.text }]}>
+        Current Quantity
+      </Text>
       <TextInput
         value={String(quantity)}
         editable={false}
-        style={[styles.input, { backgroundColor: theme.card, color: theme.text }]}
+        style={[
+          styles.input,
+          { backgroundColor: theme.card, color: theme.text },
+        ]}
       />
 
       <Text style={[styles.label, { color: theme.text }]}>Used Quantity</Text>
@@ -79,7 +92,10 @@ export default function DeductItem() {
         keyboardType="numeric"
         value={usedQuantity}
         onChangeText={setUsedQuantity}
-        style={[styles.input, { backgroundColor: theme.card, color: theme.text }]}
+        style={[
+          styles.input,
+          { backgroundColor: theme.card, color: theme.text },
+        ]}
       />
 
       <Text style={[styles.label, { color: theme.text }]}>Reason</Text>
@@ -88,7 +104,10 @@ export default function DeductItem() {
         placeholderTextColor={theme.tabBarInactive}
         value={reason}
         onChangeText={setReason}
-        style={[styles.input, { backgroundColor: theme.card, color: theme.text }]}
+        style={[
+          styles.input,
+          { backgroundColor: theme.card, color: theme.text },
+        ]}
       />
 
       <TouchableOpacity
@@ -103,7 +122,12 @@ export default function DeductItem() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 20, textAlign: "center" },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 20,
+    textAlign: "center",
+  },
   label: { fontSize: 14, marginTop: 10, marginBottom: 4 },
   input: {
     borderRadius: 10,

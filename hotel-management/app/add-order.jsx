@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,30 +9,33 @@ import {
   FlatList,
   useColorScheme,
   Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Colors } from './theme/colors';
-import { Ionicons } from '@expo/vector-icons';
-import { useOrders } from './context/OrdersContext';
-import uuid from 'react-native-uuid';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Colors } from "../theme/colors";
+import { Ionicons } from "@expo/vector-icons";
+import { useOrders } from "../context/OrdersContext";
+import uuid from "react-native-uuid";
 
 export default function AddOrder() {
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
   const { addOrder } = useOrders();
 
-  const [tableName, setTableName] = useState('');
-  const [itemName, setItemName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [price, setPrice] = useState('');
+  const [tableName, setTableName] = useState("");
+  const [itemName, setItemName] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [price, setPrice] = useState("");
   const [items, setItems] = useState([]);
 
-  const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  const total = items.reduce(
+    (sum, item) => sum + item.quantity * item.price,
+    0,
+  );
 
   const handleAddItem = () => {
     if (!itemName || !quantity || !price) {
-      Alert.alert('Missing Fields', 'Please fill all item details.');
+      Alert.alert("Missing Fields", "Please fill all item details.");
       return;
     }
 
@@ -44,14 +47,17 @@ export default function AddOrder() {
     };
 
     setItems((prev) => [...prev, newItem]);
-    setItemName('');
-    setQuantity('');
-    setPrice('');
+    setItemName("");
+    setQuantity("");
+    setPrice("");
   };
 
   const handleSaveOrder = () => {
     if (!tableName || items.length === 0) {
-      Alert.alert('Incomplete Order', 'Please add a table name and at least one item.');
+      Alert.alert(
+        "Incomplete Order",
+        "Please add a table name and at least one item.",
+      );
       return;
     }
 
@@ -65,19 +71,23 @@ export default function AddOrder() {
     };
 
     addOrder(newOrder);
-    Alert.alert('Success', 'Order added successfully!');
+    Alert.alert("Success", "Order added successfully!");
     router.back();
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
       <Text style={[styles.title, { color: theme.accent }]}>Add New Order</Text>
 
       {/* Table Name */}
-      <Text style={[styles.label, { color: theme.text }]}>Table Name / Number</Text>
+      <Text style={[styles.label, { color: theme.text }]}>
+        Table Name / Number
+      </Text>
       <TextInput
         placeholder="Enter table number (e.g., Table 5)"
-        placeholderTextColor={colorScheme === 'dark' ? '#bbb' : '#777'}
+        placeholderTextColor={colorScheme === "dark" ? "#bbb" : "#777"}
         value={tableName}
         onChangeText={setTableName}
         style={[
@@ -92,12 +102,14 @@ export default function AddOrder() {
 
       {/* Add Item Section */}
       <View style={styles.itemSection}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Add Items</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          Add Items
+        </Text>
 
         <View style={styles.itemRow}>
           <TextInput
             placeholder="Item name"
-            placeholderTextColor={colorScheme === 'dark' ? '#bbb' : '#777'}
+            placeholderTextColor={colorScheme === "dark" ? "#bbb" : "#777"}
             value={itemName}
             onChangeText={setItemName}
             style={[
@@ -111,7 +123,7 @@ export default function AddOrder() {
           />
           <TextInput
             placeholder="Qty"
-            placeholderTextColor={colorScheme === 'dark' ? '#bbb' : '#777'}
+            placeholderTextColor={colorScheme === "dark" ? "#bbb" : "#777"}
             keyboardType="numeric"
             value={quantity}
             onChangeText={setQuantity}
@@ -126,7 +138,7 @@ export default function AddOrder() {
           />
           <TextInput
             placeholder="Price"
-            placeholderTextColor={colorScheme === 'dark' ? '#bbb' : '#777'}
+            placeholderTextColor={colorScheme === "dark" ? "#bbb" : "#777"}
             keyboardType="numeric"
             value={price}
             onChangeText={setPrice}
@@ -159,14 +171,23 @@ export default function AddOrder() {
               { backgroundColor: theme.card, borderColor: theme.border },
             ]}
           >
-            <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
+            <Text style={[styles.itemName, { color: theme.text }]}>
+              {item.name}
+            </Text>
             <Text style={[styles.itemDetail, { color: theme.text }]}>
               {item.quantity} × {item.price} = {item.quantity * item.price}
             </Text>
           </View>
         )}
         ListEmptyComponent={
-          <Text style={{ color: theme.text, opacity: 0.5, textAlign: 'center', marginTop: 10 }}>
+          <Text
+            style={{
+              color: theme.text,
+              opacity: 0.5,
+              textAlign: "center",
+              marginTop: 10,
+            }}
+          >
             No items added yet.
           </Text>
         }
@@ -181,7 +202,9 @@ export default function AddOrder() {
           style={[styles.saveButton, { backgroundColor: theme.accent }]}
           onPress={handleSaveOrder}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Save Order</Text>
+          <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
+            Save Order
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -190,8 +213,13 @@ export default function AddOrder() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  label: { fontSize: 15, fontWeight: '500', marginBottom: 6 },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  label: { fontSize: 15, fontWeight: "500", marginBottom: 6 },
   input: {
     borderWidth: 1,
     borderRadius: 10,
@@ -200,14 +228,20 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   itemSection: { marginBottom: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 6 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  smallInput: { flex: 1, borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 6 },
+  itemRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  smallInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+  },
   addBtn: {
     padding: 10,
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   itemCard: {
     borderWidth: 1,
@@ -215,9 +249,14 @@ const styles = StyleSheet.create({
     padding: 10,
     marginVertical: 4,
   },
-  itemName: { fontSize: 15, fontWeight: '600' },
+  itemName: { fontSize: 15, fontWeight: "600" },
   itemDetail: { fontSize: 13, opacity: 0.8 },
-  footer: { marginTop: 'auto', marginBottom: 10 },
-  total: { fontSize: 18, fontWeight: '700', textAlign: 'right', marginBottom: 10 },
-  saveButton: { borderRadius: 10, padding: 14, alignItems: 'center' },
+  footer: { marginTop: "auto", marginBottom: 10 },
+  total: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "right",
+    marginBottom: 10,
+  },
+  saveButton: { borderRadius: 10, padding: 14, alignItems: "center" },
 });

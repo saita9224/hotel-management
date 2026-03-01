@@ -1,4 +1,3 @@
-// app/(tabs)/expenses.jsx
 import React, { useState, useMemo } from "react";
 import {
   View,
@@ -6,57 +5,83 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "react-native";
-import { Colors } from "../theme/colors";
-import { useExpenses } from "../context/ExpensesContext";
+import { Colors } from "../../theme/colors";
+import { useExpenses } from "../../context/ExpensesContext";
 import { router } from "expo-router";
 import PayBalanceModal from "../PayBalanceModal";
 
-/**
- * Helper to format timestamp if present.
- * We support:
- *  - entry.timestamp (preferred)
- *  - fallback entry.date from context
- */
+/* ---------------- HELPERS ---------------- */
+
+const safeNumber = (value) => {
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
+};
+
 const formatTimestamp = (entry) => {
   if (!entry) return "";
-  if (entry.timestamp) return entry.timestamp;
-  if (entry.date) return entry.date;
-  return "";
+  return entry.timestamp || entry.date || "";
 };
+
+/* ---------------- SCREEN ---------------- */
 
 export default function ExpensesScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
-  const { expenses = [], getTodaySummary = () => ({}), getExpensesByProduct } =
-    useExpenses();
+
+  const {
+    expenses = [],
+    getTodaySummary = () => ({}),
+    getExpensesByProduct,
+  } = useExpenses();
 
   const [expanded, setExpanded] = useState({});
   const [payModalVisible, setPayModalVisible] = useState(false);
   const [selectedEntryId, setSelectedEntryId] = useState(null);
 
-  const { totalExpense = 0, totalPaid = 0, totalOutstanding = 0 } =
-    getTodaySummary();
+  const {
+    totalExpense = 0,
+    totalPaid = 0,
+    totalOutstanding = 0,
+  } = getTodaySummary();
 
-  // GROUP by product
+  /* ---------------- GROUP BY PRODUCT ---------------- */
+
   const productGroups = useMemo(() => {
     return expenses.reduce((acc, e) => {
-      const pid = e.product_id ?? "unknown";
+      const pid = e.product_id ?? "no-product";
+
       if (!acc[pid]) {
         acc[pid] = {
           product_id: pid,
-          product_name: e.product_name || e.description || pid,
+          product_name: e.product_name || e.item_name || "Unnamed",
           total_quantity: 0,
           total_amount: 0,
           total_paid: 0,
+          total_balance: 0,
         };
       }
-      acc[pid].total_quantity += Number(e.quantity || 0);
-      acc[pid].total_amount += Number(e.total_amount || 0);
-      acc[pid].total_paid += Number(e.paid || 0);
+
+      const quantity = safeNumber(e.quantity);
+      const totalPrice =
+        e.total_price !== null && e.total_price !== undefined
+          ? safeNumber(e.total_price)
+          : safeNumber(e.unit_price) * quantity;
+
+      const paid = safeNumber(e.amount_paid);
+      const balance =
+        e.balance !== null && e.balance !== undefined
+          ? safeNumber(e.balance)
+          : totalPrice - paid;
+
+      acc[pid].total_quantity += quantity;
+      acc[pid].total_amount += totalPrice;
+      acc[pid].total_paid += paid;
+      acc[pid].total_balance += balance;
+
       return acc;
     }, {});
   }, [expenses]);
@@ -72,11 +97,25 @@ export default function ExpensesScreen() {
     setPayModalVisible(true);
   };
 
-  // Render inner entry card
+  /* ---------------- ENTRY CARD ---------------- */
+
   const renderEntry = (entry, idx) => {
-    const balance = Number(entry.total_amount || 0) - Number(entry.paid || 0);
+    const quantity = safeNumber(entry.quantity);
+    const unitPrice = safeNumber(entry.unit_price);
+
+    const totalPrice =
+      entry.total_price !== null && entry.total_price !== undefined
+        ? safeNumber(entry.total_price)
+        : unitPrice * quantity;
+
+    const paid = safeNumber(entry.amount_paid);
+    const balance =
+      entry.balance !== null && entry.balance !== undefined
+        ? safeNumber(entry.balance)
+        : totalPrice - paid;
+
     const timestamp = formatTimestamp(entry);
-    const key = entry.id ?? `entry-${idx}`;
+    const key = entry.id ? String(entry.id) : `entry-${idx}`;
 
     return (
       <View
@@ -86,43 +125,34 @@ export default function ExpensesScreen() {
           { backgroundColor: theme.card, borderColor: theme.border },
         ]}
       >
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <Text style={[styles.entryTitle, { color: theme.text }]} numberOfLines={1}>
-            {entry.product_name} {entry.supplier ? `— ${entry.supplier}` : ""}
+        <View style={styles.rowBetween}>
+          <Text
+            style={[styles.entryTitle, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {entry.product_name || entry.item_name || "Unnamed"}
+            {entry.supplier ? ` — ${entry.supplier}` : ""}
           </Text>
 
           <Text style={{ color: theme.accent, fontWeight: "600" }}>
-            {entry.id}
+            #{entry.id || "-"}
           </Text>
         </View>
 
-        <Text style={{ color: theme.text, opacity: 0.85, marginTop: 6 }}>
-          Qty: {entry.quantity || 0} • Unit: KES {entry.unit_price || 0}
+        <Text style={[styles.subText(theme)]}>
+          Qty: {quantity} • Unit: KES {unitPrice.toFixed(2)}
         </Text>
 
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginTop: 6,
-          }}
-        >
+        <View style={styles.rowBetween}>
           <Text style={{ color: theme.text }}>
-            Total: KES {Number(entry.total_amount || 0).toFixed(2)}
+            Total: KES {totalPrice.toFixed(2)}
           </Text>
           <Text style={{ color: theme.text }}>
-            Paid: KES {Number(entry.paid || 0).toFixed(2)}
+            Paid: KES {paid.toFixed(2)}
           </Text>
         </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginTop: 6,
-            alignItems: "center",
-          }}
-        >
+        <View style={[styles.rowBetween, { alignItems: "center" }]}>
           <Text style={{ color: theme.accent, fontWeight: "700" }}>
             Balance: KES {balance.toFixed(2)}
           </Text>
@@ -135,43 +165,26 @@ export default function ExpensesScreen() {
               <Text style={{ color: "#fff", fontWeight: "600" }}>Pay</Text>
             </TouchableOpacity>
           ) : (
-            <Text style={{ color: theme.accent, fontWeight: "600" }}>Paid</Text>
+            <Text style={{ color: theme.accent, fontWeight: "600" }}>
+              Paid
+            </Text>
           )}
         </View>
 
         {timestamp ? (
-          <Text
-            style={{
-              color: theme.tabBarInactive,
-              marginTop: 8,
-              fontSize: 12,
-            }}
-          >
-            {timestamp}
-          </Text>
+          <Text style={styles.timestamp(theme)}>{timestamp}</Text>
         ) : null}
       </View>
     );
   };
 
-  // Render outer product group card
-  const renderProduct = ({ item }) => {
-    const totalBalance =
-      Number(item.total_amount || 0) - Number(item.total_paid || 0);
+  /* ---------------- PRODUCT CARD ---------------- */
 
-    const entriesRaw =
+  const renderProduct = ({ item }) => {
+    const entries =
       typeof getExpensesByProduct === "function"
         ? getExpensesByProduct(item.product_id)
         : expenses.filter((e) => e.product_id === item.product_id);
-
-    const entries = entriesRaw
-      .slice()
-      .sort((a, b) => {
-        if (a.timestamp && b.timestamp)
-          return b.timestamp.localeCompare(a.timestamp);
-        if (a.date && b.date) return b.date.localeCompare(a.date);
-        return (Number(b.id) || 0) - (Number(a.id) || 0);
-      });
 
     return (
       <View
@@ -181,13 +194,7 @@ export default function ExpensesScreen() {
         ]}
       >
         <TouchableOpacity onPress={() => toggleExpand(item.product_id)}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
+          <View style={styles.rowBetween}>
             <View style={{ flex: 1 }}>
               <Text
                 style={[styles.productTitle, { color: theme.text }]}
@@ -196,22 +203,22 @@ export default function ExpensesScreen() {
                 {item.product_name}
               </Text>
 
-              <Text style={{ color: theme.text, opacity: 0.75, marginTop: 4 }}>
+              <Text style={styles.subText(theme)}>
                 Qty: {item.total_quantity} • Total: KES{" "}
-                {Number(item.total_amount || 0).toFixed(2)}
+                {item.total_amount.toFixed(2)}
               </Text>
 
-              <Text style={{ color: theme.text, opacity: 0.75 }}>
-                Paid: KES {Number(item.total_paid || 0).toFixed(2)}
+              <Text style={styles.subText(theme)}>
+                Paid: KES {item.total_paid.toFixed(2)}
               </Text>
             </View>
 
-            <View style={{ alignItems: "flex-end", marginLeft: 8 }}>
+            <View style={{ alignItems: "flex-end" }}>
               <Text style={{ color: theme.accent, fontWeight: "700" }}>
                 Balance
               </Text>
               <Text style={{ color: theme.accent, fontWeight: "700" }}>
-                KES {Number(totalBalance || 0).toFixed(2)}
+                KES {item.total_balance.toFixed(2)}
               </Text>
             </View>
           </View>
@@ -220,14 +227,7 @@ export default function ExpensesScreen() {
         {expanded[item.product_id] && (
           <View style={{ marginTop: 10 }}>
             {entries.length === 0 ? (
-              <Text
-                style={{
-                  color: theme.tabBarInactive,
-                  textAlign: "center",
-                }}
-              >
-                No entries
-              </Text>
+              <Text style={styles.emptyText(theme)}>No entries</Text>
             ) : (
               entries.map((entry, idx) => renderEntry(entry, idx))
             )}
@@ -237,56 +237,23 @@ export default function ExpensesScreen() {
     );
   };
 
+  /* ---------------- UI ---------------- */
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <Text style={[styles.header, { color: theme.text }]}>Expenses</Text>
 
-      {/* Summary */}
       <View style={styles.summaryRow}>
-        <View
-          style={[
-            styles.smallCard,
-            { backgroundColor: theme.card, borderColor: theme.border },
-          ]}
-        >
-          <Text style={[styles.smallLabel, { color: theme.text }]}>
-            Today Expense
-          </Text>
-          <Text style={[styles.smallValue, { color: theme.text }]}>
-            KES {Number(totalExpense || 0).toFixed(2)}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.smallCard,
-            { backgroundColor: theme.card, borderColor: theme.border },
-          ]}
-        >
-          <Text style={[styles.smallLabel, { color: theme.text }]}>Paid</Text>
-          <Text style={[styles.smallValue, { color: theme.text }]}>
-            KES {Number(totalPaid || 0).toFixed(2)}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.smallCard,
-            { backgroundColor: theme.card, borderColor: theme.border },
-          ]}
-        >
-          <Text style={[styles.smallLabel, { color: theme.text }]}>
-            Outstanding
-          </Text>
-          <Text style={[styles.smallValue, { color: theme.text }]}>
-            KES {Number(totalOutstanding || 0).toFixed(2)}
-          </Text>
-        </View>
+        <SummaryCard label="Today Expense" value={totalExpense} theme={theme} />
+        <SummaryCard label="Paid" value={totalPaid} theme={theme} />
+        <SummaryCard
+          label="Outstanding"
+          value={totalOutstanding}
+          theme={theme}
+        />
       </View>
-
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>Products</Text>
 
       <FlatList
         data={products}
@@ -294,20 +261,12 @@ export default function ExpensesScreen() {
         renderItem={renderProduct}
         contentContainerStyle={{ paddingBottom: 140 }}
         ListEmptyComponent={
-          <Text
-            style={{
-              color: theme.text,
-              opacity: 0.6,
-              textAlign: "center",
-              marginTop: 20,
-            }}
-          >
+          <Text style={styles.emptyText(theme)}>
             No expenses yet. Tap + to add.
           </Text>
         }
       />
 
-      {/* Floating Add Button */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.accent }]}
         onPress={() => router.push("/add-expenses")}
@@ -315,7 +274,6 @@ export default function ExpensesScreen() {
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* ✅ FIXED PROP NAME */}
       <PayBalanceModal
         visible={payModalVisible}
         onClose={() => setPayModalVisible(false)}
@@ -325,14 +283,34 @@ export default function ExpensesScreen() {
   );
 }
 
+/* ---------------- COMPONENTS ---------------- */
+
+const SummaryCard = ({ label, value, theme }) => (
+  <View
+    style={[
+      styles.smallCard,
+      { backgroundColor: theme.card, borderColor: theme.border },
+    ]}
+  >
+    <Text style={[styles.smallLabel, { color: theme.text }]}>{label}</Text>
+    <Text style={[styles.smallValue, { color: theme.text }]}>
+      KES {safeNumber(value).toFixed(2)}
+    </Text>
+  </View>
+);
+
+/* ---------------- STYLES ---------------- */
+
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   header: { fontSize: 22, fontWeight: "700", marginBottom: 12 },
+
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 12,
   },
+
   smallCard: {
     flex: 1,
     padding: 12,
@@ -341,30 +319,60 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginHorizontal: 4,
   },
+
   smallLabel: { fontSize: 12, opacity: 0.8 },
   smallValue: { fontSize: 16, fontWeight: "700", marginTop: 6 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
+
   productCard: {
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 10,
   },
+
   productTitle: { fontSize: 16, fontWeight: "700" },
+
   entryCard: {
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
     marginTop: 8,
   },
+
   entryTitle: { fontSize: 14, fontWeight: "700", marginBottom: 4 },
+
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+
+  subText: (theme) => ({
+    color: theme.text,
+    opacity: 0.85,
+    marginTop: 6,
+  }),
+
+  emptyText: (theme) => ({
+    color: theme.text,
+    opacity: 0.6,
+    textAlign: "center",
+    marginTop: 20,
+  }),
+
+  timestamp: (theme) => ({
+    color: theme.tabBarInactive,
+    marginTop: 8,
+    fontSize: 12,
+  }),
+
   payBtnSmall: {
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
     marginTop: 10,
-    alignSelf: "flex-end",
   },
+
   fab: {
     position: "absolute",
     bottom: 28,

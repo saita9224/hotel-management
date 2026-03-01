@@ -10,11 +10,11 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { Colors } from "../theme/colors";
+import { Colors } from "../../theme/colors";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useInventory } from "../context/InventoryContext";
+import { useInventory } from "../../context/InventoryContext";
 
 export default function InventoryScreen() {
   const colorScheme = useColorScheme();
@@ -38,7 +38,7 @@ export default function InventoryScreen() {
         ...item,
         quantity: getProductTotal(item.id),
       })),
-    [products, getProductTotal]
+    [products, getProductTotal],
   );
 
   // 🔹 Filter by category ONLY
@@ -135,7 +135,9 @@ export default function InventoryScreen() {
                   style={[
                     styles.categoryPill,
                     {
-                      backgroundColor: selected ? theme.accent : theme.background,
+                      backgroundColor: selected
+                        ? theme.accent
+                        : theme.background,
                       borderColor: theme.border,
                     },
                   ]}

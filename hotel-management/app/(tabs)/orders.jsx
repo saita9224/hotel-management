@@ -9,9 +9,9 @@ import {
   useColorScheme,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "../theme/colors";
+import { Colors } from "../../theme/colors";
 import { useRouter } from "expo-router";
-import { useOrders } from "../context/OrdersContext";
+import { useOrders } from "../../context/OrdersContext";
 
 export default function OrdersScreen() {
   const colorScheme = useColorScheme();
