@@ -1,3 +1,5 @@
+// context/ExpensesContext.jsx
+
 import React, {
   createContext,
   useContext,
@@ -5,7 +7,17 @@ import React, {
   useEffect,
   useMemo,
 } from "react";
-import { graphqlRequest } from "../lib/graphql";
+
+import {
+  fetchAllExpenses,
+  fetchSuppliers,
+  fetchExpensesBySupplier,
+  fetchExpensesByItem,
+  fetchExpensesByProduct,
+  fetchExpenseDetails,
+  createExpenseService,
+  payBalanceService,
+} from "../services/expenseService";
 
 const ExpensesContext = createContext();
 
@@ -13,101 +25,71 @@ export const useExpenses = () => useContext(ExpensesContext);
 
 export const ExpensesProvider = ({ children }) => {
   const [expenses, setExpenses] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // =====================================================
-  // LOAD EXPENSES
+  // LOAD ALL EXPENSES
   // =====================================================
+
   const loadExpenses = async () => {
     try {
       setLoading(true);
 
-      const data = await graphqlRequest(`
-        query {
-          allExpenses {
-            id
-            itemName
-            quantity
-            unitPrice
-            totalPrice
-            amountPaid
-            balance
-            isFullyPaid
-            createdAt
-            supplier { id name }
-            product { id name }
-          }
-        }
-      `);
+      const data = await fetchAllExpenses();
 
-      const normalized = (data?.allExpenses || []).map((e) => ({
-        id: e.id,
-        supplier_id: e.supplier?.id ?? null,
-        supplier_name: e.supplier?.name ?? "",
-        product_id: e.product?.id ?? null,
-        product_name: e.product?.name ?? e.itemName,
-        item_name: e.itemName,
-        quantity: Number(e.quantity ?? 0),
-        unit_price: Number(e.unitPrice ?? 0),
-        total_price: Number(e.totalPrice ?? 0),
-        amount_paid: Number(e.amountPaid ?? 0),
-        balance: Number(e.balance ?? 0),
-        is_fully_paid: e.isFullyPaid,
-        created_at: e.createdAt,
-      }));
+      setExpenses(data);
 
-      setExpenses(normalized);
     } catch (error) {
-      console.log("Load Expenses Error:", error?.message || error);
+      console.log("Load Expenses Error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadExpenses();
-  }, []);
+  // =====================================================
+  // LOAD SUPPLIERS
+  // =====================================================
+
+  const loadSuppliers = async () => {
+    try {
+      const data = await fetchSuppliers();
+      setSuppliers(data);
+    } catch (error) {
+      console.log("Load Suppliers Error:", error);
+    }
+  };
+
+  // =====================================================
+  // SEARCH FUNCTIONS
+  // =====================================================
+
+  const getExpensesBySupplier = async (supplierId) => {
+    return await fetchExpensesBySupplier(supplierId);
+  };
+
+  const getExpensesByItem = async (itemName) => {
+    return await fetchExpensesByItem(itemName);
+  };
+
+  const getExpensesByProduct = async (productId) => {
+    return await fetchExpensesByProduct(productId);
+  };
+
+  const getExpenseDetails = async (expenseId) => {
+    return await fetchExpenseDetails(expenseId);
+  };
 
   // =====================================================
   // CREATE EXPENSE
   // =====================================================
+
   const createExpense = async (input) => {
     try {
-      if (!input?.item_name) {
-        throw new Error("Item name is required.");
-      }
-
-      if (!input?.quantity || !input?.unit_price) {
-        throw new Error("Quantity and unit price are required.");
-      }
-
-      const formattedInput = {
-        itemName: input.item_name.trim(),
-        quantity: Number(input.quantity),
-        unitPrice: Number(input.unit_price),
-
-        // Hybrid supplier resolution
-        supplierId: input.supplier_id || null,
-        supplierName: input.supplier_name?.trim() || null,
-
-        // Optional product
-        productId: input.product_id || null,
-      };
-
-      await graphqlRequest(
-        `
-        mutation($data: ExpenseInput!) {
-          createExpense(data: $data) {
-            id
-          }
-        }
-        `,
-        { data: formattedInput }
-      );
-
+      await createExpenseService(input);
       await loadExpenses();
     } catch (error) {
-      console.log("Create Expense Error:", error?.message || error);
+      console.log("Create Expense Error:", error);
       throw error;
     }
   };
@@ -115,38 +97,13 @@ export const ExpensesProvider = ({ children }) => {
   // =====================================================
   // PAY BALANCE
   // =====================================================
+
   const payBalance = async (expenseId, amount) => {
     try {
-      if (!expenseId) {
-        throw new Error("Expense ID is required.");
-      }
-
-      if (!amount || Number(amount) <= 0) {
-        throw new Error("Payment amount must be greater than zero.");
-      }
-
-      await graphqlRequest(
-        `
-        mutation($data: PayBalanceInput!) {
-          payBalance(data: $data) {
-            id
-            amountPaid
-            balance
-            isFullyPaid
-          }
-        }
-        `,
-        {
-          data: {
-            expenseId: expenseId,
-            amount: Number(amount),
-          },
-        }
-      );
-
+      await payBalanceService(expenseId, amount);
       await loadExpenses();
     } catch (error) {
-      console.log("Pay Balance Error:", error?.message || error);
+      console.log("Pay Balance Error:", error);
       throw error;
     }
   };
@@ -154,7 +111,8 @@ export const ExpensesProvider = ({ children }) => {
   // =====================================================
   // SUMMARY HELPERS
   // =====================================================
-  const getTodaySummary = () => {
+
+  const getExpensesSummary = () => {
     const totalExpense = expenses.reduce(
       (sum, e) => sum + e.total_price,
       0
@@ -177,21 +135,35 @@ export const ExpensesProvider = ({ children }) => {
     };
   };
 
-  const getExpensesByProduct = (productId) => {
-    return expenses.filter((e) => e.product_id === productId);
-  };
+  // =====================================================
+  // INIT LOAD
+  // =====================================================
+
+  useEffect(() => {
+    loadExpenses();
+    loadSuppliers();
+  }, []);
 
   const value = useMemo(
     () => ({
       expenses,
+      suppliers,
       loading,
+
       loadExpenses,
+      loadSuppliers,
+
+      getExpensesBySupplier,
+      getExpensesByItem,
+      getExpensesByProduct,
+      getExpenseDetails,
+
       createExpense,
       payBalance,
-      getTodaySummary,
-      getExpensesByProduct,
+
+      getExpensesSummary,
     }),
-    [expenses, loading]
+    [expenses, suppliers, loading]
   );
 
   return (
