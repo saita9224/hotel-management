@@ -13,8 +13,6 @@ import { useExpenses } from "../../context/ExpensesContext";
 import { useTheme } from "../../hooks/useTheme";
 import { getExpenseStatusColor } from "../../utils/expenseColors";
 
-/* ---------------- HELPERS ---------------- */
-
 const safeNumber = (v) => {
   const n = Number(v);
   return isNaN(n) ? 0 : n;
@@ -47,7 +45,6 @@ const toDateKey = (dateStr) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-// Semantic colors — legible on both light and dark backgrounds
 const COLORS = {
   debt: "#FF453A",
   paid: "#30D158",
@@ -55,15 +52,11 @@ const COLORS = {
   paidBg: "#30D15818",
 };
 
-/* ---------------- COMPONENT ---------------- */
-
 export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
   const { expenses } = useExpenses();
-  const { colors, fonts } = useTheme();
+  const { colors } = useTheme();  // 👈 removed fonts
 
   const [expandedDates, setExpandedDates] = useState({});
-
-  /* ---------------- GROUP BY DATE ---------------- */
 
   const dateGroups = useMemo(() => {
     const groups = {};
@@ -88,9 +81,7 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
     });
 
     Object.values(groups).forEach((g) => {
-      g.entries.sort(
-        (a, b) => new Date(b.created_at) - new Date(a.created_at)
-      );
+      g.entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     });
 
     return Object.values(groups).sort(
@@ -98,16 +89,9 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
     );
   }, [expenses]);
 
-  /* ---------------- TOGGLE ---------------- */
-
   const toggleDate = (key) => {
-    setExpandedDates((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setExpandedDates((prev) => ({ ...prev, [key]: !prev[key] }));
   };
-
-  /* ---------------- ENTRY CARD ---------------- */
 
   const renderEntry = (entry) => {
     const total   = safeNumber(entry.total_price);
@@ -118,14 +102,10 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
     return (
       <View
         key={entry.id}
-        style={[
-          styles.entryCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
+        style={[styles.entryCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       >
-        {/* Item name + ID */}
         <View style={styles.rowBetween}>
-          <Text style={[styles.entryTitle, { color: colors.text, fontFamily: fonts.sans }]}>
+          <Text style={[styles.entryTitle, { color: colors.text }]}>  {/* 👈 removed fontFamily */}
             {entry.item_name}
           </Text>
           <Text style={{ color: statusColor, fontWeight: "600", fontSize: 12 }}>
@@ -133,12 +113,10 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
           </Text>
         </View>
 
-        {/* Qty + unit price — colors.text for readability in dark mode */}
         <Text style={{ color: colors.text, marginTop: 4, fontSize: 13 }}>
           Qty: {entry.quantity} • Unit: KES {entry.unit_price}
         </Text>
 
-        {/* Total + paid */}
         <View style={styles.rowBetween}>
           <Text style={{ color: colors.text }}>
             Total: KES {total.toFixed(2)}
@@ -148,16 +126,10 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
           </Text>
         </View>
 
-        {/* Balance */}
-        <Text style={{
-          color: balance > 0 ? COLORS.debt : COLORS.paid,
-          fontWeight: "700",
-          marginTop: 4,
-        }}>
+        <Text style={{ color: balance > 0 ? COLORS.debt : COLORS.paid, fontWeight: "700", marginTop: 4 }}>
           Balance: KES {balance.toFixed(2)}
         </Text>
 
-        {/* Supplier — label in text color, value in accent */}
         {entry.supplier_name ? (
           <TouchableOpacity onPress={() => onSupplierPress?.(entry.supplier_name)}>
             <Text style={{ marginTop: 6, fontSize: 12 }}>
@@ -167,13 +139,9 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
           </TouchableOpacity>
         ) : null}
 
-        {/* Pay balance button */}
         {!entry.is_fully_paid && (
           <TouchableOpacity
-            style={[
-              styles.payBtn,
-              { borderColor: colors.accent, backgroundColor: colors.accent + "15" },
-            ]}
+            style={[styles.payBtn, { borderColor: colors.accent, backgroundColor: colors.accent + "15" }]}
             onPress={() => onPayBalance?.(entry.id)}
           >
             <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 12 }}>
@@ -185,52 +153,31 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
     );
   };
 
-  /* ---------------- DATE GROUP CARD ---------------- */
-
   const renderGroup = ({ item }) => {
     const expanded = expandedDates[item.date_key];
     const hasDebt = item.total_balance > 0;
 
     return (
-      <View
-        style={[
-          styles.groupCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
+      <View style={[styles.groupCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <TouchableOpacity onPress={() => toggleDate(item.date_key)}>
           <View style={styles.rowBetween}>
-
             <View style={{ flex: 1 }}>
-              {/* Date header */}
-              <Text style={[styles.groupTitle, { color: colors.text, fontFamily: fonts.sans }]}>
+              <Text style={[styles.groupTitle, { color: colors.text }]}>  {/* 👈 removed fontFamily */}
                 {formatDateHeader(item.date_key)}
               </Text>
-
-              {/* Entry count + total */}
               <Text style={{ color: colors.tabBarInactive, marginTop: 2, fontSize: 13 }}>
                 {item.entries.length}{" "}
                 {item.entries.length === 1 ? "expense" : "expenses"}
                 {"  •  "}Total: KES {item.total_amount.toFixed(2)}
               </Text>
-
-              {/* Paid */}
               <Text style={{ color: COLORS.paid, fontSize: 13, marginTop: 2 }}>
                 Paid: KES {item.total_paid.toFixed(2)}
               </Text>
             </View>
 
-            {/* Balance pill + toggle arrow */}
             <View style={{ alignItems: "flex-end", gap: 6 }}>
-              <View style={[
-                styles.balancePill,
-                { backgroundColor: hasDebt ? COLORS.debtBg : COLORS.paidBg },
-              ]}>
-                <Text style={{
-                  color: hasDebt ? COLORS.debt : COLORS.paid,
-                  fontWeight: "700",
-                  fontSize: 13,
-                }}>
+              <View style={[styles.balancePill, { backgroundColor: hasDebt ? COLORS.debtBg : COLORS.paidBg }]}>
+                <Text style={{ color: hasDebt ? COLORS.debt : COLORS.paid, fontWeight: "700", fontSize: 13 }}>
                   {hasDebt ? `KES ${item.total_balance.toFixed(2)}` : "✓ Settled"}
                 </Text>
               </View>
@@ -238,11 +185,9 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
                 {expanded ? "▲" : "▼"}
               </Text>
             </View>
-
           </View>
         </TouchableOpacity>
 
-        {/* Entries */}
         {expanded && (
           <View style={{ marginTop: 10 }}>
             {item.entries.map((entry) => renderEntry(entry))}
@@ -251,8 +196,6 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
       </View>
     );
   };
-
-  /* ---------------- UI ---------------- */
 
   return (
     <FlatList
@@ -269,46 +212,12 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
   );
 }
 
-/* ---------------- STYLES ---------------- */
-
 const styles = StyleSheet.create({
-  groupCard: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
-  groupTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  balancePill: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-  },
-  entryCard: {
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 8,
-  },
-  entryTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  rowBetween: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 4,
-  },
-  payBtn: {
-    marginTop: 8,
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    alignSelf: "flex-start",
-  },
+  groupCard: { padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 10 },
+  groupTitle: { fontSize: 16, fontWeight: "700" },
+  balancePill: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20 },
+  entryCard: { padding: 10, borderRadius: 8, borderWidth: 1, marginTop: 8 },
+  entryTitle: { fontSize: 14, fontWeight: "700" },
+  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 },
+  payBtn: { marginTop: 8, borderWidth: 1, borderRadius: 6, paddingVertical: 5, paddingHorizontal: 10, alignSelf: "flex-start" },
 });

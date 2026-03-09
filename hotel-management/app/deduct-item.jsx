@@ -1,3 +1,5 @@
+// app/deduct-item.jsx
+
 import React, { useState } from "react";
 import {
   View,

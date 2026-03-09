@@ -1,3 +1,5 @@
+// context/AuthContext.jsx
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { graphqlRequest } from "../lib/graphql";
