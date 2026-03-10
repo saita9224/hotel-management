@@ -1,3 +1,5 @@
+// app/(tabs)/index.jsx
+
 import React from "react";
 import { View, Text, Image, StyleSheet, useColorScheme } from "react-native";
 import { Colors } from "../../theme/colors";

@@ -3,12 +3,18 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 
-import { useTheme } from "../../hooks/useTheme";  // 👈 fixed import
+import { useTheme } from "../../hooks/useTheme";
 import { useExpenses } from "../../context/ExpensesContext";
+
+const formatKES = (value) =>
+  Number(value || 0).toLocaleString("en-KE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 export default function SupplierDebtSummary() {
   const { expenses } = useExpenses();
-  const { colors } = useTheme();  // 👈 replaced Colors/scheme with useTheme
+  const { colors } = useTheme();
 
   const summary = useMemo(() => {
     const map = {};
@@ -31,9 +37,11 @@ export default function SupplierDebtSummary() {
         <View key={row.supplier} style={[styles.row, { borderBottomColor: colors.border }]}>
           <Text style={[styles.supplier, { color: colors.text }]}>{row.supplier}</Text>
           <View style={styles.amounts}>
-            <Text style={{ color: colors.tabBarInactive }}>Total: KES {row.total.toFixed(2)}</Text>
+            <Text style={{ color: colors.tabBarInactive }}>
+              {"Total: KES " + formatKES(row.total)}
+            </Text>
             <Text style={[styles.balance, { color: row.balance > 0 ? "#FF453A" : "#30D158" }]}>
-              Balance: KES {row.balance.toFixed(2)}
+              {"Balance: KES " + formatKES(row.balance)}
             </Text>
           </View>
         </View>
@@ -41,7 +49,9 @@ export default function SupplierDebtSummary() {
 
       <View style={[styles.totalBox, { borderTopColor: colors.border }]}>
         <Text style={[styles.totalLabel, { color: colors.text }]}>Total Outstanding Debt</Text>
-        <Text style={[styles.totalValue, { color: "#FF453A" }]}>KES {totalDebt.toFixed(2)}</Text>
+        <Text style={[styles.totalValue, { color: "#FF453A" }]}>
+          {"KES " + formatKES(totalDebt)}
+        </Text>
       </View>
     </View>
   );

@@ -14,6 +14,12 @@ import { useExpenses } from "../../context/ExpensesContext";
 import { useTheme } from "../../hooks/useTheme";
 import SupplierPaymentModal from "./SupplierPaymentModal";
 
+const formatKES = (value) =>
+  Number(value || 0).toLocaleString("en-KE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 export default function SupplierExpenses() {
   const { expenses } = useExpenses();
   const { colors } = useTheme();
@@ -38,9 +44,9 @@ export default function SupplierExpenses() {
         };
       }
       map[key].expenses.push(e);
-      map[key].total += e.total_price;
-      map[key].paid += e.amount_paid;
-      map[key].balance += e.balance;
+      map[key].total += Number(e.total_price || 0);
+      map[key].paid += Number(e.amount_paid || 0);
+      map[key].balance += Number(e.balance || 0);
     });
     return Object.values(map);
   }, [expenses]);
@@ -79,12 +85,16 @@ export default function SupplierExpenses() {
         {item.supplier_name}
       </Text>
       <View style={styles.summaryRow}>
-        <Text style={{ color: colors.text }}>Total: KES {item.total.toFixed(2)}</Text>
-        <Text style={{ color: colors.text }}>Paid: KES {item.paid.toFixed(2)}</Text>
+        <Text style={{ color: colors.tabBarInactive, fontSize: 13 }}>
+          {"Total: KES " + formatKES(item.total)}
+        </Text>
+        <Text style={{ color: "#30D158", fontSize: 13, fontWeight: "600" }}>
+          {"Paid: KES " + formatKES(item.paid)}
+        </Text>
       </View>
       <View style={[styles.balancePill, { backgroundColor: "#FF453A18" }]}>
         <Text style={{ color: "#FF453A", fontWeight: "700", fontSize: 13 }}>
-          Balance: KES {item.balance.toFixed(2)}
+          {"Balance: KES " + formatKES(item.balance)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -113,7 +123,6 @@ export default function SupplierExpenses() {
           <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
             {new Date(item.created_at).toLocaleDateString()}
           </Text>
-          {/* 👇 Separated into its own Text to avoid inline expression crash */}
           {isNextToPay && (
             <Text style={{ color: colors.accent, fontSize: 12, marginTop: 1 }}>
               next to pay
@@ -125,19 +134,18 @@ export default function SupplierExpenses() {
           {item.quantity}
         </Text>
 
-        <Text style={{ color: colors.text, width: 80, textAlign: "right" }}>
-          {item.total_price.toFixed(2)}
+        <Text style={{ color: colors.text, width: 90, textAlign: "right", fontSize: 13 }}>
+          {formatKES(item.total_price)}
         </Text>
 
-        <Text
-          style={{
-            width: 80,
-            textAlign: "right",
-            fontWeight: "700",
-            color: item.is_fully_paid ? "#30D158" : "#FF453A",
-          }}
-        >
-          {item.is_fully_paid ? "Paid" : item.balance.toFixed(2)}
+        <Text style={{
+          width: 90,
+          textAlign: "right",
+          fontWeight: "700",
+          fontSize: 13,
+          color: item.is_fully_paid ? "#30D158" : "#FF453A",
+        }}>
+          {item.is_fully_paid ? "Paid" : formatKES(item.balance)}
         </Text>
       </View>
     );
@@ -184,10 +192,11 @@ export default function SupplierExpenses() {
                 {currentSupplier.supplier_name}
               </Text>
               <Text style={{ color: colors.tabBarInactive, marginTop: 4, fontSize: 13 }}>
-                {"Total: KES " + currentSupplier.total.toFixed(2) + "   Paid: KES " + currentSupplier.paid.toFixed(2)}
+                {"Total: KES " + formatKES(currentSupplier.total)}
+                {"   Paid: KES " + formatKES(currentSupplier.paid)}
               </Text>
               <Text style={{ color: "#FF453A", fontWeight: "700", marginTop: 4 }}>
-                {"Outstanding: KES " + currentSupplier.balance.toFixed(2)}
+                {"Outstanding: KES " + formatKES(currentSupplier.balance)}
               </Text>
             </View>
 
@@ -205,7 +214,11 @@ export default function SupplierExpenses() {
               }}
               disabled={!hasOutstanding}
             >
-              <Text style={{ color: hasOutstanding ? "#fff" : colors.tabBarInactive, fontWeight: "700", fontSize: 14 }}>
+              <Text style={{
+                color: hasOutstanding ? "#fff" : colors.tabBarInactive,
+                fontWeight: "700",
+                fontSize: 14,
+              }}>
                 Pay Balance
               </Text>
             </TouchableOpacity>
@@ -217,8 +230,8 @@ export default function SupplierExpenses() {
               ITEM
             </Text>
             <Text style={[styles.colHeader, { width: 40, color: colors.tabBarInactive }]}>QTY</Text>
-            <Text style={[styles.colHeader, { width: 80, color: colors.tabBarInactive }]}>TOTAL</Text>
-            <Text style={[styles.colHeader, { width: 80, color: colors.tabBarInactive }]}>BAL</Text>
+            <Text style={[styles.colHeader, { width: 90, color: colors.tabBarInactive }]}>TOTAL</Text>
+            <Text style={[styles.colHeader, { width: 90, color: colors.tabBarInactive }]}>BAL</Text>
           </View>
 
           <FlatList
