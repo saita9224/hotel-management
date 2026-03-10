@@ -109,44 +109,7 @@ export const ExpensesProvider = ({ children }) => {
   };
 
   // =====================================================
-  // DAILY PAYMENTS SUMMARY
-  // Groups payments by paid_at date (not purchase date).
-  // A balance paid today on a yesterday's expense
-  // correctly appears under today.
-  // =====================================================
-
-  const getPaymentsByDate = useMemo(() => {
-    const map = {};
-    payments.forEach((p) => {
-      const day = new Date(p.paid_at).toDateString(); // "Mon Mar 10 2026"
-      if (!map[day]) {
-        map[day] = {
-          date: new Date(p.paid_at),
-          dateString: day,
-          payments: [],
-          total: 0,
-        };
-      }
-      map[day].payments.push(p);
-      map[day].total += p.amount;
-    });
-    // Sort days descending — today first
-    return Object.values(map).sort((a, b) => b.date - a.date);
-  }, [payments]);
-
-  // =====================================================
-  // TODAY'S TOTAL (payment-based, not purchase-based)
-  // =====================================================
-
-  const getTodayTotal = useMemo(() => {
-    const today = new Date().toDateString();
-    return payments
-      .filter((p) => new Date(p.paid_at).toDateString() === today)
-      .reduce((sum, p) => sum + p.amount, 0);
-  }, [payments]);
-
-  // =====================================================
-  // OVERALL SUMMARY (still useful for supplier debts tab)
+  // SUMMARY HELPERS
   // =====================================================
 
   const getExpensesSummary = () => {
@@ -168,7 +131,7 @@ export const ExpensesProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       expenses,
-      payments,
+      payments,       // 👈 raw payments list — used by ExpenseTable for daily grouping
       suppliers,
       loading,
       loadExpenses,
@@ -180,10 +143,8 @@ export const ExpensesProvider = ({ children }) => {
       createExpense,
       payBalance,
       getExpensesSummary,
-      getPaymentsByDate,   // grouped by paid_at for daily view
-      getTodayTotal,       // today's cash out (payment-based)
     }),
-    [expenses, payments, suppliers, loading, getPaymentsByDate, getTodayTotal]
+    [expenses, payments, suppliers, loading]
   );
 
   return (
