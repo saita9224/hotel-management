@@ -4,31 +4,33 @@ import { graphqlRequest } from "../lib/graphql";
 
 
 // ======================================================
-// NORMALIZER
-// Converts GraphQL response into consistent frontend data
+// NORMALIZERS
 // ======================================================
 
 const normalizeExpense = (e) => ({
   id: e.id,
-
   supplier_id: e.supplier?.id ?? null,
   supplier_name: e.supplier?.name ?? "",
-
   product_id: e.product?.id ?? null,
   product_name: e.product?.name ?? e.itemName,
-
   item_name: e.itemName,
-
   quantity: Number(e.quantity ?? 0),
   unit_price: Number(e.unitPrice ?? 0),
-
   total_price: Number(e.totalPrice ?? 0),
   amount_paid: Number(e.amountPaid ?? 0),
-
   balance: Number(e.balance ?? 0),
   is_fully_paid: e.isFullyPaid,
-
   created_at: e.createdAt,
+});
+
+const normalizePayment = (p) => ({
+  id: p.id,
+  expense_id: p.expenseId,
+  amount: Number(p.amount ?? 0),
+  paid_at: p.paidAt,
+  item_name: p.itemName,
+  supplier_name: p.supplierName,
+  expense_total: Number(p.expenseTotal ?? 0),
 });
 
 
@@ -54,8 +56,32 @@ export const fetchAllExpenses = async () => {
       }
     }
   `);
-
   return (data?.allExpenses || []).map(normalizeExpense);
+};
+
+
+// ======================================================
+// FETCH ALL PAYMENTS
+// Used by the frontend to group payments by paid_at date
+// so that balance payments made today on old expenses
+// appear under today's total, not the purchase date.
+// ======================================================
+
+export const fetchAllPayments = async () => {
+  const data = await graphqlRequest(`
+    query {
+      allPayments {
+        id
+        expenseId
+        amount
+        paidAt
+        itemName
+        supplierName
+        expenseTotal
+      }
+    }
+  `);
+  return (data?.allPayments || []).map(normalizePayment);
 };
 
 
@@ -72,13 +98,12 @@ export const fetchSuppliers = async () => {
       }
     }
   `);
-
   return data?.suppliers || [];
 };
 
 
 // ======================================================
-// SEARCH EXPENSES BY SUPPLIER
+// FETCH EXPENSES BY SUPPLIER
 // ======================================================
 
 export const fetchExpensesBySupplier = async (supplierId) => {
@@ -102,13 +127,12 @@ export const fetchExpensesBySupplier = async (supplierId) => {
   `,
     { supplierId }
   );
-
   return (data?.expensesBySupplier || []).map(normalizeExpense);
 };
 
 
 // ======================================================
-// SEARCH EXPENSES BY ITEM NAME
+// FETCH EXPENSES BY ITEM NAME
 // ======================================================
 
 export const fetchExpensesByItem = async (itemName) => {
@@ -132,13 +156,12 @@ export const fetchExpensesByItem = async (itemName) => {
   `,
     { itemName }
   );
-
   return (data?.expensesByItem || []).map(normalizeExpense);
 };
 
 
 // ======================================================
-// SEARCH EXPENSES BY PRODUCT
+// FETCH EXPENSES BY PRODUCT
 // ======================================================
 
 export const fetchExpensesByProduct = async (productId) => {
@@ -162,13 +185,12 @@ export const fetchExpensesByProduct = async (productId) => {
   `,
     { productId }
   );
-
   return (data?.expensesByProduct || []).map(normalizeExpense);
 };
 
 
 // ======================================================
-// EXPENSE DETAILS (payments + balance)
+// EXPENSE DETAILS
 // ======================================================
 
 export const fetchExpenseDetails = async (expenseId) => {
@@ -191,13 +213,15 @@ export const fetchExpenseDetails = async (expenseId) => {
           id
           amount
           paidAt
+          itemName
+          supplierName
+          expenseTotal
         }
       }
     }
   `,
-    { expenseId: parseInt(expenseId, 10) }  // 👈 consistent int
+    { expenseId: parseInt(expenseId, 10) }
   );
-
   return data?.expenseDetails;
 };
 
@@ -207,35 +231,61 @@ export const fetchExpenseDetails = async (expenseId) => {
 // ======================================================
 
 export const createExpenseService = async (input) => {
-  if (!input?.item_name) {
-    throw new Error("Item name is required");
-  }
-
-  if (!input?.quantity || !input?.unit_price) {
+  if (!input?.item_name) throw new Error("Item name is required");
+  if (!input?.quantity || !input?.unit_price)
     throw new Error("Quantity and unit price are required");
-  }
 
   const formattedInput = {
     itemName: input.item_name.trim(),
     quantity: Number(input.quantity),
     unitPrice: Number(input.unit_price),
-
     supplierId: input.supplier_id ? parseInt(input.supplier_id, 10) : null,
     supplierName: input.supplier_name?.trim() || null,
-
     productId: input.product_id ? parseInt(input.product_id, 10) : null,
   };
 
-  return graphqlRequest(
+  const data = await graphqlRequest(
     `
     mutation($data: ExpenseInput!) {
       createExpense(data: $data) {
-        id
+        expense {
+          id
+          itemName
+          quantity
+          totalPrice
+          amountPaid
+          balance
+          isFullyPaid
+          createdAt
+          supplier { id name }
+        }
+        matchedProduct {
+          id
+          name
+          unit
+          currentStock
+        }
       }
     }
   `,
     { data: formattedInput }
   );
+
+  const raw = data?.createExpense;
+
+  return {
+    expense: raw?.expense
+      ? normalizeExpense({ ...raw.expense, itemName: raw.expense.itemName })
+      : null,
+    matchedProduct: raw?.matchedProduct
+      ? {
+          id: raw.matchedProduct.id,
+          name: raw.matchedProduct.name,
+          unit: raw.matchedProduct.unit,
+          current_stock: Number(raw.matchedProduct.currentStock ?? 0),
+        }
+      : null,
+  };
 };
 
 
@@ -244,13 +294,9 @@ export const createExpenseService = async (input) => {
 // ======================================================
 
 export const payBalanceService = async (expenseId, amount) => {
-  if (!expenseId) {
-    throw new Error("Expense ID is required");
-  }
-
-  if (!amount || Number(amount) <= 0) {
+  if (!expenseId) throw new Error("Expense ID is required");
+  if (!amount || Number(amount) <= 0)
     throw new Error("Payment must be greater than zero");
-  }
 
   return graphqlRequest(
     `
@@ -265,7 +311,7 @@ export const payBalanceService = async (expenseId, amount) => {
   `,
     {
       data: {
-        expenseId: parseInt(expenseId, 10),  // 👈 fix
+        expenseId: parseInt(expenseId, 10),
         amount: Number(amount),
       },
     }

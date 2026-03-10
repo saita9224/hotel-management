@@ -15,11 +15,15 @@ import {
 
 import { useExpenses } from "../../context/ExpensesContext";
 import { useTheme } from "../../hooks/useTheme";
-import { createExpenseService, payBalanceService } from "../../services/expenseService";
+import { payBalanceService } from "../../services/expenseService";
+import {
+  addStockFromExpenseService,
+  createProductWithStockService,
+} from "../../services/inventoryService";
 
 export default function ExpenseForm({ onClose }) {
-  const { loadExpenses } = useExpenses();
-  const { colors } = useTheme();  // 👈 removed fonts
+  const { createExpense, loadExpenses } = useExpenses();
+  const { colors } = useTheme();
 
   const [form, setForm] = useState({
     supplier_name: "",
@@ -37,6 +41,115 @@ export default function ExpenseForm({ onClose }) {
   const paid = Number(form.amount_paid || 0);
   const balance = total - paid;
 
+  // =====================================================
+  // MATCHED PRODUCT — atomic: links expense to existing stock
+  // =====================================================
+
+  const promptAddToExistingStock = (matchedProduct, expenseId, quantity) => {
+    Alert.alert(
+      "Add to Inventory?",
+      `"${matchedProduct.name}" exists in inventory with ${matchedProduct.current_stock} ${matchedProduct.unit} in stock.\n\nAdd ${quantity} ${matchedProduct.unit} from this expense?`,
+      [
+        { text: "No", style: "cancel", onPress: () => onClose?.() },
+        {
+          text: "Yes, Add Stock",
+          onPress: async () => {
+            try {
+              await addStockFromExpenseService({
+                product_id: matchedProduct.id,
+                quantity: Number(quantity),
+                expense_item_id: expenseId,
+              });
+            } catch (err) {
+              Alert.alert(
+                "Stock Error",
+                err?.message || "Failed to add stock. You can add it manually from Inventory."
+              );
+            } finally {
+              onClose?.();
+            }
+          },
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  // =====================================================
+  // NEW PRODUCT — prompt chain → atomic create + stock
+  // =====================================================
+
+  const promptCreateNewProduct = (itemName, expenseId, quantity) => {
+    Alert.alert(
+      "Not in Inventory",
+      `"${itemName}" was not found in inventory.\n\nWould you like to add it as a new product?`,
+      [
+        { text: "No", style: "cancel", onPress: () => onClose?.() },
+        {
+          text: "Yes, Create Product",
+          onPress: () => promptUnit(itemName, expenseId, quantity),
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const promptUnit = (itemName, expenseId, quantity) => {
+    const units = ["kg", "g", "litres", "ml", "pcs", "bags", "boxes"];
+    Alert.alert(
+      "Select Unit",
+      `What unit is "${itemName}" measured in?`,
+      [
+        ...units.map((unit) => ({
+          text: unit,
+          onPress: () => promptCategory(itemName, expenseId, quantity, unit),
+        })),
+        { text: "Cancel", style: "cancel", onPress: () => onClose?.() },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const promptCategory = (itemName, expenseId, quantity, unit) => {
+    const categories = ["dry goods", "vegetables", "dairy", "meat", "beverages", "other"];
+    Alert.alert(
+      "Select Category",
+      `What category does "${itemName}" belong to?`,
+      [
+        ...categories.map((cat) => ({
+          text: cat,
+          onPress: () => createAtomically(itemName, expenseId, quantity, unit, cat),
+        })),
+        { text: "Cancel", style: "cancel", onPress: () => onClose?.() },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  // Single mutation — product + stock movement in one transaction
+  const createAtomically = async (itemName, expenseId, quantity, unit, category) => {
+    try {
+      await createProductWithStockService({
+        name: itemName,
+        unit,
+        category,
+        quantity: Number(quantity),
+        expense_item_id: expenseId,
+      });
+    } catch (err) {
+      Alert.alert(
+        "Error",
+        err?.message || "Failed to create product. You can add it manually from Inventory."
+      );
+    } finally {
+      onClose?.();
+    }
+  };
+
+  // =====================================================
+  // SUBMIT
+  // =====================================================
+
   const submit = async () => {
     if (!form.item_name.trim())
       return Alert.alert("Validation", "Item name is required.");
@@ -51,27 +164,40 @@ export default function ExpenseForm({ onClose }) {
 
     setSubmitting(true);
     try {
-      const result = await createExpenseService({
+      const { expense, matchedProduct } = await createExpense({
         item_name: form.item_name.trim(),
         supplier_name: form.supplier_name.trim() || null,
         quantity: Number(form.quantity),
         unit_price: Number(form.unit_price),
       });
 
-      const expenseId = result?.createExpense?.id;
+      const expenseId = expense?.id;
 
       if (expenseId && paid > 0) {
         await payBalanceService(Number(expenseId), paid);
+        await loadExpenses();
       }
 
-      await loadExpenses();
-      onClose?.();
+      if (matchedProduct && expenseId) {
+        // Item exists — atomic: stock movement + expense link
+        promptAddToExistingStock(matchedProduct, expenseId, form.quantity);
+      } else if (expenseId) {
+        // Item not found — atomic: product + stock movement + expense link
+        promptCreateNewProduct(form.item_name.trim(), expenseId, form.quantity);
+      } else {
+        onClose?.();
+      }
+
     } catch (err) {
       Alert.alert("Error", err?.message || "Failed to create expense.");
     } finally {
       setSubmitting(false);
     }
   };
+
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
     <KeyboardAvoidingView
@@ -83,13 +209,10 @@ export default function ExpenseForm({ onClose }) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>  {/* 👈 removed fontFamily */}
-            Add Expense
-          </Text>
+          <Text style={[styles.title, { color: colors.text }]}>Add Expense</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Text style={[styles.closeText, { color: colors.tabBarInactive }]}>✕</Text>  {/* 👈 icon → tabBarInactive */}
+            <Text style={[styles.closeText, { color: colors.tabBarInactive }]}>✕</Text>
           </TouchableOpacity>
         </View>
 

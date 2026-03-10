@@ -4,7 +4,7 @@ import { graphqlRequest } from "../lib/graphql";
 
 
 // ======================================================
-// NORMALIZER
+// NORMALIZERS
 // ======================================================
 
 const normalizeProduct = (p) => ({
@@ -74,7 +74,7 @@ export const fetchStockMovements = async (productId) => {
 
 
 // ======================================================
-// CREATE PRODUCT
+// CREATE PRODUCT (standalone — no stock)
 // ======================================================
 
 export const createProductService = async (input) => {
@@ -97,7 +97,78 @@ export const createProductService = async (input) => {
 
 
 // ======================================================
-// ADD STOCK (IN)
+// ADD STOCK FROM EXPENSE — ATOMIC (matched product flow)
+// Links existing expense to existing product in one transaction.
+// If it fails, no partial record is left behind.
+// ======================================================
+
+export const addStockFromExpenseService = async ({
+  product_id,
+  quantity,
+  expense_item_id,
+}) => {
+  return graphqlRequest(
+    `
+    mutation($input: AddStockFromExpenseInput!) {
+      addStockFromExpense(input: $input) {
+        id
+        movementType
+        reason
+        quantity
+        createdAt
+      }
+    }
+  `,
+    {
+      input: {
+        productId: product_id,
+        quantity: Number(quantity),
+        expenseItemId: expense_item_id,
+      },
+    }
+  );
+};
+
+
+// ======================================================
+// CREATE PRODUCT WITH STOCK — ATOMIC (new product flow)
+// One mutation = one transaction. If stock fails,
+// the product is also rolled back.
+// ======================================================
+
+export const createProductWithStockService = async ({
+  name,
+  unit,
+  category,
+  quantity,
+  expense_item_id,
+}) => {
+  return graphqlRequest(
+    `
+    mutation($input: CreateProductWithStockInput!) {
+      createProductWithStock(input: $input) {
+        id
+        name
+        unit
+        currentStock
+      }
+    }
+  `,
+    {
+      input: {
+        name,
+        unit,
+        category,
+        quantity: Number(quantity),
+        expenseItemId: expense_item_id,
+      },
+    }
+  );
+};
+
+
+// ======================================================
+// ADD STOCK (IN) — general purpose
 // ======================================================
 
 export const addStockService = async (input) => {
