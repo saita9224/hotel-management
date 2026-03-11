@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { useExpenses } from "../../context/ExpensesContext";
+import { useInventory } from "../../context/InventoryContext";  // 👈 added
 import { useTheme } from "../../hooks/useTheme";
 import { payBalanceService } from "../../services/expenseService";
 import {
@@ -23,6 +24,7 @@ import {
 
 export default function ExpenseForm({ onClose }) {
   const { createExpense, loadExpenses } = useExpenses();
+  const { loadProducts } = useInventory();               // 👈 added
   const { colors } = useTheme();
 
   const [form, setForm] = useState({
@@ -60,6 +62,7 @@ export default function ExpenseForm({ onClose }) {
                 quantity: Number(quantity),
                 expense_item_id: expenseId,
               });
+              await loadProducts();    // 👈 refresh inventory after stock added
             } catch (err) {
               Alert.alert(
                 "Stock Error",
@@ -126,7 +129,6 @@ export default function ExpenseForm({ onClose }) {
     );
   };
 
-  // Single mutation — product + stock movement in one transaction
   const createAtomically = async (itemName, expenseId, quantity, unit, category) => {
     try {
       await createProductWithStockService({
@@ -136,6 +138,7 @@ export default function ExpenseForm({ onClose }) {
         quantity: Number(quantity),
         expense_item_id: expenseId,
       });
+      await loadProducts();    // 👈 refresh inventory after new product created
     } catch (err) {
       Alert.alert(
         "Error",
@@ -179,10 +182,8 @@ export default function ExpenseForm({ onClose }) {
       }
 
       if (matchedProduct && expenseId) {
-        // Item exists — atomic: stock movement + expense link
         promptAddToExistingStock(matchedProduct, expenseId, form.quantity);
       } else if (expenseId) {
-        // Item not found — atomic: product + stock movement + expense link
         promptCreateNewProduct(form.item_name.trim(), expenseId, form.quantity);
       } else {
         onClose?.();

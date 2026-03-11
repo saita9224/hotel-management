@@ -13,9 +13,13 @@ import { useAuth } from "./AuthContext";
 import {
   fetchProducts,
   fetchStockMovements,
+  fetchPendingReconciliations,
   createProductService,
   addStockService,
   removeStockService,
+  submitReconciliationService,
+  approveReconciliationService,
+  rejectReconciliationService,
 } from "../services/inventoryService";
 
 const InventoryContext = createContext();
@@ -24,6 +28,7 @@ export const useInventory = () => useContext(InventoryContext);
 
 export const InventoryProvider = ({ children }) => {
   const [products, setProducts] = useState([]);
+  const [pendingReconciliations, setPendingReconciliations] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const { isAuthenticated } = useAuth();
@@ -45,6 +50,19 @@ export const InventoryProvider = ({ children }) => {
   };
 
   // =====================================================
+  // LOAD PENDING RECONCILIATIONS
+  // =====================================================
+
+  const loadPendingReconciliations = async () => {
+    try {
+      const data = await fetchPendingReconciliations();
+      setPendingReconciliations(data);
+    } catch (error) {
+      console.log("Load Reconciliations Error:", error);
+    }
+  };
+
+  // =====================================================
   // CREATE PRODUCT + INITIAL STOCK
   // =====================================================
 
@@ -54,24 +72,21 @@ export const InventoryProvider = ({ children }) => {
     unit,
     quantity,
     reason,
-    funded_by_business,  // 👈 added
-    notes,               // 👈 added
+    funded_by_business,
+    notes,
   }) => {
     try {
-      // Step 1: create the product
       const result = await createProductService({ name, category, unit });
       const productId = result?.createProduct?.id;
-
       if (!productId) throw new Error("Product creation failed");
 
-      // Step 2: add initial stock if quantity provided
       if (quantity && Number(quantity) > 0) {
         await addStockService({
           product_id: productId,
           quantity: Number(quantity),
           reason: reason || "PURCHASE",
-          funded_by_business: funded_by_business ?? true,  // 👈 passed through
-          notes: notes || null,                             // 👈 passed through
+          funded_by_business: funded_by_business ?? true,
+          notes: notes || null,
         });
       }
 
@@ -87,13 +102,13 @@ export const InventoryProvider = ({ children }) => {
   // ADD STOCK
   // =====================================================
 
-  const addStock = async (productId, quantity, reason, funded_by_business, notes) => {  // 👈 added funded_by_business
+  const addStock = async (productId, quantity, reason, funded_by_business, notes) => {
     try {
       await addStockService({
         product_id: productId,
         quantity,
         reason,
-        funded_by_business: funded_by_business ?? true,  // 👈 passed through
+        funded_by_business: funded_by_business ?? true,
         notes,
       });
       await loadProducts();
@@ -109,12 +124,7 @@ export const InventoryProvider = ({ children }) => {
 
   const deductStock = async (productId, quantity, reason, notes) => {
     try {
-      await removeStockService({
-        product_id: productId,
-        quantity,
-        reason,
-        notes,
-      });
+      await removeStockService({ product_id: productId, quantity, reason, notes });
       await loadProducts();
     } catch (error) {
       console.log("Deduct Stock Error:", error);
@@ -131,6 +141,53 @@ export const InventoryProvider = ({ children }) => {
   };
 
   // =====================================================
+  // SUBMIT RECONCILIATION
+  // counts = [{ product_id, counted_quantity }]
+  // Returns the created reconciliation records with differences.
+  // =====================================================
+
+  const submitReconciliation = async (counts) => {
+    try {
+      const results = await submitReconciliationService(counts);
+      await loadPendingReconciliations();
+      return results;
+    } catch (error) {
+      console.log("Submit Reconciliation Error:", error);
+      throw error;
+    }
+  };
+
+  // =====================================================
+  // APPROVE RECONCILIATION
+  // =====================================================
+
+  const approveReconciliation = async (reconciliationId) => {
+    try {
+      const result = await approveReconciliationService(reconciliationId);
+      await Promise.all([loadProducts(), loadPendingReconciliations()]);
+      return result;
+    } catch (error) {
+      console.log("Approve Reconciliation Error:", error);
+      throw error;
+    }
+  };
+
+  // =====================================================
+  // REJECT RECONCILIATION
+  // =====================================================
+
+  const rejectReconciliation = async (reconciliationId, notes) => {
+    try {
+      const result = await rejectReconciliationService(reconciliationId, notes);
+      await loadPendingReconciliations();
+      return result;
+    } catch (error) {
+      console.log("Reject Reconciliation Error:", error);
+      throw error;
+    }
+  };
+
+  // =====================================================
   // CATEGORIES (derived)
   // =====================================================
 
@@ -140,12 +197,13 @@ export const InventoryProvider = ({ children }) => {
   }, [products]);
 
   // =====================================================
-  // INIT — wait for auth before loading
+  // INIT
   // =====================================================
 
   useEffect(() => {
     if (isAuthenticated) {
       loadProducts();
+      loadPendingReconciliations();
     }
   }, [isAuthenticated]);
 
@@ -154,13 +212,18 @@ export const InventoryProvider = ({ children }) => {
       products,
       categories,
       loading,
+      pendingReconciliations,
       loadProducts,
+      loadPendingReconciliations,
       createProduct,
       addStock,
       deductStock,
       getProductMovements,
+      submitReconciliation,
+      approveReconciliation,
+      rejectReconciliation,
     }),
-    [products, categories, loading]
+    [products, categories, loading, pendingReconciliations]
   );
 
   return (

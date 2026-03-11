@@ -30,12 +30,15 @@ export default function StockHistorySheet({ visible, product, onClose }) {
 
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(false);
+  // Track whether sheet has ever been shown so we can safely unmount after close animation
+  const [mounted, setMounted] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      setMounted(true);
       Animated.parallel([
         Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, bounciness: 4 }),
         Animated.timing(backdropAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -45,7 +48,10 @@ export default function StockHistorySheet({ visible, product, onClose }) {
       Animated.parallel([
         Animated.timing(slideAnim, { toValue: SHEET_HEIGHT, duration: 220, useNativeDriver: true }),
         Animated.timing(backdropAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
-      ]).start();
+      ]).start(() => {
+        setMounted(false);
+        setMovements([]);
+      });
     }
   }, [visible]);
 
@@ -61,6 +67,9 @@ export default function StockHistorySheet({ visible, product, onClose }) {
       setLoading(false);
     }
   };
+
+  // Don't render at all until first opened
+  if (!mounted) return null;
 
   const renderMovement = ({ item }) => {
     const isIn = item.movement_type === "IN";
@@ -92,8 +101,6 @@ export default function StockHistorySheet({ visible, product, onClose }) {
       </View>
     );
   };
-
-  if (!visible && slideAnim._value === SHEET_HEIGHT) return null;
 
   return (
     <>

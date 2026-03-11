@@ -25,6 +25,7 @@ import { useTheme } from "../../hooks/useTheme";
 import AddItemSheet from "../../components/Inventory/AddItemSheet";
 import DeductStockModal from "../../components/Inventory/DeductStockModal";
 import StockHistorySheet from "../../components/Inventory/StockHistorySheet";
+import StockCountScreen from "../../components/Inventory/StockCountScreen";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.82;
@@ -35,10 +36,16 @@ const STOCK_COLORS = {
   out: "#FF453A",
 };
 
+const TABS = [
+  { key: "inventory", label: "Inventory", icon: "cube-outline" },
+  { key: "stockcount", label: "Stock Count", icon: "clipboard-outline" },
+];
+
 export default function InventoryScreen() {
   const { colors } = useTheme();
   const { products, categories, loading } = useInventory();
 
+  const [activeTab, setActiveTab] = useState("inventory");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -153,7 +160,10 @@ export default function InventoryScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.actionBtn, { borderColor: colors.accent, backgroundColor: colors.accent + "15" }]}
-            onPress={() => { setSelectedProduct(product); setShowDeduct(true); }}
+            onPress={() => {
+              setSelectedProduct(product);
+              setShowDeduct(true);
+            }}
           >
             <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 12 }}>
               Deduct
@@ -162,7 +172,10 @@ export default function InventoryScreen() {
 
           <TouchableOpacity
             style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
-            onPress={() => { setSelectedProduct(product); setShowHistory(true); }}
+            onPress={() => {
+              setSelectedProduct(product);
+              setShowHistory(true);
+            }}
           >
             <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 12 }}>
               History
@@ -187,64 +200,108 @@ export default function InventoryScreen() {
   /* ---------------- UI ---------------- */
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
 
-      
-
-      <TextInput
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        style={[styles.searchBar, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-        placeholder="Search items..."
-        placeholderTextColor={colors.tabBarInactive}
-      />
-
-      <View style={[styles.categoryContainer, { backgroundColor: colors.card }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {categories.map((cat) => {
-            const selected = cat === selectedCategory;
+        {/* ── TAB TOGGLE ── */}
+        <View style={[styles.tabToggle, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {TABS.map((t) => {
+            const active = activeTab === t.key;
             return (
               <TouchableOpacity
-                key={cat}
-                onPress={() => setSelectedCategory(cat)}
+                key={t.key}
                 style={[
-                  styles.categoryPill,
-                  {
-                    backgroundColor: selected ? colors.accent : colors.background,
-                    borderColor: selected ? colors.accent : colors.border,
-                  },
+                  styles.tabToggleBtn,
+                  active && { backgroundColor: colors.accent },
                 ]}
+                onPress={() => setActiveTab(t.key)}
               >
-                <Text style={{ color: selected ? "#fff" : colors.text, fontWeight: "500" }}>
-                  {cat}
+                <Ionicons
+                  name={t.icon}
+                  size={14}
+                  color={active ? "#fff" : colors.tabBarInactive}
+                />
+                <Text style={{
+                  color: active ? "#fff" : colors.tabBarInactive,
+                  fontWeight: "600",
+                  fontSize: 13,
+                  marginLeft: 4,
+                }}>
+                  {t.label}
                 </Text>
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
-      </View>
+        </View>
 
-      <FlatList
-        data={categoryGroups}
-        keyExtractor={(item) => item.category}
-        renderItem={renderGroup}
-        contentContainerStyle={{ paddingBottom: 120 }}
-        ListEmptyComponent={
-          <Text style={{ color: colors.tabBarInactive, textAlign: "center", marginTop: 40 }}>
-            No items found.
-          </Text>
-        }
-      />
+        {/* ── INVENTORY TAB ── */}
+        {activeTab === "inventory" && (
+          <>
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={[styles.searchBar, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              placeholder="Search items..."
+              placeholderTextColor={colors.tabBarInactive}
+            />
 
-      {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.accent }]}
-        onPress={openSheet}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+            <View style={[styles.categoryContainer, { backgroundColor: colors.card }]}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {categories.map((cat) => {
+                  const selected = cat === selectedCategory;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      onPress={() => setSelectedCategory(cat)}
+                      style={[
+                        styles.categoryPill,
+                        {
+                          backgroundColor: selected ? colors.accent : colors.background,
+                          borderColor: selected ? colors.accent : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={{ color: selected ? "#fff" : colors.text, fontWeight: "500" }}>
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
 
-      {/* Add Item Bottom Sheet */}
+            <FlatList
+              data={categoryGroups}
+              keyExtractor={(item) => item.category}
+              renderItem={renderGroup}
+              contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
+              ListEmptyComponent={
+                <Text style={{ color: colors.tabBarInactive, textAlign: "center", marginTop: 40 }}>
+                  No items found.
+                </Text>
+              }
+            />
+          </>
+        )}
+
+        {/* ── STOCK COUNT TAB ── */}
+        {activeTab === "stockcount" && (
+          <StockCountScreen />
+        )}
+
+      </SafeAreaView>
+
+      {/* FAB — only shown on inventory tab */}
+      {activeTab === "inventory" && (
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: colors.accent }]}
+          onPress={openSheet}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      {/* ── ADD ITEM SHEET ── */}
       {showAddSheet && (
         <>
           <TouchableWithoutFeedback onPress={closeSheet}>
@@ -270,24 +327,38 @@ export default function InventoryScreen() {
         </>
       )}
 
+      {/* ── DEDUCT MODAL ── */}
       <DeductStockModal
         visible={showDeduct}
         product={selectedProduct}
-        onClose={() => setShowDeduct(false)}
+        onClose={() => {
+          setShowDeduct(false);
+          setSelectedProduct(null);
+        }}
       />
 
+      {/* ── HISTORY SHEET ── */}
       <StockHistorySheet
         visible={showHistory}
         product={selectedProduct}
-        onClose={() => setShowHistory(false)}
+        onClose={() => {
+          setShowHistory(false);
+          setSelectedProduct(null);
+        }}
       />
-
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 16 },
+  root: { flex: 1 },
+  safeArea: { flex: 1, paddingHorizontal: 16 },
+
+  // Tab toggle
+  tabToggle: { flexDirection: "row", borderRadius: 10, borderWidth: 1, padding: 4, marginBottom: 10, gap: 4 },
+  tabToggleBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 8, borderRadius: 8, gap: 4 },
+
+  // Inventory tab
   searchBar: { borderWidth: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 15, fontSize: 14, marginBottom: 6 },
   categoryContainer: { borderRadius: 10, paddingVertical: 4, paddingHorizontal: 8, marginBottom: 10 },
   categoryPill: { paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, marginRight: 10 },
@@ -299,9 +370,11 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   actions: { flexDirection: "row", gap: 8, marginTop: 10 },
   actionBtn: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1 },
-  fab: { position: "absolute", bottom: 10, right: 10, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5 },
+
+  // Sheets / overlays
+  fab: { position: "absolute", bottom: 24, right: 16, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },
-  sheet: { position: "absolute", bottom: 0, left: 0, right: 0, height: SHEET_HEIGHT, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
+  sheet: { position: "absolute", bottom: 0, left: 0, right: 0, height: SCREEN_HEIGHT * 0.82, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
   handleRow: { alignItems: "center", paddingVertical: 10 },
   handle: { width: 40, height: 4, borderRadius: 2 },
 });

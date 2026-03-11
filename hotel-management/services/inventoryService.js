@@ -26,6 +26,32 @@ const normalizeMovement = (m) => ({
   performed_by: m.performedBy?.name || "Unknown",
 });
 
+const normalizeReconciliation = (r) => ({
+  id: r.id,
+  product: normalizeProduct(r.product),
+  system_quantity: Number(r.systemQuantity ?? 0),
+  counted_quantity: Number(r.countedQuantity ?? 0),
+  difference: Number(r.difference ?? 0),
+  status: r.status,
+  counted_at: r.countedAt,
+  counted_by: r.countedBy?.name || "Unknown",
+  notes: r.notes || null,
+});
+
+const RECONCILIATION_FIELDS = `
+  id
+  product {
+    id name category unit currentStock createdAt
+  }
+  systemQuantity
+  countedQuantity
+  difference
+  status
+  countedAt
+  countedBy { name }
+  notes
+`;
+
 
 // ======================================================
 // FETCH ALL PRODUCTS
@@ -35,12 +61,7 @@ export const fetchProducts = async () => {
   const data = await graphqlRequest(`
     query {
       products {
-        id
-        name
-        category
-        unit
-        currentStock
-        createdAt
+        id name category unit currentStock createdAt
       }
     }
   `);
@@ -57,12 +78,7 @@ export const fetchStockMovements = async (productId) => {
     `
     query($productId: ID) {
       stockMovements(productId: $productId) {
-        id
-        movementType
-        reason
-        quantity
-        notes
-        createdAt
+        id movementType reason quantity notes createdAt
         performedBy { name }
       }
     }
@@ -70,6 +86,22 @@ export const fetchStockMovements = async (productId) => {
     { productId }
   );
   return (data?.stockMovements || []).map(normalizeMovement);
+};
+
+
+// ======================================================
+// FETCH PENDING RECONCILIATIONS
+// ======================================================
+
+export const fetchPendingReconciliations = async () => {
+  const data = await graphqlRequest(`
+    query {
+      pendingReconciliations {
+        ${RECONCILIATION_FIELDS}
+      }
+    }
+  `);
+  return (data?.pendingReconciliations || []).map(normalizeReconciliation);
 };
 
 
@@ -82,12 +114,7 @@ export const createProductService = async (input) => {
     `
     mutation($input: CreateProductInput!) {
       createProduct(input: $input) {
-        id
-        name
-        category
-        unit
-        currentStock
-        createdAt
+        id name category unit currentStock createdAt
       }
     }
   `,
@@ -97,9 +124,7 @@ export const createProductService = async (input) => {
 
 
 // ======================================================
-// ADD STOCK FROM EXPENSE — ATOMIC (matched product flow)
-// Links existing expense to existing product in one transaction.
-// If it fails, no partial record is left behind.
+// ADD STOCK FROM EXPENSE — ATOMIC
 // ======================================================
 
 export const addStockFromExpenseService = async ({
@@ -111,11 +136,7 @@ export const addStockFromExpenseService = async ({
     `
     mutation($input: AddStockFromExpenseInput!) {
       addStockFromExpense(input: $input) {
-        id
-        movementType
-        reason
-        quantity
-        createdAt
+        id movementType reason quantity createdAt
       }
     }
   `,
@@ -131,9 +152,7 @@ export const addStockFromExpenseService = async ({
 
 
 // ======================================================
-// CREATE PRODUCT WITH STOCK — ATOMIC (new product flow)
-// One mutation = one transaction. If stock fails,
-// the product is also rolled back.
+// CREATE PRODUCT WITH STOCK — ATOMIC
 // ======================================================
 
 export const createProductWithStockService = async ({
@@ -147,10 +166,7 @@ export const createProductWithStockService = async ({
     `
     mutation($input: CreateProductWithStockInput!) {
       createProductWithStock(input: $input) {
-        id
-        name
-        unit
-        currentStock
+        id name unit currentStock
       }
     }
   `,
@@ -168,7 +184,7 @@ export const createProductWithStockService = async ({
 
 
 // ======================================================
-// ADD STOCK (IN) — general purpose
+// ADD STOCK (IN)
 // ======================================================
 
 export const addStockService = async (input) => {
@@ -176,11 +192,7 @@ export const addStockService = async (input) => {
     `
     mutation($input: AddStockInput!) {
       addStock(input: $input) {
-        id
-        movementType
-        reason
-        quantity
-        createdAt
+        id movementType reason quantity createdAt
       }
     }
   `,
@@ -207,11 +219,7 @@ export const removeStockService = async (input) => {
     `
     mutation($input: RemoveStockInput!) {
       removeStock(input: $input) {
-        id
-        movementType
-        reason
-        quantity
-        createdAt
+        id movementType reason quantity createdAt
       }
     }
   `,
@@ -224,4 +232,69 @@ export const removeStockService = async (input) => {
       },
     }
   );
+};
+
+
+// ======================================================
+// SUBMIT STOCK RECONCILIATION (BULK)
+// counts = [{ product_id, counted_quantity }]
+// ======================================================
+
+export const submitReconciliationService = async (counts) => {
+  const data = await graphqlRequest(
+    `
+    mutation($input: SubmitReconciliationInput!) {
+      submitReconciliation(input: $input) {
+        ${RECONCILIATION_FIELDS}
+      }
+    }
+  `,
+    {
+      input: {
+        counts: counts.map((c) => ({
+          productId: c.product_id,
+          countedQuantity: Number(c.counted_quantity),
+        })),
+      },
+    }
+  );
+  return (data?.submitReconciliation || []).map(normalizeReconciliation);
+};
+
+
+// ======================================================
+// APPROVE RECONCILIATION
+// ======================================================
+
+export const approveReconciliationService = async (reconciliationId) => {
+  const data = await graphqlRequest(
+    `
+    mutation($reconciliationId: ID!) {
+      approveReconciliation(reconciliationId: $reconciliationId) {
+        ${RECONCILIATION_FIELDS}
+      }
+    }
+  `,
+    { reconciliationId }
+  );
+  return normalizeReconciliation(data.approveReconciliation);
+};
+
+
+// ======================================================
+// REJECT RECONCILIATION
+// ======================================================
+
+export const rejectReconciliationService = async (reconciliationId, notes) => {
+  const data = await graphqlRequest(
+    `
+    mutation($reconciliationId: ID!, $notes: String) {
+      rejectReconciliation(reconciliationId: $reconciliationId, notes: $notes) {
+        ${RECONCILIATION_FIELDS}
+      }
+    }
+  `,
+    { reconciliationId, notes: notes || null }
+  );
+  return normalizeReconciliation(data.rejectReconciliation);
 };
