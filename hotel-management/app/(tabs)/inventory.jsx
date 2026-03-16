@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "expo-router";
 
 import { useInventory } from "../../context/InventoryContext";
 import { useTheme } from "../../hooks/useTheme";
@@ -28,7 +29,6 @@ import StockHistorySheet from "../../components/Inventory/StockHistorySheet";
 import StockCountScreen from "../../components/Inventory/StockCountScreen";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.82;
 
 const STOCK_COLORS = {
   ok: "#30D158",
@@ -37,13 +37,60 @@ const STOCK_COLORS = {
 };
 
 const TABS = [
-  { key: "inventory", label: "Inventory", icon: "cube-outline" },
-  { key: "stockcount", label: "Stock Count", icon: "clipboard-outline" },
+  { key: "inventory", label: "Inventory" },
+  { key: "stockcount", label: "Stock Count" },
 ];
+
+// ── HEADER TOGGLE ─────────────────────────────────────────
+
+function HeaderToggle({ activeTab, onPress, colors }) {
+  return (
+    <View style={[toggle.wrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {TABS.map((t) => {
+        const active = activeTab === t.key;
+        return (
+          <TouchableOpacity
+            key={t.key}
+            style={[toggle.btn, active && { backgroundColor: colors.accent }]}
+            onPress={() => onPress(t.key)}
+          >
+            <Text style={{
+              color: active ? "#fff" : colors.tabBarInactive,
+              fontWeight: "600",
+              fontSize: 13,
+            }}>
+              {t.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+const toggle = StyleSheet.create({
+  wrapper: {
+    flexDirection: "row",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 3,
+    gap: 3,
+  },
+  btn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
+// ── MAIN SCREEN ───────────────────────────────────────────
 
 export default function InventoryScreen() {
   const { colors } = useTheme();
   const { products, categories, loading } = useInventory();
+  const navigation = useNavigation();
 
   const [activeTab, setActiveTab] = useState("inventory");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -54,10 +101,33 @@ export default function InventoryScreen() {
   const [showDeduct, setShowDeduct] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT * 0.82)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
-  /* ---------------- SHEET OPEN / CLOSE ---------------- */
+  // ── Inject title + toggle into header ─────────────────
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerTitle: () => (
+        <View style={{ alignItems: "center", gap: 6 }}>
+          <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 17 }}>
+            Inventory
+          </Text>
+          <HeaderToggle
+            activeTab={activeTab}
+            onPress={setActiveTab}
+            colors={colors}
+          />
+        </View>
+      ),
+      headerStyle: {
+        backgroundColor: colors.background,
+        height: 90,
+      },
+    });
+  }, [activeTab, colors]);
+
+  // ── Sheet open / close ─────────────────────────────────
 
   const openSheet = () => {
     setShowAddSheet(true);
@@ -69,12 +139,12 @@ export default function InventoryScreen() {
 
   const closeSheet = () => {
     Animated.parallel([
-      Animated.timing(slideAnim, { toValue: SHEET_HEIGHT, duration: 220, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: SCREEN_HEIGHT * 0.82, duration: 220, useNativeDriver: true }),
       Animated.timing(backdropAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
     ]).start(() => setShowAddSheet(false));
   };
 
-  /* ---------------- BACK HANDLER ---------------- */
+  // ── Back handler ───────────────────────────────────────
 
   useEffect(() => {
     const onBackPress = () => {
@@ -87,7 +157,7 @@ export default function InventoryScreen() {
     return () => sub.remove();
   }, [showAddSheet, showDeduct, showHistory]);
 
-  /* ---------------- FILTER + SEARCH ---------------- */
+  // ── Filter + search ────────────────────────────────────
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -101,7 +171,7 @@ export default function InventoryScreen() {
     });
   }, [products, selectedCategory, searchQuery]);
 
-  /* ---------------- GROUP BY CATEGORY ---------------- */
+  // ── Group by category ──────────────────────────────────
 
   const categoryGroups = useMemo(() => {
     const groups = {};
@@ -115,7 +185,7 @@ export default function InventoryScreen() {
     );
   }, [filteredProducts]);
 
-  /* ---------------- STOCK HELPERS ---------------- */
+  // ── Stock helpers ──────────────────────────────────────
 
   const getStockColor = (qty) => {
     if (qty <= 0) return STOCK_COLORS.out;
@@ -129,7 +199,7 @@ export default function InventoryScreen() {
     return null;
   };
 
-  /* ---------------- PRODUCT CARD ---------------- */
+  // ── Product card ───────────────────────────────────────
 
   const renderProduct = (product) => {
     const stockColor = getStockColor(product.current_stock);
@@ -160,33 +230,23 @@ export default function InventoryScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.actionBtn, { borderColor: colors.accent, backgroundColor: colors.accent + "15" }]}
-            onPress={() => {
-              setSelectedProduct(product);
-              setShowDeduct(true);
-            }}
+            onPress={() => { setSelectedProduct(product); setShowDeduct(true); }}
           >
-            <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 12 }}>
-              Deduct
-            </Text>
+            <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 12 }}>Deduct</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
-            onPress={() => {
-              setSelectedProduct(product);
-              setShowHistory(true);
-            }}
+            onPress={() => { setSelectedProduct(product); setShowHistory(true); }}
           >
-            <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 12 }}>
-              History
-            </Text>
+            <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 12 }}>History</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   };
 
-  /* ---------------- CATEGORY GROUP ---------------- */
+  // ── Category group ─────────────────────────────────────
 
   const renderGroup = ({ item }) => (
     <View style={styles.group}>
@@ -197,44 +257,13 @@ export default function InventoryScreen() {
     </View>
   );
 
-  /* ---------------- UI ---------------- */
+  // ── UI ─────────────────────────────────────────────────
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
 
-        {/* ── TAB TOGGLE ── */}
-        <View style={[styles.tabToggle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {TABS.map((t) => {
-            const active = activeTab === t.key;
-            return (
-              <TouchableOpacity
-                key={t.key}
-                style={[
-                  styles.tabToggleBtn,
-                  active && { backgroundColor: colors.accent },
-                ]}
-                onPress={() => setActiveTab(t.key)}
-              >
-                <Ionicons
-                  name={t.icon}
-                  size={14}
-                  color={active ? "#fff" : colors.tabBarInactive}
-                />
-                <Text style={{
-                  color: active ? "#fff" : colors.tabBarInactive,
-                  fontWeight: "600",
-                  fontSize: 13,
-                  marginLeft: 4,
-                }}>
-                  {t.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* ── INVENTORY TAB ── */}
+        {/* INVENTORY TAB */}
         {activeTab === "inventory" && (
           <>
             <TextInput
@@ -284,14 +313,12 @@ export default function InventoryScreen() {
           </>
         )}
 
-        {/* ── STOCK COUNT TAB ── */}
-        {activeTab === "stockcount" && (
-          <StockCountScreen />
-        )}
+        {/* STOCK COUNT TAB */}
+        {activeTab === "stockcount" && <StockCountScreen />}
 
       </SafeAreaView>
 
-      {/* FAB — only shown on inventory tab */}
+      {/* FAB — inventory tab only */}
       {activeTab === "inventory" && (
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: colors.accent }]}
@@ -301,7 +328,7 @@ export default function InventoryScreen() {
         </TouchableOpacity>
       )}
 
-      {/* ── ADD ITEM SHEET ── */}
+      {/* ADD ITEM SHEET */}
       {showAddSheet && (
         <>
           <TouchableWithoutFeedback onPress={closeSheet}>
@@ -327,24 +354,18 @@ export default function InventoryScreen() {
         </>
       )}
 
-      {/* ── DEDUCT MODAL ── */}
+      {/* DEDUCT MODAL */}
       <DeductStockModal
         visible={showDeduct}
         product={selectedProduct}
-        onClose={() => {
-          setShowDeduct(false);
-          setSelectedProduct(null);
-        }}
+        onClose={() => { setShowDeduct(false); setSelectedProduct(null); }}
       />
 
-      {/* ── HISTORY SHEET ── */}
+      {/* HISTORY SHEET */}
       <StockHistorySheet
         visible={showHistory}
         product={selectedProduct}
-        onClose={() => {
-          setShowHistory(false);
-          setSelectedProduct(null);
-        }}
+        onClose={() => { setShowHistory(false); setSelectedProduct(null); }}
       />
     </View>
   );
@@ -354,11 +375,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: 16 },
 
-  // Tab toggle
-  tabToggle: { flexDirection: "row", borderRadius: 10, borderWidth: 1, padding: 4, marginBottom: 10, gap: 4 },
-  tabToggleBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 8, borderRadius: 8, gap: 4 },
-
-  // Inventory tab
   searchBar: { borderWidth: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 15, fontSize: 14, marginBottom: 6 },
   categoryContainer: { borderRadius: 10, paddingVertical: 4, paddingHorizontal: 8, marginBottom: 10 },
   categoryPill: { paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, marginRight: 10 },
@@ -371,7 +387,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 8, marginTop: 10 },
   actionBtn: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1 },
 
-  // Sheets / overlays
   fab: { position: "absolute", bottom: 24, right: 16, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },
   sheet: { position: "absolute", bottom: 0, left: 0, right: 0, height: SCREEN_HEIGHT * 0.82, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
