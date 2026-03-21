@@ -14,7 +14,7 @@ import {
 } from "react-native";
 
 import { useExpenses } from "../../context/ExpensesContext";
-import { useInventory } from "../../context/InventoryContext";  // 👈 added
+import { useInventory } from "../../context/InventoryContext";
 import { useTheme } from "../../hooks/useTheme";
 import { payBalanceService } from "../../services/expenseService";
 import {
@@ -23,8 +23,8 @@ import {
 } from "../../services/inventoryService";
 
 export default function ExpenseForm({ onClose }) {
-  const { createExpense, loadExpenses } = useExpenses();
-  const { loadProducts } = useInventory();               // 👈 added
+  const { createExpense, loadExpenses, notifyMenuOfNewProduct } = useExpenses();
+  const { loadProducts } = useInventory();
   const { colors } = useTheme();
 
   const [form, setForm] = useState({
@@ -39,12 +39,13 @@ export default function ExpenseForm({ onClose }) {
   const updateField = (key, value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const total = Number(form.quantity || 0) * Number(form.unit_price || 0);
-  const paid = Number(form.amount_paid || 0);
+  const total   = Number(form.quantity || 0) * Number(form.unit_price || 0);
+  const paid    = Number(form.amount_paid || 0);
   const balance = total - paid;
 
   // =====================================================
   // MATCHED PRODUCT — atomic: links expense to existing stock
+  // No POS prompt needed — flag already set on the product.
   // =====================================================
 
   const promptAddToExistingStock = (matchedProduct, expenseId, quantity) => {
@@ -58,11 +59,11 @@ export default function ExpenseForm({ onClose }) {
           onPress: async () => {
             try {
               await addStockFromExpenseService({
-                product_id: matchedProduct.id,
-                quantity: Number(quantity),
+                product_id:      matchedProduct.id,
+                quantity:        Number(quantity),
                 expense_item_id: expenseId,
               });
-              await loadProducts();    // 👈 refresh inventory after stock added
+              await loadProducts();
             } catch (err) {
               Alert.alert(
                 "Stock Error",
@@ -79,7 +80,9 @@ export default function ExpenseForm({ onClose }) {
   };
 
   // =====================================================
-  // NEW PRODUCT — prompt chain → atomic create + stock
+  // NEW PRODUCT — prompt chain:
+  // Not in inventory → POS deductible? → Unit → Category
+  // → create atomically → refresh menu if POS deductible
   // =====================================================
 
   const promptCreateNewProduct = (itemName, expenseId, quantity) => {
@@ -90,14 +93,32 @@ export default function ExpenseForm({ onClose }) {
         { text: "No", style: "cancel", onPress: () => onClose?.() },
         {
           text: "Yes, Create Product",
-          onPress: () => promptUnit(itemName, expenseId, quantity),
+          onPress: () => promptPOSDeductible(itemName, expenseId, quantity),
         },
       ],
       { cancelable: false }
     );
   };
 
-  const promptUnit = (itemName, expenseId, quantity) => {
+  const promptPOSDeductible = (itemName, expenseId, quantity) => {
+    Alert.alert(
+      "Sold at POS Counter?",
+      `Will "${itemName}" be sold directly at the POS counter?\n\nEnable this for items like water, snacks, etc. Stock will auto-deduct when sold.`,
+      [
+        {
+          text: "No — Raw/Ingredient",
+          onPress: () => promptUnit(itemName, expenseId, quantity, false),
+        },
+        {
+          text: "Yes — POS Item",
+          onPress: () => promptUnit(itemName, expenseId, quantity, true),
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const promptUnit = (itemName, expenseId, quantity, autoDeduct) => {
     const units = ["kg", "g", "litres", "ml", "pcs", "bags", "boxes"];
     Alert.alert(
       "Select Unit",
@@ -105,7 +126,7 @@ export default function ExpenseForm({ onClose }) {
       [
         ...units.map((unit) => ({
           text: unit,
-          onPress: () => promptCategory(itemName, expenseId, quantity, unit),
+          onPress: () => promptCategory(itemName, expenseId, quantity, unit, autoDeduct),
         })),
         { text: "Cancel", style: "cancel", onPress: () => onClose?.() },
       ],
@@ -113,7 +134,7 @@ export default function ExpenseForm({ onClose }) {
     );
   };
 
-  const promptCategory = (itemName, expenseId, quantity, unit) => {
+  const promptCategory = (itemName, expenseId, quantity, unit, autoDeduct) => {
     const categories = ["dry goods", "vegetables", "dairy", "meat", "beverages", "other"];
     Alert.alert(
       "Select Category",
@@ -121,7 +142,7 @@ export default function ExpenseForm({ onClose }) {
       [
         ...categories.map((cat) => ({
           text: cat,
-          onPress: () => createAtomically(itemName, expenseId, quantity, unit, cat),
+          onPress: () => createAtomically(itemName, expenseId, quantity, unit, cat, autoDeduct),
         })),
         { text: "Cancel", style: "cancel", onPress: () => onClose?.() },
       ],
@@ -129,16 +150,30 @@ export default function ExpenseForm({ onClose }) {
     );
   };
 
-  const createAtomically = async (itemName, expenseId, quantity, unit, category) => {
+  const createAtomically = async (
+    itemName,
+    expenseId,
+    quantity,
+    unit,
+    category,
+    autoDeduct,
+  ) => {
     try {
       await createProductWithStockService({
-        name: itemName,
+        name:                itemName,
         unit,
         category,
-        quantity: Number(quantity),
-        expense_item_id: expenseId,
+        quantity:            Number(quantity),
+        expense_item_id:     expenseId,
+        auto_deduct_on_sale: autoDeduct,
       });
-      await loadProducts();    // 👈 refresh inventory after new product created
+
+      await loadProducts();
+
+      // If POS-deductible, refresh menu so product appears
+      // in Menu Manager's unpriced list immediately
+      await notifyMenuOfNewProduct(autoDeduct);
+
     } catch (err) {
       Alert.alert(
         "Error",
@@ -168,10 +203,10 @@ export default function ExpenseForm({ onClose }) {
     setSubmitting(true);
     try {
       const { expense, matchedProduct } = await createExpense({
-        item_name: form.item_name.trim(),
+        item_name:     form.item_name.trim(),
         supplier_name: form.supplier_name.trim() || null,
-        quantity: Number(form.quantity),
-        unit_price: Number(form.unit_price),
+        quantity:      Number(form.quantity),
+        unit_price:    Number(form.unit_price),
       });
 
       const expenseId = expense?.id;
@@ -305,16 +340,16 @@ export default function ExpenseForm({ onClose }) {
 
 const styles = StyleSheet.create({
   scrollContent: { padding: 16, paddingBottom: 40, borderRadius: 12, flexGrow: 1 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-  title: { fontSize: 18, fontWeight: "700" },
-  closeBtn: { padding: 4 },
-  closeText: { fontSize: 18, fontWeight: "600" },
-  label: { marginTop: 12, marginBottom: 4, fontSize: 13 },
-  input: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14 },
-  divider: { height: 1, marginVertical: 14 },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
-  summaryLabel: { fontSize: 14 },
-  summaryValue: { fontSize: 15, fontWeight: "700" },
-  button: { marginTop: 20, padding: 13, borderRadius: 10, alignItems: "center" },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  header:        { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+  title:         { fontSize: 18, fontWeight: "700" },
+  closeBtn:      { padding: 4 },
+  closeText:     { fontSize: 18, fontWeight: "600" },
+  label:         { marginTop: 12, marginBottom: 4, fontSize: 13 },
+  input:         { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14 },
+  divider:       { height: 1, marginVertical: 14 },
+  row:           { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
+  summaryLabel:  { fontSize: 14 },
+  summaryValue:  { fontSize: 15, fontWeight: "700" },
+  button:        { marginTop: 20, padding: 13, borderRadius: 10, alignItems: "center" },
+  buttonText:    { color: "#fff", fontWeight: "700", fontSize: 15 },
 });

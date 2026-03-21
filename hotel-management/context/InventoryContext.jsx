@@ -9,6 +9,7 @@ import React, {
 } from "react";
 
 import { useAuth } from "./AuthContext";
+import { useMenu } from "./MenuContext";
 
 import {
   fetchProducts,
@@ -32,6 +33,7 @@ export const InventoryProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
 
   const { isAuthenticated } = useAuth();
+  const { refreshMenu } = useMenu();
 
   // =====================================================
   // LOAD PRODUCTS
@@ -64,6 +66,10 @@ export const InventoryProvider = ({ children }) => {
 
   // =====================================================
   // CREATE PRODUCT + INITIAL STOCK
+  //
+  // If auto_deduct_on_sale=True, refreshMenu() is called
+  // after creation so the product immediately appears in
+  // the Menu Manager's "Needs Pricing" unpriced list.
   // =====================================================
 
   const createProduct = async ({
@@ -74,9 +80,15 @@ export const InventoryProvider = ({ children }) => {
     reason,
     funded_by_business,
     notes,
+    auto_deduct_on_sale,
   }) => {
     try {
-      const result = await createProductService({ name, category, unit });
+      const result = await createProductService({
+        name,
+        category,
+        unit,
+        auto_deduct_on_sale: auto_deduct_on_sale ?? false,
+      });
       const productId = result?.createProduct?.id;
       if (!productId) throw new Error("Product creation failed");
 
@@ -90,7 +102,15 @@ export const InventoryProvider = ({ children }) => {
         });
       }
 
+      // Refresh inventory list
       await loadProducts();
+
+      // If POS-deductible, refresh menu so the new product
+      // appears in unpricedItems immediately without manual refresh
+      if (auto_deduct_on_sale) {
+        await refreshMenu();
+      }
+
       return productId;
     } catch (error) {
       console.log("Create Product Error:", error);
@@ -142,8 +162,6 @@ export const InventoryProvider = ({ children }) => {
 
   // =====================================================
   // SUBMIT RECONCILIATION
-  // counts = [{ product_id, counted_quantity }]
-  // Returns the created reconciliation records with differences.
   // =====================================================
 
   const submitReconciliation = async (counts) => {

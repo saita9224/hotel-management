@@ -13,6 +13,7 @@ const normalizeProduct = (p) => ({
   category: p.category || "Uncategorized",
   unit: p.unit,
   current_stock: Number(p.currentStock ?? 0),
+  auto_deduct_on_sale: p.autoDeductOnSale ?? false,
   created_at: p.createdAt,
 });
 
@@ -41,7 +42,7 @@ const normalizeReconciliation = (r) => ({
 const RECONCILIATION_FIELDS = `
   id
   product {
-    id name category unit currentStock createdAt
+    id name category unit currentStock autoDeductOnSale createdAt
   }
   systemQuantity
   countedQuantity
@@ -61,7 +62,7 @@ export const fetchProducts = async () => {
   const data = await graphqlRequest(`
     query {
       products {
-        id name category unit currentStock createdAt
+        id name category unit currentStock autoDeductOnSale createdAt
       }
     }
   `);
@@ -114,11 +115,18 @@ export const createProductService = async (input) => {
     `
     mutation($input: CreateProductInput!) {
       createProduct(input: $input) {
-        id name category unit currentStock createdAt
+        id name category unit currentStock autoDeductOnSale createdAt
       }
     }
   `,
-    { input }
+    {
+      input: {
+        name: input.name,
+        unit: input.unit,
+        category: input.category || null,
+        autoDeductOnSale: input.auto_deduct_on_sale ?? false,
+      },
+    }
   );
 };
 
@@ -161,12 +169,13 @@ export const createProductWithStockService = async ({
   category,
   quantity,
   expense_item_id,
+  auto_deduct_on_sale,
 }) => {
   return graphqlRequest(
     `
     mutation($input: CreateProductWithStockInput!) {
       createProductWithStock(input: $input) {
-        id name unit currentStock
+        id name unit currentStock autoDeductOnSale
       }
     }
   `,
@@ -177,6 +186,7 @@ export const createProductWithStockService = async ({
         category,
         quantity: Number(quantity),
         expenseItemId: expense_item_id,
+        autoDeductOnSale: auto_deduct_on_sale ?? false,
       },
     }
   );
@@ -237,7 +247,6 @@ export const removeStockService = async (input) => {
 
 // ======================================================
 // SUBMIT STOCK RECONCILIATION (BULK)
-// counts = [{ product_id, counted_quantity }]
 // ======================================================
 
 export const submitReconciliationService = async (counts) => {

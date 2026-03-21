@@ -1,5 +1,3 @@
-// app/(tabs)/inventory.jsx
-
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   View,
@@ -23,21 +21,21 @@ import { useNavigation } from "expo-router";
 import { useInventory } from "../../context/InventoryContext";
 import { useTheme } from "../../hooks/useTheme";
 
-import AddItemSheet from "../../components/Inventory/AddItemSheet";
-import DeductStockModal from "../../components/Inventory/DeductStockModal";
-import StockHistorySheet from "../../components/Inventory/StockHistorySheet";
-import StockCountScreen from "../../components/Inventory/StockCountScreen";
+import AddItemSheet       from "../../components/Inventory/AddItemSheet";
+import DeductStockModal   from "../../components/Inventory/DeductStockModal";
+import StockHistorySheet  from "../../components/Inventory/StockHistorySheet";
+import StockCountScreen   from "../../components/Inventory/StockCountScreen";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 const STOCK_COLORS = {
-  ok: "#30D158",
+  ok:  "#30D158",
   low: "#FF9F0A",
   out: "#FF453A",
 };
 
 const TABS = [
-  { key: "inventory", label: "Inventory" },
+  { key: "inventory",  label: "Inventory"   },
   { key: "stockcount", label: "Stock Count" },
 ];
 
@@ -55,9 +53,9 @@ function HeaderToggle({ activeTab, onPress, colors }) {
             onPress={() => onPress(t.key)}
           >
             <Text style={{
-              color: active ? "#fff" : colors.tabBarInactive,
+              color:      active ? "#fff" : colors.tabBarInactive,
               fontWeight: "600",
-              fontSize: 13,
+              fontSize:   13,
             }}>
               {t.label}
             </Text>
@@ -71,17 +69,17 @@ function HeaderToggle({ activeTab, onPress, colors }) {
 const toggle = StyleSheet.create({
   wrapper: {
     flexDirection: "row",
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 3,
-    gap: 3,
+    borderRadius:  8,
+    borderWidth:   1,
+    padding:       3,
+    gap:           3,
   },
   btn: {
-    paddingVertical: 6,
+    paddingVertical:   6,
     paddingHorizontal: 14,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
+    borderRadius:      6,
+    alignItems:        "center",
+    justifyContent:    "center",
   },
 });
 
@@ -92,16 +90,16 @@ export default function InventoryScreen() {
   const { products, categories, loading } = useInventory();
   const navigation = useNavigation();
 
-  const [activeTab, setActiveTab] = useState("inventory");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab,         setActiveTab]         = useState("inventory");
+  const [selectedCategory,  setSelectedCategory]  = useState("All");
+  const [searchQuery,       setSearchQuery]        = useState("");
 
-  const [showAddSheet, setShowAddSheet] = useState(false);
+  const [showAddSheet,    setShowAddSheet]    = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [showDeduct, setShowDeduct] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showDeduct,      setShowDeduct]      = useState(false);
+  const [showHistory,     setShowHistory]     = useState(false);
 
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT * 0.82)).current;
+  const slideAnim   = useRef(new Animated.Value(SCREEN_HEIGHT * 0.82)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
   // ── Inject title + toggle into header ─────────────────
@@ -149,8 +147,8 @@ export default function InventoryScreen() {
   useEffect(() => {
     const onBackPress = () => {
       if (showAddSheet) { closeSheet(); return true; }
-      if (showDeduct) { setShowDeduct(false); return true; }
-      if (showHistory) { setShowHistory(false); return true; }
+      if (showDeduct)   { setShowDeduct(false); return true; }
+      if (showHistory)  { setShowHistory(false); return true; }
       return false;
     };
     const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
@@ -210,10 +208,21 @@ export default function InventoryScreen() {
         key={product.id}
         style={[styles.productCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       >
+        {/* Name row */}
         <View style={styles.rowBetween}>
-          <Text style={[styles.productName, { color: colors.text }]}>
-            {product.name}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+            <Text style={[styles.productName, { color: colors.text }]}>
+              {product.name}
+            </Text>
+            {product.auto_deduct_on_sale && (
+              <View style={[styles.posBadge, { backgroundColor: colors.accent + "20" }]}>
+                <Text style={{ color: colors.accent, fontSize: 10, fontWeight: "700" }}>
+                  POS
+                </Text>
+              </View>
+            )}
+          </View>
+
           {stockLabel && (
             <View style={[styles.stockBadge, { backgroundColor: stockColor + "20" }]}>
               <Text style={{ color: stockColor, fontSize: 11, fontWeight: "700" }}>
@@ -223,10 +232,12 @@ export default function InventoryScreen() {
           )}
         </View>
 
+        {/* Stock quantity */}
         <Text style={{ color: stockColor, fontWeight: "700", marginTop: 4 }}>
           {product.current_stock} {product.unit}
         </Text>
 
+        {/* Actions */}
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.actionBtn, { borderColor: colors.accent, backgroundColor: colors.accent + "15" }]}
@@ -286,7 +297,7 @@ export default function InventoryScreen() {
                         styles.categoryPill,
                         {
                           backgroundColor: selected ? colors.accent : colors.background,
-                          borderColor: selected ? colors.accent : colors.border,
+                          borderColor:     selected ? colors.accent : colors.border,
                         },
                       ]}
                     >
@@ -372,24 +383,25 @@ export default function InventoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root:     { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: 16 },
 
-  searchBar: { borderWidth: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 15, fontSize: 14, marginBottom: 6 },
+  searchBar:         { borderWidth: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 15, fontSize: 14, marginBottom: 6 },
   categoryContainer: { borderRadius: 10, paddingVertical: 4, paddingHorizontal: 8, marginBottom: 10 },
-  categoryPill: { paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, marginRight: 10 },
-  group: { marginBottom: 16 },
-  categoryLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 8, marginTop: 4 },
-  productCard: { borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 8 },
-  productName: { fontSize: 15, fontWeight: "600", flex: 1 },
-  stockBadge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 12 },
-  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  actions: { flexDirection: "row", gap: 8, marginTop: 10 },
-  actionBtn: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1 },
+  categoryPill:      { paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, marginRight: 10 },
+  group:             { marginBottom: 16 },
+  categoryLabel:     { fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 8, marginTop: 4 },
+  productCard:       { borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 8 },
+  productName:       { fontSize: 15, fontWeight: "600", flex: 1 },
+  stockBadge:        { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 12 },
+  posBadge:          { paddingVertical: 2, paddingHorizontal: 6, borderRadius: 6 },
+  rowBetween:        { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  actions:           { flexDirection: "row", gap: 8, marginTop: 10 },
+  actionBtn:         { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1 },
 
-  fab: { position: "absolute", bottom: 24, right: 16, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
+  fab:      { position: "absolute", bottom: 24, right: 16, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },
-  sheet: { position: "absolute", bottom: 0, left: 0, right: 0, height: SCREEN_HEIGHT * 0.82, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
+  sheet:    { position: "absolute", bottom: 0, left: 0, right: 0, height: SCREEN_HEIGHT * 0.82, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
   handleRow: { alignItems: "center", paddingVertical: 10 },
-  handle: { width: 40, height: 4, borderRadius: 2 },
+  handle:    { width: 40, height: 4, borderRadius: 2 },
 });

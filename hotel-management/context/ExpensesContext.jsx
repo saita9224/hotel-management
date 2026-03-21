@@ -8,6 +8,8 @@ import React, {
   useMemo,
 } from "react";
 
+import { useMenu } from "./MenuContext";
+
 import {
   fetchAllExpenses,
   fetchAllPayments,
@@ -25,13 +27,15 @@ const ExpensesContext = createContext();
 export const useExpenses = () => useContext(ExpensesContext);
 
 export const ExpensesProvider = ({ children }) => {
-  const [expenses, setExpenses] = useState([]);
-  const [payments, setPayments] = useState([]);
+  const [expenses, setExpenses]   = useState([]);
+  const [payments, setPayments]   = useState([]);
   const [suppliers, setSuppliers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]     = useState(false);
+
+  const { refreshMenu } = useMenu();
 
   // =====================================================
-  // LOAD ALL EXPENSES + PAYMENTS (always together)
+  // LOAD ALL EXPENSES + PAYMENTS
   // =====================================================
 
   const loadExpenses = async () => {
@@ -109,12 +113,29 @@ export const ExpensesProvider = ({ children }) => {
   };
 
   // =====================================================
+  // NOTIFY MENU — called by ExpenseForm after a new
+  // product is created via the expense flow with
+  // auto_deduct_on_sale=True, so it immediately appears
+  // in the Menu Manager's unpriced list.
+  // =====================================================
+
+  const notifyMenuOfNewProduct = async (auto_deduct_on_sale) => {
+    if (auto_deduct_on_sale) {
+      try {
+        await refreshMenu();
+      } catch (err) {
+        console.log("Menu refresh after expense product creation failed:", err);
+      }
+    }
+  };
+
+  // =====================================================
   // SUMMARY HELPERS
   // =====================================================
 
   const getExpensesSummary = () => {
-    const totalExpense = expenses.reduce((sum, e) => sum + e.total_price, 0);
-    const totalPaid = expenses.reduce((sum, e) => sum + e.amount_paid, 0);
+    const totalExpense     = expenses.reduce((sum, e) => sum + e.total_price, 0);
+    const totalPaid        = expenses.reduce((sum, e) => sum + e.amount_paid, 0);
     const totalOutstanding = expenses.reduce((sum, e) => sum + e.balance, 0);
     return { totalExpense, totalPaid, totalOutstanding };
   };
@@ -131,7 +152,7 @@ export const ExpensesProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       expenses,
-      payments,       // 👈 raw payments list — used by ExpenseTable for daily grouping
+      payments,
       suppliers,
       loading,
       loadExpenses,
@@ -142,6 +163,7 @@ export const ExpensesProvider = ({ children }) => {
       getExpenseDetails,
       createExpense,
       payBalance,
+      notifyMenuOfNewProduct,
       getExpensesSummary,
     }),
     [expenses, payments, suppliers, loading]

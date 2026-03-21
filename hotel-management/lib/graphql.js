@@ -2,7 +2,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const GRAPHQL_URL = "http://10.25.164.69:8000/graphql/";
+const GRAPHQL_URL = "http://10.117.219.69:8000/graphql/";
 // Android emulator → use your local network IP (NOT localhost)
 // iOS simulator → http://localhost:8000/graphql/
 

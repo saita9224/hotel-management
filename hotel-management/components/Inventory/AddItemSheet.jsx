@@ -1,5 +1,3 @@
-// components/Inventory/AddItemSheet.jsx
-
 import React, { useState, useRef } from "react";
 import {
   View,
@@ -31,14 +29,14 @@ export default function AddItemSheet({ onClose }) {
     quantity: "",
     reason: "PURCHASE",
     funded_by_business: true,
+    auto_deduct_on_sale: false,
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Refs for keyboard next navigation
   const categoryRef = useRef(null);
   const quantityRef = useRef(null);
-  const notesRef = useRef(null);
+  const notesRef    = useRef(null);
 
   const updateField = (key, value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -54,13 +52,14 @@ export default function AddItemSheet({ onClose }) {
     try {
       setSubmitting(true);
       await createProduct({
-        name: form.name.trim(),
-        category: form.category.trim().toLowerCase(),
-        unit: form.unit,
-        quantity: Number(form.quantity || 0),
-        reason: form.reason,
-        funded_by_business: form.funded_by_business,
-        notes: form.notes.trim() || null,
+        name:                form.name.trim(),
+        category:            form.category.trim().toLowerCase(),
+        unit:                form.unit,
+        quantity:            Number(form.quantity || 0),
+        reason:              form.reason,
+        funded_by_business:  form.funded_by_business,
+        auto_deduct_on_sale: form.auto_deduct_on_sale,
+        notes:               form.notes.trim() || null,
       });
       onClose?.();
     } catch (err) {
@@ -128,7 +127,7 @@ export default function AddItemSheet({ onClose }) {
                 styles.pill,
                 {
                   backgroundColor: form.unit === u ? colors.accent : colors.background,
-                  borderColor: form.unit === u ? colors.accent : colors.border,
+                  borderColor:     form.unit === u ? colors.accent : colors.border,
                 },
               ]}
             >
@@ -138,6 +137,24 @@ export default function AddItemSheet({ onClose }) {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {/* ── POS Deductible toggle ── */}
+        <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>
+              Sold at POS Counter
+            </Text>
+            <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
+              Auto-deduct stock when sold. Enable for water, snacks, etc.
+            </Text>
+          </View>
+          <Switch
+            value={form.auto_deduct_on_sale}
+            onValueChange={(v) => updateField("auto_deduct_on_sale", v)}
+            trackColor={{ false: colors.border, true: colors.accent + "80" }}
+            thumbColor={form.auto_deduct_on_sale ? colors.accent : colors.tabBarInactive}
+          />
+        </View>
 
         {/* ── SECTION: Initial Stock ── */}
         <Text style={[styles.sectionLabel, { color: colors.accent, marginTop: 8 }]}>
@@ -171,7 +188,7 @@ export default function AddItemSheet({ onClose }) {
                     styles.pill,
                     {
                       backgroundColor: form.reason === r ? colors.accent : colors.background,
-                      borderColor: form.reason === r ? colors.accent : colors.border,
+                      borderColor:     form.reason === r ? colors.accent : colors.border,
                     },
                   ]}
                 >
@@ -182,7 +199,6 @@ export default function AddItemSheet({ onClose }) {
               ))}
             </ScrollView>
 
-            {/* Funded by business toggle */}
             <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>
@@ -200,7 +216,6 @@ export default function AddItemSheet({ onClose }) {
               />
             </View>
 
-            {/* Notes */}
             <Text style={[styles.label, { color: colors.tabBarInactive }]}>
               Notes <Text style={{ fontSize: 11 }}>(optional)</Text>
             </Text>
@@ -225,10 +240,7 @@ export default function AddItemSheet({ onClose }) {
 
         {/* ── SUBMIT ── */}
         <TouchableOpacity
-          style={[
-            styles.button,
-            { backgroundColor: submitting ? colors.border : colors.accent },
-          ]}
+          style={[styles.button, { backgroundColor: submitting ? colors.border : colors.accent }]}
           onPress={submit}
           disabled={submitting}
         >
