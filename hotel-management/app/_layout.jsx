@@ -4,12 +4,13 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 
-import { AuthProvider, useAuth }       from "../context/AuthContext";
-import { MenuProvider }                from "../context/MenuContext";
-import { InventoryProvider }           from "../context/InventoryContext";
-import { POSProvider }                 from "../context/POSContext";
-import { ExpensesProvider }            from "../context/ExpensesContext";
-import { HRProvider }                  from "../context/HRContext";
+import { AuthProvider, useAuth }  from "../context/AuthContext";
+import { MenuProvider }           from "../context/MenuContext";
+import { InventoryProvider }      from "../context/InventoryContext";
+import { POSProvider }            from "../context/POSContext";
+import { ExpensesProvider }       from "../context/ExpensesContext";
+import { HRProvider }             from "../context/HRContext";
+import { ReportsProvider }        from "../context/ReportsContext";
 
 function RouteGuard({ children }) {
   const { loading, isAuthenticated } = useAuth();
@@ -39,7 +40,9 @@ function RouteGuard({ children }) {
         <POSProvider>
           <ExpensesProvider>
             <HRProvider>
-              {children}
+              <ReportsProvider>
+                {children}
+              </ReportsProvider>
             </HRProvider>
           </ExpensesProvider>
         </POSProvider>
