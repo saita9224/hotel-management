@@ -1,50 +1,309 @@
-# Welcome to your Expo app 👋
+# 📱 Business Management Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A scalable mobile application built with React Native (Expo) for managing small and medium-sized businesses. The app connects to a **Django + Strawberry GraphQL backend** and implements **JWT authentication with role-based access control (RBAC)**.
 
-## Get started
+---
 
-1. Install dependencies
+## 🚀 Tech Stack
 
-   ```bash
-   npm install
-   ```
+* **Framework:** React Native (Expo Router)
+* **Navigation:** File-based routing (Expo Router + Tabs)
+* **State Management:** Context API (Modular Providers)
+* **API Layer:** GraphQL (Custom Fetch Client)
+* **Storage:** AsyncStorage (Session persistence)
+* **Authentication:** JWT + RBAC (from backend)
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## 🧠 Architecture Overview
 
-In the output, you'll find options to open the app in a
+This frontend follows a **modular domain-driven architecture**:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 🔹 Global Providers
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+The app is composed of multiple domain providers:
 
-## Get a fresh project
+* Auth (authentication & session)
+* Menu (UI state)
+* Inventory
+* POS (orders)
+* Expenses
+* HR (employees)
+* Reports
 
-When you're ready, run:
+All providers are composed centrally and injected globally.
 
-```bash
-npm run reset-project
+---
+
+### 🔹 Route Protection (Auth Guard)
+
+* Uses Expo Router segments to control access
+
+* Redirect logic:
+
+  * ❌ Not authenticated → `/login`
+  * ✅ Authenticated → main app tabs
+
+* Displays loading screen during session restore
+
+---
+
+### 🔹 Tab Navigation
+
+Main application is structured using bottom tabs:
+
+* Dashboard
+* Inventory
+* Orders
+* Expenses
+* Reports
+
+Each tab is:
+
+* Themed dynamically
+* Icon-driven (Ionicons)
+* Safe-area aware
+
+---
+
+## 🔐 Authentication & RBAC
+
+### ✅ Authentication Flow
+
+1. User logs in via GraphQL mutation
+2. Backend returns:
+
+   * JWT token
+   * Roles
+   * Permissions
+3. Data is stored in AsyncStorage
+4. App restores session automatically on launch
+
+---
+
+### ✅ Stored Session Data
+
+```json id="c8zv7s"
+{
+  "token": "...",
+  "roles": ["Admin"],
+  "permissions": ["create_order", "view_expense"]
+}
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+### ✅ Authorization (Frontend-Aware)
 
-To learn more about developing your project with Expo, look at the following resources:
+* Permissions are available globally via `AuthContext`
+* UI can adapt dynamically based on:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+  * Roles
+  * Permissions
 
-## Join the community
+Example:
 
-Join our community of developers creating universal apps.
+* Hide buttons if permission is missing
+* Restrict screens
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## 🔗 GraphQL Integration
+
+Custom lightweight GraphQL client:
+
+```javascript id="a1u0t6"
+graphqlRequest(query, variables)
+```
+
+### Features:
+
+* Automatically attaches JWT token
+* Handles:
+
+  * Network errors
+  * GraphQL errors
+* Centralized request logic
+
+---
+
+### 🔌 Endpoint Configuration
+
+```javascript id="f4nt1u"
+const GRAPHQL_URL = "http://<your-local-ip>:8000/graphql/";
+```
+
+> ⚠️ Use local network IP for Android emulator (not localhost)
+
+---
+
+## 📦 Features
+
+### 🛒 Orders / POS
+
+* Create and manage orders
+* Integrated POS workflow
+
+---
+
+### 💸 Expenses
+
+* Record and track expenses
+* Supplier debt tracking
+
+---
+
+### 📊 Inventory
+
+* Track stock levels
+* Monitor product flow
+
+---
+
+### 👨‍💼 Employee Management (HR)
+
+* Create employees with permissions
+* Fetch grouped permissions
+* Role-based onboarding
+
+---
+
+### 📈 Reports
+
+* Business insights (extendable)
+
+---
+
+## ⚙️ Setup & Installation
+
+### 1️⃣ Clone repository
+
+```bash id="hzr3u6"
+git clone https://github.com/your-username/business-management-frontend.git
+cd business-management-frontend
+```
+
+---
+
+### 2️⃣ Install dependencies
+
+```bash id="lcmn2g"
+npm install
+```
+
+---
+
+### 3️⃣ Start development server
+
+```bash id="6fgx2p"
+npx expo start
+```
+
+---
+
+### 4️⃣ Run on device
+
+* Android → Expo Go / Emulator
+* iOS → Expo Go / Simulator
+
+---
+
+## 🧠 Project Structure
+
+```id="4y3g7c"
+app/
+│── (auth)/              # Authentication screens
+│── (tabs)/              # Main tab navigation
+│── _layout.jsx          # Root layout + route guard
+
+context/
+│── AuthContext.jsx
+│── InventoryContext.jsx
+│── ExpensesContext.jsx
+│── POSContext.jsx
+│── HRContext.jsx
+│── ReportsContext.jsx
+
+lib/
+│── graphql.js           # API client
+
+services/
+│── employeeService.js   # GraphQL service layer
+
+hooks/
+│── useTheme.js
+
+components/
+│── Reusable UI components
+```
+
+---
+
+## 🧩 Service Layer Design
+
+API logic is separated into services:
+
+### Example: Employee Onboarding
+
+* Single GraphQL mutation
+* Fully atomic operation (backend controlled)
+
+```javascript id="0m8y9r"
+createEmployeeWithPermissionsService(...)
+```
+
+---
+
+## 🎯 Design Principles
+
+* Separation of concerns (UI vs API vs State)
+* Centralized authentication logic
+* Scalable context-based state management
+* Modular and reusable components
+* Backend-driven authorization (RBAC)
+
+---
+
+## 🔄 Future Improvements
+
+* Offline support
+* Push notifications
+* Real-time updates (GraphQL subscriptions)
+* Permission-based navigation guards
+* UI personalization per role
+
+---
+
+## 🔗 Backend Dependency
+
+This app requires the backend:
+
+* Django + Strawberry GraphQL
+* Custom JWT + RBAC system
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit changes
+4. Open a Pull Request
+
+---
+
+## 📄 License
+
+MIT License
+
+---
+
+## 👨‍💻 Author
+
+Part of a full-stack business management system integrating:
+
+* Mobile (React Native)
+* Backend (Django + GraphQL)
+* Desktop (PySide6)
+
+---
