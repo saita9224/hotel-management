@@ -9,51 +9,72 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
-  KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import { useExpenses } from "../../context/ExpensesContext";
+import { useExpenses }  from "../../context/ExpensesContext";
 import { useInventory } from "../../context/InventoryContext";
-import { useTheme } from "../../hooks/useTheme";
+import { useTheme }     from "../../hooks/useTheme";
 import { payBalanceService } from "../../services/expenseService";
 import {
   addStockFromExpenseService,
   createProductWithStockService,
 } from "../../services/inventoryService";
 
+// ─────────────────────────────────────────────────────────
+// CATEGORY CONFIG
+// label   → shown in UI tile
+// value   → sent to backend (matches existing Alert chain)
+// icon    → Ionicons name
+// ─────────────────────────────────────────────────────────
+const CATEGORIES = [
+  { label: "Dry Goods",     value: "dry goods",   icon: "cube-outline"        },
+  { label: "Vegetables",    value: "vegetables",  icon: "leaf-outline"        },
+  { label: "Meat & Dairy",  value: "meat",        icon: "restaurant-outline"  },
+  { label: "Beverages",     value: "beverages",   icon: "wine-outline"        },
+];
+
 export default function ExpenseForm({ onClose }) {
   const { createExpense, loadExpenses, notifyMenuOfNewProduct } = useExpenses();
   const { loadProducts } = useInventory();
-  const { colors } = useTheme();
+  const { colors }       = useTheme();
 
   const [form, setForm] = useState({
     supplier_name: "",
-    item_name: "",
-    quantity: "",
-    unit_price: "",
-    amount_paid: "",
+    item_name:     "",
+    quantity:      "",
+    unit_price:    "",
+    amount_paid:   "",
+    category:      "dry goods",   // default — first tile pre-selected
+    purchase_date: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const updateField = (key, value) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
   const total   = Number(form.quantity || 0) * Number(form.unit_price || 0);
   const paid    = Number(form.amount_paid || 0);
-  const balance = total - paid;
+  const balance = Math.max(total - paid, 0);
 
-  // =====================================================
-  // MATCHED PRODUCT — atomic: links expense to existing stock
-  // No POS prompt needed — flag already set on the product.
-  // =====================================================
+  const isBalanceOwed = balance > 0 && total > 0;
+
+  // ── Derived display ──────────────────────────────────
+  const totalDisplay = total.toLocaleString("en-KE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  // ─────────────────────────────────────────────────────
+  // INVENTORY PROMPT CHAIN — unchanged logic, same flow
+  // ─────────────────────────────────────────────────────
 
   const promptAddToExistingStock = (matchedProduct, expenseId, quantity) => {
     Alert.alert(
       "Add to Inventory?",
       `"${matchedProduct.name}" exists in inventory with ${matchedProduct.current_stock} ${matchedProduct.unit} in stock.\n\nAdd ${quantity} ${matchedProduct.unit} from this expense?`,
       [
-        { text: "No", style: "cancel", onPress: () => onClose?.() },
+        { text: "No",  style: "cancel", onPress: () => onClose?.() },
         {
           text: "Yes, Add Stock",
           onPress: async () => {
@@ -65,10 +86,7 @@ export default function ExpenseForm({ onClose }) {
               });
               await loadProducts();
             } catch (err) {
-              Alert.alert(
-                "Stock Error",
-                err?.message || "Failed to add stock. You can add it manually from Inventory."
-              );
+              Alert.alert("Stock Error", err?.message || "Failed to add stock.");
             } finally {
               onClose?.();
             }
@@ -78,12 +96,6 @@ export default function ExpenseForm({ onClose }) {
       { cancelable: false }
     );
   };
-
-  // =====================================================
-  // NEW PRODUCT — prompt chain:
-  // Not in inventory → POS deductible? → Unit → Category
-  // → create atomically → refresh menu if POS deductible
-  // =====================================================
 
   const promptCreateNewProduct = (itemName, expenseId, quantity) => {
     Alert.alert(
@@ -105,14 +117,8 @@ export default function ExpenseForm({ onClose }) {
       "Sold at POS Counter?",
       `Will "${itemName}" be sold directly at the POS counter?\n\nEnable this for items like water, snacks, etc. Stock will auto-deduct when sold.`,
       [
-        {
-          text: "No — Raw/Ingredient",
-          onPress: () => promptUnit(itemName, expenseId, quantity, false),
-        },
-        {
-          text: "Yes — POS Item",
-          onPress: () => promptUnit(itemName, expenseId, quantity, true),
-        },
+        { text: "No — Raw/Ingredient", onPress: () => promptUnit(itemName, expenseId, quantity, false) },
+        { text: "Yes — POS Item",      onPress: () => promptUnit(itemName, expenseId, quantity, true)  },
       ],
       { cancelable: false }
     );
@@ -124,9 +130,12 @@ export default function ExpenseForm({ onClose }) {
       "Select Unit",
       `What unit is "${itemName}" measured in?`,
       [
-        ...units.map((unit) => ({
-          text: unit,
-          onPress: () => promptCategory(itemName, expenseId, quantity, unit, autoDeduct),
+        ...units.map(unit => ({
+          text:    unit,
+          onPress: () => createAtomically(
+            itemName, expenseId, quantity,
+            unit, form.category, autoDeduct  // ← use the tile-selected category
+          ),
         })),
         { text: "Cancel", style: "cancel", onPress: () => onClose?.() },
       ],
@@ -134,29 +143,12 @@ export default function ExpenseForm({ onClose }) {
     );
   };
 
-  const promptCategory = (itemName, expenseId, quantity, unit, autoDeduct) => {
-    const categories = ["dry goods", "vegetables", "dairy", "meat", "beverages", "other"];
-    Alert.alert(
-      "Select Category",
-      `What category does "${itemName}" belong to?`,
-      [
-        ...categories.map((cat) => ({
-          text: cat,
-          onPress: () => createAtomically(itemName, expenseId, quantity, unit, cat, autoDeduct),
-        })),
-        { text: "Cancel", style: "cancel", onPress: () => onClose?.() },
-      ],
-      { cancelable: false }
-    );
-  };
+  // NOTE: promptCategory Alert is REMOVED — category is now
+  // selected via the tile grid before submission. The value
+  // in form.category is passed directly to createAtomically.
 
   const createAtomically = async (
-    itemName,
-    expenseId,
-    quantity,
-    unit,
-    category,
-    autoDeduct,
+    itemName, expenseId, quantity, unit, category, autoDeduct,
   ) => {
     try {
       await createProductWithStockService({
@@ -167,26 +159,18 @@ export default function ExpenseForm({ onClose }) {
         expense_item_id:     expenseId,
         auto_deduct_on_sale: autoDeduct,
       });
-
       await loadProducts();
-
-      // If POS-deductible, refresh menu so product appears
-      // in Menu Manager's unpriced list immediately
       await notifyMenuOfNewProduct(autoDeduct);
-
     } catch (err) {
-      Alert.alert(
-        "Error",
-        err?.message || "Failed to create product. You can add it manually from Inventory."
-      );
+      Alert.alert("Error", err?.message || "Failed to create product.");
     } finally {
       onClose?.();
     }
   };
 
-  // =====================================================
-  // SUBMIT
-  // =====================================================
+  // ─────────────────────────────────────────────────────
+  // SUBMIT — identical to original
+  // ─────────────────────────────────────────────────────
 
   const submit = async () => {
     if (!form.item_name.trim())
@@ -223,7 +207,6 @@ export default function ExpenseForm({ onClose }) {
       } else {
         onClose?.();
       }
-
     } catch (err) {
       Alert.alert("Error", err?.message || "Failed to create expense.");
     } finally {
@@ -231,125 +214,418 @@ export default function ExpenseForm({ onClose }) {
     }
   };
 
-  // =====================================================
+  // ─────────────────────────────────────────────────────
   // UI
-  // =====================================================
+  // ─────────────────────────────────────────────────────
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
+    <ScrollView
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { backgroundColor: colors.card }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Add Expense</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Text style={[styles.closeText, { color: colors.tabBarInactive }]}>✕</Text>
-          </TouchableOpacity>
-        </View>
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onClose} style={styles.backBtn}>
+          <Ionicons name="arrow-back-outline" size={22} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Add Expense</Text>
+        <TouchableOpacity style={styles.moreBtn}>
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
+        </TouchableOpacity>
+      </View>
 
-        <Text style={[styles.label, { color: colors.tabBarInactive }]}>Supplier</Text>
-        <TextInput
-          style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-          placeholder="Supplier name"
-          placeholderTextColor={colors.tabBarInactive}
-          value={form.supplier_name}
-          onChangeText={(v) => updateField("supplier_name", v)}
-          returnKeyType="next"
-        />
-
-        <Text style={[styles.label, { color: colors.tabBarInactive }]}>Item</Text>
-        <TextInput
-          style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-          placeholder="Item name"
-          placeholderTextColor={colors.tabBarInactive}
-          value={form.item_name}
-          onChangeText={(v) => updateField("item_name", v)}
-          returnKeyType="next"
-        />
-
-        <Text style={[styles.label, { color: colors.tabBarInactive }]}>Quantity</Text>
-        <TextInput
-          keyboardType="numeric"
-          style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-          placeholder="0"
-          placeholderTextColor={colors.tabBarInactive}
-          value={form.quantity}
-          onChangeText={(v) => updateField("quantity", v)}
-          returnKeyType="next"
-        />
-
-        <Text style={[styles.label, { color: colors.tabBarInactive }]}>Unit Price</Text>
-        <TextInput
-          keyboardType="numeric"
-          style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-          placeholder="0"
-          placeholderTextColor={colors.tabBarInactive}
-          value={form.unit_price}
-          onChangeText={(v) => updateField("unit_price", v)}
-          returnKeyType="next"
-        />
-
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-        <View style={styles.row}>
-          <Text style={[styles.summaryLabel, { color: colors.tabBarInactive }]}>Total</Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            KES {total.toFixed(2)}
-          </Text>
-        </View>
-
-        <Text style={[styles.label, { color: colors.tabBarInactive }]}>
-          Amount Paid <Text style={{ fontSize: 11 }}>(optional)</Text>
+      {/* ── Live total ── */}
+      <View style={[styles.totalSection, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.totalLabel, { color: colors.tabBarInactive }]}>
+          TOTAL AMOUNT
         </Text>
-        <TextInput
-          keyboardType="numeric"
-          style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-          placeholder="0.00"
-          placeholderTextColor={colors.tabBarInactive}
-          value={form.amount_paid}
-          onChangeText={(v) => updateField("amount_paid", v)}
-          returnKeyType="done"
-          onSubmitEditing={submit}
-        />
-
-        <View style={styles.row}>
-          <Text style={[styles.summaryLabel, { color: colors.tabBarInactive }]}>Balance</Text>
-          <Text style={[styles.summaryValue, { color: balance > 0 ? "#E67E22" : colors.accent }]}>
-            KES {Math.max(balance, 0).toFixed(2)}
+        <View style={styles.totalRow}>
+          <Text style={[styles.totalCurrency, { color: colors.accent }]}>KES</Text>
+          <Text style={[styles.totalValue, { color: colors.text }]}>
+            {totalDisplay}
           </Text>
         </View>
+        {isBalanceOwed && (
+          <Text style={[styles.balanceHint, { color: "#E67E22" }]}>
+            Balance owed: KES {balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+          </Text>
+        )}
+      </View>
 
+      {/* ── Category grid ── */}
+      <Text style={[styles.sectionLabel, { color: colors.text }]}>Category</Text>
+      <View style={styles.categoryGrid}>
+        {CATEGORIES.map(cat => {
+          const selected = form.category === cat.value;
+          return (
+            <TouchableOpacity
+              key={cat.value}
+              onPress={() => set("category", cat.value)}
+              style={[
+                styles.categoryTile,
+                {
+                  backgroundColor: selected ? "transparent" : colors.card,
+                  borderColor:     selected ? colors.accent : colors.border,
+                  borderWidth:     selected ? 1.5 : 1,
+                },
+              ]}
+            >
+              <View style={[
+                styles.categoryIconWrap,
+                { backgroundColor: selected ? colors.accent + "22" : colors.background },
+              ]}>
+                <Ionicons
+                  name={cat.icon}
+                  size={22}
+                  color={selected ? colors.accent : colors.tabBarInactive}
+                />
+              </View>
+              <Text style={[
+                styles.categoryLabel,
+                { color: selected ? colors.accent : colors.text },
+              ]}>
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* New Category tile — placeholder */}
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: submitting ? colors.border : colors.accent }]}
-          onPress={submit}
-          disabled={submitting}
+          style={[
+            styles.categoryTile,
+            styles.newCategoryTile,
+            { borderColor: colors.border, backgroundColor: colors.card },
+          ]}
+          onPress={() => Alert.alert("Coming soon", "Custom categories will be available in a future update.")}
         >
-          <Text style={styles.buttonText}>
-            {submitting ? "Saving..." : "Create Expense"}
+          <View style={[styles.categoryIconWrap, { backgroundColor: colors.background }]}>
+            <Ionicons name="add-outline" size={22} color={colors.tabBarInactive} />
+          </View>
+          <Text style={[styles.categoryLabel, { color: colors.tabBarInactive }]}>
+            New{"\n"}Category
           </Text>
         </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </View>
+
+      {/* ── Item details card ── */}
+      <View style={[styles.detailsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.cardSectionLabel, { color: colors.accent }]}>
+          ITEM DETAILS
+        </Text>
+
+        {/* Item name */}
+        <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
+          Specific Good / Item Name
+        </Text>
+        <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+          <Ionicons name="pricetag-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
+          <TextInput
+            placeholder="e.g. Basmati Rice, Organic Tomatoes"
+            placeholderTextColor={colors.tabBarInactive}
+            value={form.item_name}
+            onChangeText={v => set("item_name", v)}
+            style={[styles.fieldInput, { color: colors.text }]}
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* Supplier */}
+        <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
+          Supplier  <Text style={styles.optionalTag}>(optional)</Text>
+        </Text>
+        <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+          <Ionicons name="business-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
+          <TextInput
+            placeholder="Supplier name"
+            placeholderTextColor={colors.tabBarInactive}
+            value={form.supplier_name}
+            onChangeText={v => set("supplier_name", v)}
+            style={[styles.fieldInput, { color: colors.text }]}
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* Qty + Unit price side by side */}
+        <View style={styles.twoCol}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>Quantity</Text>
+            <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Ionicons name="layers-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
+              <TextInput
+                placeholder="0"
+                placeholderTextColor={colors.tabBarInactive}
+                keyboardType="numeric"
+                value={form.quantity}
+                onChangeText={v => set("quantity", v)}
+                style={[styles.fieldInput, { color: colors.text }]}
+                returnKeyType="next"
+              />
+            </View>
+          </View>
+
+          <View style={styles.twoColGap} />
+
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>Unit Price</Text>
+            <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Ionicons name="cash-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
+              <TextInput
+                placeholder="0.00"
+                placeholderTextColor={colors.tabBarInactive}
+                keyboardType="numeric"
+                value={form.unit_price}
+                onChangeText={v => set("unit_price", v)}
+                style={[styles.fieldInput, { color: colors.text }]}
+                returnKeyType="next"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Amount paid */}
+        <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
+          Amount Paid  <Text style={styles.optionalTag}>(optional)</Text>
+        </Text>
+        <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+          <Ionicons name="wallet-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
+          <TextInput
+            placeholder="0.00"
+            placeholderTextColor={colors.tabBarInactive}
+            keyboardType="numeric"
+            value={form.amount_paid}
+            onChangeText={v => set("amount_paid", v)}
+            style={[styles.fieldInput, { color: colors.text }]}
+            returnKeyType="done"
+            onSubmitEditing={submit}
+          />
+        </View>
+      </View>
+
+      {/* ── Receipt capture ── */}
+      <Text style={[styles.sectionLabel, { color: colors.text }]}>Receipt Capture</Text>
+      <TouchableOpacity
+        style={[styles.receiptZone, { borderColor: colors.border }]}
+        onPress={() => Alert.alert("Coming soon", "Receipt scanning will be available in a future update.")}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.receiptIconWrap, { backgroundColor: colors.card }]}>
+          <Ionicons name="receipt-outline" size={28} color={colors.tabBarInactive} />
+        </View>
+        <Text style={[styles.receiptTitle, { color: colors.text }]}>
+          Upload or Scan Receipt
+        </Text>
+        <Text style={[styles.receiptSub, { color: colors.tabBarInactive }]}>
+          PDF, JPG, PNG up to 10MB
+        </Text>
+      </TouchableOpacity>
+
+      {/* ── CTA ── */}
+      <TouchableOpacity
+        style={[
+          styles.submitBtn,
+          { backgroundColor: submitting ? colors.border : colors.accent },
+        ]}
+        onPress={submit}
+        disabled={submitting}
+        activeOpacity={0.85}
+      >
+        <Ionicons
+          name={submitting ? "hourglass-outline" : "checkmark-circle-outline"}
+          size={20}
+          color="#fff"
+          style={{ marginRight: 8 }}
+        />
+        <Text style={styles.submitText}>
+          {submitting ? "Saving..." : "Add Expense"}
+        </Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { padding: 16, paddingBottom: 40, borderRadius: 12, flexGrow: 1 },
-  header:        { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-  title:         { fontSize: 18, fontWeight: "700" },
-  closeBtn:      { padding: 4 },
-  closeText:     { fontSize: 18, fontWeight: "600" },
-  label:         { marginTop: 12, marginBottom: 4, fontSize: 13 },
-  input:         { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14 },
-  divider:       { height: 1, marginVertical: 14 },
-  row:           { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
-  summaryLabel:  { fontSize: 14 },
-  summaryValue:  { fontSize: 15, fontWeight: "700" },
-  button:        { marginTop: 20, padding: 13, borderRadius: 10, alignItems: "center" },
-  buttonText:    { color: "#fff", fontWeight: "700", fontSize: 15 },
+  scroll: {
+    paddingBottom: 40,
+  },
+
+  // Header
+  header: {
+    flexDirection:  "row",
+    alignItems:     "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+    paddingTop:  8,
+    paddingBottom: 16,
+  },
+  backBtn:     { padding: 4 },
+  moreBtn:     { padding: 4 },
+  headerTitle: { fontSize: 17, fontWeight: "700", letterSpacing: 0.2 },
+
+  // Total
+  totalSection: {
+    alignItems:    "center",
+    paddingBottom: 20,
+    marginBottom:  20,
+    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+  },
+  totalLabel: {
+    fontSize:      11,
+    letterSpacing: 1.5,
+    marginBottom:  6,
+    fontWeight:    "600",
+  },
+  totalRow: {
+    flexDirection: "row",
+    alignItems:    "baseline",
+    gap:           8,
+  },
+  totalCurrency: {
+    fontSize:   22,
+    fontWeight: "700",
+  },
+  totalValue: {
+    fontSize:      44,
+    fontWeight:    "300",
+    letterSpacing: -1,
+  },
+  balanceHint: {
+    marginTop:  6,
+    fontSize:   12,
+    fontWeight: "600",
+  },
+
+  // Section label
+  sectionLabel: {
+    fontSize:      16,
+    fontWeight:    "700",
+    marginBottom:  12,
+    paddingHorizontal: 4,
+  },
+
+  // Category grid
+  categoryGrid: {
+    flexDirection:  "row",
+    flexWrap:       "wrap",
+    gap:            10,
+    marginBottom:   20,
+  },
+  categoryTile: {
+    width:          "30%",        // 3-column grid
+    aspectRatio:    1,
+    borderRadius:   12,
+    alignItems:     "center",
+    justifyContent: "center",
+    gap:            6,
+    padding:        8,
+  },
+  newCategoryTile: {
+    borderStyle: "dashed",
+  },
+  categoryIconWrap: {
+    width:          40,
+    height:         40,
+    borderRadius:   20,
+    alignItems:     "center",
+    justifyContent: "center",
+  },
+  categoryLabel: {
+    fontSize:   11,
+    fontWeight: "600",
+    textAlign:  "center",
+    lineHeight: 15,
+  },
+
+  // Details card
+  detailsCard: {
+    borderRadius:  12,
+    borderWidth:   1,
+    padding:       16,
+    marginBottom:  20,
+    gap:           2,
+  },
+  cardSectionLabel: {
+    fontSize:      11,
+    fontWeight:    "700",
+    letterSpacing: 1.2,
+    marginBottom:  12,
+  },
+  fieldLabel: {
+    fontSize:     12,
+    marginTop:    10,
+    marginBottom: 6,
+  },
+  optionalTag: {
+    fontSize:   11,
+    fontStyle:  "italic",
+  },
+  fieldRow: {
+    flexDirection: "row",
+    alignItems:    "center",
+    borderWidth:   1,
+    borderRadius:  8,
+    paddingHorizontal: 10,
+    minHeight:     44,
+  },
+  fieldIcon: {
+    marginRight: 8,
+  },
+  fieldInput: {
+    flex:     1,
+    fontSize: 14,
+    paddingVertical: Platform.OS === "ios" ? 10 : 8,
+  },
+
+  // Two-col layout for qty + price
+  twoCol: {
+    flexDirection: "row",
+    alignItems:    "flex-start",
+  },
+  twoColGap: { width: 10 },
+
+  // Receipt zone
+  receiptZone: {
+    borderWidth:    1.5,
+    borderStyle:    "dashed",
+    borderRadius:   12,
+    alignItems:     "center",
+    justifyContent: "center",
+    paddingVertical:28,
+    marginBottom:   24,
+    gap:            6,
+  },
+  receiptIconWrap: {
+    width:          52,
+    height:         52,
+    borderRadius:   26,
+    alignItems:     "center",
+    justifyContent: "center",
+    marginBottom:   4,
+  },
+  receiptTitle: {
+    fontSize:   15,
+    fontWeight: "600",
+  },
+  receiptSub: {
+    fontSize: 12,
+  },
+
+  // Submit
+  submitBtn: {
+    flexDirection:  "row",
+    alignItems:     "center",
+    justifyContent: "center",
+    padding:        16,
+    borderRadius:   14,
+    marginHorizontal: 0,
+    minHeight:      54,
+  },
+  submitText: {
+    color:      "#fff",
+    fontWeight: "700",
+    fontSize:   16,
+    letterSpacing: 0.3,
+  },
 });
