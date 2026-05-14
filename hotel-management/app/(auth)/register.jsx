@@ -6,12 +6,17 @@ import {
   StyleSheet, Alert, ActivityIndicator,
   KeyboardAvoidingView, ScrollView, Platform,
 } from "react-native";
-import { Ionicons }   from "@expo/vector-icons";
-import { useRouter }  from "expo-router";
+import { Ionicons }      from "@expo/vector-icons";
+import { useRouter }     from "expo-router";
 
-import { useAuth }      from "../../context/AuthContext";
-import { useTheme }     from "../../hooks/useTheme";
+import { useAuth }       from "../../context/AuthContext";
+import { useTheme }      from "../../hooks/useTheme";
 import { publicRequest } from "../../lib/graphql";
+
+// ─────────────────────────────────────────────────────────────
+// GraphQL mutations — both hit the PUBLIC endpoint (/auth/)
+// because the user has no tenant subdomain yet at this stage.
+// ─────────────────────────────────────────────────────────────
 
 const REQUEST_MUTATION = `
   mutation RequestRegistration($email: String!, $businessName: String!) {
@@ -38,24 +43,28 @@ const VERIFY_MUTATION = `
 `;
 
 export default function RegisterScreen() {
-  const { googleSignIn }  = useAuth();
-  const { colors }        = useTheme();
-  const router            = useRouter();
+  // applySession is the shared session writer from AuthContext.
+  // It writes token, schemaName, roles, permissions to AsyncStorage
+  // and updates all context state in one call — same function used
+  // by login and googleSignIn, so session handling is consistent.
+  const { applySession } = useAuth();
+  const { colors }       = useTheme();
+  const router           = useRouter();
 
-  // step 1 fields
+  // ── Step 1 fields ────────────────────────────────────────
   const [email,        setEmail]        = useState("");
   const [businessName, setBusinessName] = useState("");
 
-  // step 2 fields
+  // ── Step 2 fields ────────────────────────────────────────
   const [pin,          setPin]          = useState("");
   const [adminName,    setAdminName]    = useState("");
   const [password,     setPassword]     = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const [step,    setStep]    = useState(1);  // 1 | 2
+  const [step,    setStep]    = useState(1);   // 1 | 2
   const [loading, setLoading] = useState(false);
 
-  // ── Step 1: request PIN ──────────────────────────────
+  // ── Step 1: request PIN ──────────────────────────────────
   const handleRequestPin = async () => {
     const trimEmail    = email.trim().toLowerCase();
     const trimBusiness = businessName.trim();
@@ -75,6 +84,8 @@ export default function RegisterScreen() {
         email:        trimEmail,
         businessName: trimBusiness,
       });
+      // Store the normalised email so step 2 sends the same value
+      // that step 1 registered — prevents case-mismatch lookup errors.
       setEmail(trimEmail);
       setStep(2);
     } catch (err) {
@@ -84,7 +95,7 @@ export default function RegisterScreen() {
     }
   };
 
-  // ── Step 2: verify PIN + create business ─────────────
+  // ── Step 2: verify PIN + create business ─────────────────
   const handleVerify = async () => {
     const trimPin  = pin.trim();
     const trimName = adminName.trim();
@@ -104,6 +115,7 @@ export default function RegisterScreen() {
 
     try {
       setLoading(true);
+
       const data = await publicRequest(VERIFY_MUTATION, {
         email:    email,
         pin:      trimPin,
@@ -113,26 +125,30 @@ export default function RegisterScreen() {
 
       const result = data.verifyRegistration;
 
-      // Apply session the same way login does — reuse the same
-      // AsyncStorage keys so the app boots authenticated next time.
-      const { AsyncStorage } = await import("@react-native-async-storage/async-storage");
-      await AsyncStorage.multiSet([
-        ["token",       result.token],
-        ["schemaName",  result.schemaName],
-        ["roles",       JSON.stringify(result.roles)],
-        ["permissions", JSON.stringify(result.permissions)],
-      ]);
+      // applySession handles both AsyncStorage and React state.
+      // This is identical to how login.jsx handles a successful
+      // login — no direct AsyncStorage calls needed here.
+      await applySession(result);
 
-      // Navigate to tabs — admin is logged in immediately after registration
+      // Admin is logged in immediately after registration.
+      // is_email_verified is True for all admins (they proved
+      // email ownership via the PIN) so go straight to tabs.
       router.replace("/(tabs)");
+
     } catch (err) {
-      Alert.alert("Error", err?.message || "Verification failed. Check your PIN.");
+      Alert.alert(
+        "Error",
+        err?.message || "Verification failed. Check your PIN and try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Resend PIN ────────────────────────────────────────
+  // ── Resend PIN ────────────────────────────────────────────
+  // Re-calls requestRegistration with the same email + businessName.
+  // The backend replaces the old PendingRegistration record,
+  // invalidating the previous PIN automatically.
   const handleResend = async () => {
     try {
       setLoading(true);
@@ -148,6 +164,7 @@ export default function RegisterScreen() {
     }
   };
 
+  // ── UI ────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -158,7 +175,8 @@ export default function RegisterScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Back button ── */}
+
+        {/* ── Back / step navigation ── */}
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => step === 1 ? router.back() : setStep(1)}
@@ -170,13 +188,14 @@ export default function RegisterScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* ══ STEP 1 ══ */}
         {step === 1 ? (
           <>
             <Text style={[styles.title, { color: colors.text }]}>
               Register your business
             </Text>
             <Text style={[styles.subtitle, { color: colors.tabBarInactive }]}>
-              We'll send a 6-digit PIN to verify your email.
+              We'll send a 6-digit PIN to verify your email before creating your account.
             </Text>
 
             <TextInput
@@ -190,6 +209,7 @@ export default function RegisterScreen() {
                 borderColor:     colors.border,
               }]}
             />
+
             <TextInput
               placeholder="Your email"
               placeholderTextColor={colors.tabBarInactive}
@@ -217,7 +237,10 @@ export default function RegisterScreen() {
               }
             </TouchableOpacity>
           </>
+
         ) : (
+
+        /* ══ STEP 2 ══ */
           <>
             <Text style={[styles.title, { color: colors.text }]}>
               Verify your email
@@ -283,6 +306,7 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Create business */}
             <TouchableOpacity
               style={[styles.button, {
                 backgroundColor: loading ? colors.border : colors.accent,
@@ -296,6 +320,7 @@ export default function RegisterScreen() {
               }
             </TouchableOpacity>
 
+            {/* Resend PIN */}
             <TouchableOpacity
               style={[styles.secondaryButton, { borderColor: colors.border }]}
               onPress={handleResend}
@@ -307,6 +332,7 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </>
         )}
+
       </ScrollView>
     </KeyboardAvoidingView>
   );

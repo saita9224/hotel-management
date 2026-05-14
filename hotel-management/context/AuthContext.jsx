@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { publicRequest, graphqlRequest } from "../lib/graphql";
+import { publicRequest } from "../lib/graphql";
 
 const AuthContext = createContext();
 
@@ -24,21 +24,22 @@ const GOOGLE_AUTH_MUTATION = `
 `;
 
 export function AuthProvider({ children }) {
-  const [token,           setToken]           = useState(null);
-  const [schemaName,      setSchemaName]       = useState(null);
-  const [userId,          setUserId]           = useState(null);
-  const [name,            setName]             = useState(null);
-  const [roles,           setRoles]            = useState([]);
-  const [permissions,     setPermissions]      = useState([]);
-  const [isEmailVerified, setIsEmailVerified]  = useState(true);
-  const [loading,         setLoading]          = useState(true);
+  const [token,           setToken]          = useState(null);
+  const [schemaName,      setSchemaName]      = useState(null);
+  const [userId,          setUserId]          = useState(null);
+  const [name,            setName]            = useState(null);
+  const [roles,           setRoles]           = useState([]);
+  const [permissions,     setPermissions]     = useState([]);
+  const [isEmailVerified, setIsEmailVerified] = useState(true);
+  const [loading,         setLoading]         = useState(true);
 
-  // ─── Restore session ────────────────────────────────────
+  // ─── Restore session on app boot ────────────────────────
   useEffect(() => {
     const restoreSession = async () => {
       try {
         const pairs  = await AsyncStorage.multiGet(STORAGE_KEYS);
         const stored = Object.fromEntries(pairs.map(([k, v]) => [k, v]));
+
         if (stored.token) {
           setToken(stored.token);
           setSchemaName(stored.schemaName);
@@ -55,8 +56,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ─── Shared session writer ───────────────────────────────
-  // Used by both login and googleSignIn to avoid duplication.
-  const _applySession = async (result) => {
+  // Called by login, googleSignIn, and register (via applySession).
+  // Writes to AsyncStorage and updates all context state in one call.
+  // Exposed as applySession so register.jsx can call it directly
+  // without duplicating storage logic.
+  const applySession = async (result) => {
     await AsyncStorage.multiSet([
       ["token",       result.token],
       ["schemaName",  result.schemaName],
@@ -65,10 +69,10 @@ export function AuthProvider({ children }) {
     ]);
     setToken(result.token);
     setSchemaName(result.schemaName);
-    setUserId(result.userId);
-    setName(result.name);
-    setRoles(result.roles);
-    setPermissions(result.permissions);
+    setUserId(result.userId   ?? null);
+    setName(result.name       ?? null);
+    setRoles(result.roles     ?? []);
+    setPermissions(result.permissions ?? []);
   };
 
   // ─── Email + password login ──────────────────────────────
@@ -83,7 +87,7 @@ export function AuthProvider({ children }) {
     `, { email, password });
 
     const result = data.login;
-    await _applySession(result);
+    await applySession(result);
     setIsEmailVerified(result.isEmailVerified);
     return result;
   };
@@ -99,12 +103,12 @@ export function AuthProvider({ children }) {
     });
 
     const result = data.googleAuth;
-    await _applySession(result);
+    await applySession(result);
     setIsEmailVerified(true); // Google users are always verified
     return result;            // caller can check result.isNewUser if needed
   };
 
-  // ─── Mark email verified ─────────────────────────────────
+  // ─── Mark email verified (called from verify-email.jsx) ──
   const markEmailVerified = () => setIsEmailVerified(true);
 
   // ─── Logout ──────────────────────────────────────────────
@@ -121,10 +125,25 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      token, schemaName, userId, name,
-      roles, permissions, isEmailVerified,
-      loading, isAuthenticated: !!token,
-      login, googleSignIn, logout, markEmailVerified,
+      // State
+      token,
+      schemaName,
+      userId,
+      name,
+      roles,
+      permissions,
+      isEmailVerified,
+      loading,
+      isAuthenticated: !!token,
+
+      // Actions
+      login,
+      googleSignIn,
+      logout,
+      markEmailVerified,
+      applySession,     // exposed so register.jsx can write session
+                        // after verifyRegistration without duplicating
+                        // AsyncStorage logic
     }}>
       {children}
     </AuthContext.Provider>
