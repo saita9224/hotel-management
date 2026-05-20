@@ -13,9 +13,11 @@ import { useMenu } from "./MenuContext";
 
 import {
   fetchProducts,
+  fetchCategories,
   fetchStockMovements,
   fetchPendingReconciliations,
   createProductService,
+  createCategoryService,
   addStockService,
   removeStockService,
   submitReconciliationService,
@@ -28,12 +30,13 @@ const InventoryContext = createContext();
 export const useInventory = () => useContext(InventoryContext);
 
 export const InventoryProvider = ({ children }) => {
-  const [products, setProducts] = useState([]);
+  const [products,               setProducts]               = useState([]);
+  const [serverCategories,       setServerCategories]       = useState([]);
   const [pendingReconciliations, setPendingReconciliations] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading,                setLoading]                = useState(false);
 
   const { isAuthenticated } = useAuth();
-  const { refreshMenu } = useMenu();
+  const { refreshMenu }     = useMenu();
 
   // =====================================================
   // LOAD PRODUCTS
@@ -52,6 +55,37 @@ export const InventoryProvider = ({ children }) => {
   };
 
   // =====================================================
+  // LOAD CATEGORIES FROM BACKEND
+  // =====================================================
+
+  const loadCategories = async () => {
+    try {
+      const data = await fetchCategories();
+      setServerCategories(data);
+    } catch (error) {
+      console.log("Load Categories Error:", error);
+    }
+  };
+
+  // =====================================================
+  // CREATE CATEGORY
+  // =====================================================
+
+  const createCategory = async (name) => {
+    try {
+      const cat = await createCategoryService(name);
+      // Append immediately so the UI updates without a full reload
+      setServerCategories((prev) => [...prev, cat].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      ));
+      return cat;
+    } catch (error) {
+      console.log("Create Category Error:", error);
+      throw error;
+    }
+  };
+
+  // =====================================================
   // LOAD PENDING RECONCILIATIONS
   // =====================================================
 
@@ -66,15 +100,12 @@ export const InventoryProvider = ({ children }) => {
 
   // =====================================================
   // CREATE PRODUCT + INITIAL STOCK
-  //
-  // If auto_deduct_on_sale=True, refreshMenu() is called
-  // after creation so the product immediately appears in
-  // the Menu Manager's "Needs Pricing" unpriced list.
+  // category_id is now passed instead of a string
   // =====================================================
 
   const createProduct = async ({
     name,
-    category,
+    category_id,
     unit,
     quantity,
     reason,
@@ -85,28 +116,26 @@ export const InventoryProvider = ({ children }) => {
     try {
       const result = await createProductService({
         name,
-        category,
+        category_id,
         unit,
         auto_deduct_on_sale: auto_deduct_on_sale ?? false,
       });
+
       const productId = result?.createProduct?.id;
       if (!productId) throw new Error("Product creation failed");
 
       if (quantity && Number(quantity) > 0) {
         await addStockService({
-          product_id: productId,
-          quantity: Number(quantity),
-          reason: reason || "PURCHASE",
+          product_id:         productId,
+          quantity:           Number(quantity),
+          reason:             reason || "PURCHASE",
           funded_by_business: funded_by_business ?? true,
-          notes: notes || null,
+          notes:              notes || null,
         });
       }
 
-      // Refresh inventory list
       await loadProducts();
 
-      // If POS-deductible, refresh menu so the new product
-      // appears in unpricedItems immediately without manual refresh
       if (auto_deduct_on_sale) {
         await refreshMenu();
       }
@@ -125,7 +154,7 @@ export const InventoryProvider = ({ children }) => {
   const addStock = async (productId, quantity, reason, funded_by_business, notes) => {
     try {
       await addStockService({
-        product_id: productId,
+        product_id:         productId,
         quantity,
         reason,
         funded_by_business: funded_by_business ?? true,
@@ -206,11 +235,17 @@ export const InventoryProvider = ({ children }) => {
   };
 
   // =====================================================
-  // CATEGORIES (derived)
+  // FILTER CATEGORIES — derived from products for the
+  // inventory list pill filter ("All", "Beverages", ...)
+  // Separate from serverCategories which is used in forms.
   // =====================================================
 
   const categories = useMemo(() => {
-    const unique = new Set(products.map((p) => p.category));
+    const unique = new Set(
+      products
+        .map((p) => p.category?.name)
+        .filter(Boolean)
+    );
     return ["All", ...Array.from(unique).sort()];
   }, [products]);
 
@@ -221,6 +256,7 @@ export const InventoryProvider = ({ children }) => {
   useEffect(() => {
     if (isAuthenticated) {
       loadProducts();
+      loadCategories();
       loadPendingReconciliations();
     }
   }, [isAuthenticated]);
@@ -229,9 +265,12 @@ export const InventoryProvider = ({ children }) => {
     () => ({
       products,
       categories,
+      serverCategories,   // full { id, name } objects for forms
       loading,
       pendingReconciliations,
       loadProducts,
+      loadCategories,
+      createCategory,
       loadPendingReconciliations,
       createProduct,
       addStock,
@@ -241,7 +280,7 @@ export const InventoryProvider = ({ children }) => {
       approveReconciliation,
       rejectReconciliation,
     }),
-    [products, categories, loading, pendingReconciliations]
+    [products, categories, serverCategories, loading, pendingReconciliations]
   );
 
   return (

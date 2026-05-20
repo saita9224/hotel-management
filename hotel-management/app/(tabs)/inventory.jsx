@@ -1,3 +1,5 @@
+// app/(tabs)/inventory.jsx
+
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   View,
@@ -21,12 +23,13 @@ import { useNavigation } from "expo-router";
 import { useInventory } from "../../context/InventoryContext";
 import { useTheme } from "../../hooks/useTheme";
 
-import AddItemSheet       from "../../components/Inventory/AddItemSheet";
-import DeductStockModal   from "../../components/Inventory/DeductStockModal";
-import StockHistorySheet  from "../../components/Inventory/StockHistorySheet";
-import StockCountScreen   from "../../components/Inventory/StockCountScreen";
+import AddItemSheet      from "../../components/Inventory/AddItemSheet";
+import DeductStockModal  from "../../components/Inventory/DeductStockModal";
+import StockHistorySheet from "../../components/Inventory/StockHistorySheet";
+import StockCountScreen  from "../../components/Inventory/StockCountScreen";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
+const SHEET_HEIGHT  = SCREEN_HEIGHT * 0.82;
 
 const STOCK_COLORS = {
   ok:  "#30D158",
@@ -38,8 +41,6 @@ const TABS = [
   { key: "inventory",  label: "Inventory"   },
   { key: "stockcount", label: "Stock Count" },
 ];
-
-// ── HEADER TOGGLE ─────────────────────────────────────────
 
 function HeaderToggle({ activeTab, onPress, colors }) {
   return (
@@ -67,42 +68,25 @@ function HeaderToggle({ activeTab, onPress, colors }) {
 }
 
 const toggle = StyleSheet.create({
-  wrapper: {
-    flexDirection: "row",
-    borderRadius:  8,
-    borderWidth:   1,
-    padding:       3,
-    gap:           3,
-  },
-  btn: {
-    paddingVertical:   6,
-    paddingHorizontal: 14,
-    borderRadius:      6,
-    alignItems:        "center",
-    justifyContent:    "center",
-  },
+  wrapper: { flexDirection: "row", borderRadius: 8, borderWidth: 1, padding: 3, gap: 3 },
+  btn:     { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, alignItems: "center", justifyContent: "center" },
 });
-
-// ── MAIN SCREEN ───────────────────────────────────────────
 
 export default function InventoryScreen() {
   const { colors } = useTheme();
   const { products, categories, loading } = useInventory();
   const navigation = useNavigation();
 
-  const [activeTab,         setActiveTab]         = useState("inventory");
-  const [selectedCategory,  setSelectedCategory]  = useState("All");
-  const [searchQuery,       setSearchQuery]        = useState("");
+  const [activeTab,        setActiveTab]        = useState("inventory");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchQuery,      setSearchQuery]      = useState("");
+  const [showAddSheet,     setShowAddSheet]     = useState(false);
+  const [selectedProduct,  setSelectedProduct]  = useState(null);
+  const [showDeduct,       setShowDeduct]       = useState(false);
+  const [showHistory,      setShowHistory]      = useState(false);
 
-  const [showAddSheet,    setShowAddSheet]    = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [showDeduct,      setShowDeduct]      = useState(false);
-  const [showHistory,     setShowHistory]     = useState(false);
-
-  const slideAnim   = useRef(new Animated.Value(SCREEN_HEIGHT * 0.82)).current;
+  const slideAnim    = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
-
-  // ── Inject title + toggle into header ─────────────────
 
   useEffect(() => {
     navigation.setOptions({
@@ -111,21 +95,12 @@ export default function InventoryScreen() {
           <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 17 }}>
             Inventory
           </Text>
-          <HeaderToggle
-            activeTab={activeTab}
-            onPress={setActiveTab}
-            colors={colors}
-          />
+          <HeaderToggle activeTab={activeTab} onPress={setActiveTab} colors={colors} />
         </View>
       ),
-      headerStyle: {
-        backgroundColor: colors.background,
-        height: 90,
-      },
+      headerStyle: { backgroundColor: colors.background, height: 90 },
     });
   }, [activeTab, colors]);
-
-  // ── Sheet open / close ─────────────────────────────────
 
   const openSheet = () => {
     setShowAddSheet(true);
@@ -137,12 +112,10 @@ export default function InventoryScreen() {
 
   const closeSheet = () => {
     Animated.parallel([
-      Animated.timing(slideAnim, { toValue: SCREEN_HEIGHT * 0.82, duration: 220, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: SHEET_HEIGHT, duration: 220, useNativeDriver: true }),
       Animated.timing(backdropAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
     ]).start(() => setShowAddSheet(false));
   };
-
-  // ── Back handler ───────────────────────────────────────
 
   useEffect(() => {
     const onBackPress = () => {
@@ -155,13 +128,13 @@ export default function InventoryScreen() {
     return () => sub.remove();
   }, [showAddSheet, showDeduct, showHistory]);
 
-  // ── Filter + search ────────────────────────────────────
-
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
+      // category is now an object — compare against category.name
+      const categoryName = p.category?.name || "Uncategorized";
       const matchCategory =
         selectedCategory === "All" ||
-        p.category.toLowerCase() === selectedCategory.toLowerCase();
+        categoryName.toLowerCase() === selectedCategory.toLowerCase();
       const matchSearch =
         !searchQuery.trim() ||
         p.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -169,21 +142,15 @@ export default function InventoryScreen() {
     });
   }, [products, selectedCategory, searchQuery]);
 
-  // ── Group by category ──────────────────────────────────
-
   const categoryGroups = useMemo(() => {
     const groups = {};
     filteredProducts.forEach((p) => {
-      const key = p.category || "Uncategorized";
+      const key = p.category?.name || "Uncategorized";
       if (!groups[key]) groups[key] = { category: key, items: [] };
       groups[key].items.push(p);
     });
-    return Object.values(groups).sort((a, b) =>
-      a.category.localeCompare(b.category)
-    );
+    return Object.values(groups).sort((a, b) => a.category.localeCompare(b.category));
   }, [filteredProducts]);
-
-  // ── Stock helpers ──────────────────────────────────────
 
   const getStockColor = (qty) => {
     if (qty <= 0) return STOCK_COLORS.out;
@@ -197,47 +164,38 @@ export default function InventoryScreen() {
     return null;
   };
 
-  // ── Product card ───────────────────────────────────────
-
   const renderProduct = (product) => {
     const stockColor = getStockColor(product.current_stock);
     const stockLabel = getStockLabel(product.current_stock);
-
     return (
-      <View
-        key={product.id}
-        style={[styles.productCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      >
-        {/* Name row */}
+      <View key={product.id} style={[styles.productCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.rowBetween}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
-            <Text style={[styles.productName, { color: colors.text }]}>
-              {product.name}
-            </Text>
+            <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
             {product.auto_deduct_on_sale && (
               <View style={[styles.posBadge, { backgroundColor: colors.accent + "20" }]}>
-                <Text style={{ color: colors.accent, fontSize: 10, fontWeight: "700" }}>
-                  POS
-                </Text>
+                <Text style={{ color: colors.accent, fontSize: 10, fontWeight: "700" }}>POS</Text>
               </View>
             )}
           </View>
-
           {stockLabel && (
             <View style={[styles.stockBadge, { backgroundColor: stockColor + "20" }]}>
-              <Text style={{ color: stockColor, fontSize: 11, fontWeight: "700" }}>
-                {stockLabel}
-              </Text>
+              <Text style={{ color: stockColor, fontSize: 11, fontWeight: "700" }}>{stockLabel}</Text>
             </View>
           )}
         </View>
 
-        {/* Stock quantity */}
+        {/* Show category name as a subtle tag */}
+        {product.category?.name && (
+          <Text style={{ color: colors.tabBarInactive, fontSize: 11, marginTop: 2 }}>
+            {product.category.name}
+          </Text>
+        )}
+
         <Text style={{ color: stockColor, fontWeight: "700", marginTop: 4 }}>
           {product.current_stock} {product.unit}
         </Text>
 
-        {/* Actions */}
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.actionBtn, { borderColor: colors.accent, backgroundColor: colors.accent + "15" }]}
@@ -245,7 +203,6 @@ export default function InventoryScreen() {
           >
             <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 12 }}>Deduct</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
             onPress={() => { setSelectedProduct(product); setShowHistory(true); }}
@@ -257,8 +214,6 @@ export default function InventoryScreen() {
     );
   };
 
-  // ── Category group ─────────────────────────────────────
-
   const renderGroup = ({ item }) => (
     <View style={styles.group}>
       <Text style={[styles.categoryLabel, { color: colors.tabBarInactive }]}>
@@ -268,13 +223,9 @@ export default function InventoryScreen() {
     </View>
   );
 
-  // ── UI ─────────────────────────────────────────────────
-
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
-
-        {/* INVENTORY TAB */}
         {activeTab === "inventory" && (
           <>
             <TextInput
@@ -284,7 +235,6 @@ export default function InventoryScreen() {
               placeholder="Search items..."
               placeholderTextColor={colors.tabBarInactive}
             />
-
             <View style={[styles.categoryContainer, { backgroundColor: colors.card }]}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {categories.map((cat) => {
@@ -309,7 +259,6 @@ export default function InventoryScreen() {
                 })}
               </ScrollView>
             </View>
-
             <FlatList
               data={categoryGroups}
               keyExtractor={(item) => item.category}
@@ -323,56 +272,43 @@ export default function InventoryScreen() {
             />
           </>
         )}
-
-        {/* STOCK COUNT TAB */}
         {activeTab === "stockcount" && <StockCountScreen />}
-
       </SafeAreaView>
 
-      {/* FAB — inventory tab only */}
       {activeTab === "inventory" && (
-        <TouchableOpacity
-          style={[styles.fab, { backgroundColor: colors.accent }]}
-          onPress={openSheet}
-        >
+        <TouchableOpacity style={[styles.fab, { backgroundColor: colors.accent }]} onPress={openSheet}>
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       )}
 
-      {/* ADD ITEM SHEET */}
       {showAddSheet && (
         <>
           <TouchableWithoutFeedback onPress={closeSheet}>
             <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
           </TouchableWithoutFeedback>
 
-          <Animated.View
-            style={[
-              styles.sheet,
-              { backgroundColor: colors.card, transform: [{ translateY: slideAnim }] },
-            ]}
-          >
-            <View style={styles.handleRow}>
-              <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          <Animated.View style={[styles.sheet, { backgroundColor: colors.card, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.dragHandleRow}>
+              <View style={[styles.dragHandle, { backgroundColor: colors.border }]} />
             </View>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
-              style={{ flex: 1 }}
-            >
-              <AddItemSheet onClose={closeSheet} />
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+              <ScrollView
+                contentContainerStyle={{ paddingBottom: 32 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <AddItemSheet onClose={closeSheet} />
+              </ScrollView>
             </KeyboardAvoidingView>
           </Animated.View>
         </>
       )}
 
-      {/* DEDUCT MODAL */}
       <DeductStockModal
         visible={showDeduct}
         product={selectedProduct}
         onClose={() => { setShowDeduct(false); setSelectedProduct(null); }}
       />
-
-      {/* HISTORY SHEET */}
       <StockHistorySheet
         visible={showHistory}
         product={selectedProduct}
@@ -383,9 +319,8 @@ export default function InventoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:     { flex: 1 },
-  safeArea: { flex: 1, paddingHorizontal: 16 },
-
+  root:              { flex: 1 },
+  safeArea:          { flex: 1, paddingHorizontal: 16 },
   searchBar:         { borderWidth: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 15, fontSize: 14, marginBottom: 6 },
   categoryContainer: { borderRadius: 10, paddingVertical: 4, paddingHorizontal: 8, marginBottom: 10 },
   categoryPill:      { paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, marginRight: 10 },
@@ -398,10 +333,9 @@ const styles = StyleSheet.create({
   rowBetween:        { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   actions:           { flexDirection: "row", gap: 8, marginTop: 10 },
   actionBtn:         { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1 },
-
-  fab:      { position: "absolute", bottom: 24, right: 16, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },
-  sheet:    { position: "absolute", bottom: 0, left: 0, right: 0, height: SCREEN_HEIGHT * 0.82, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
-  handleRow: { alignItems: "center", paddingVertical: 10 },
-  handle:    { width: 40, height: 4, borderRadius: 2 },
+  fab:               { position: "absolute", bottom: 24, right: 16, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
+  backdrop:          { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },
+  sheet:             { position: "absolute", bottom: 0, left: 0, right: 0, height: SHEET_HEIGHT, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
+  dragHandleRow:     { alignItems: "center", paddingVertical: 10 },
+  dragHandle:        { width: 40, height: 4, borderRadius: 2 },
 });

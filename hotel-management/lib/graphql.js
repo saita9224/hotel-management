@@ -22,7 +22,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const __DEV__ = process.env.NODE_ENV !== "production";
 
 const BASE_HOST = __DEV__
-  ? "10.245.13.69:8000"
+  ? "10.89.94.69:8000"
   : "yourdomain.com";
 
 const PROTOCOL = __DEV__ ? "http" : "https";
