@@ -50,14 +50,13 @@ const pill = StyleSheet.create({
 // ══════════════════════════════════════════════════════════
 
 function CountEntryPhase({ products, onSubmit, colors }) {
-  const [counts, setCounts] = useState({});
+  const [counts,     setCounts]     = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [filter, setFilter] = useState("");
+  const [filter,     setFilter]     = useState("");
 
   const updateCount = (id, value) =>
     setCounts((prev) => ({ ...prev, [id]: value }));
 
-  // Only products with stock > 0
   const stockedProducts = useMemo(
     () => products.filter((p) => p.current_stock > 0),
     [products]
@@ -70,15 +69,17 @@ function CountEntryPhase({ products, onSubmit, colors }) {
     );
   }, [stockedProducts, filter]);
 
-  const filledCount = Object.values(counts).filter((v) => v !== "" && v !== undefined).length;
+  const filledCount = Object.values(counts).filter(
+    (v) => v !== "" && v !== undefined
+  ).length;
 
   const handleSubmit = async () => {
     const entries = stockedProducts
       .map((p) => ({
-        product_id: p.id,
+        product_id:       p.id,
         counted_quantity: counts[p.id] !== undefined && counts[p.id] !== ""
           ? Number(counts[p.id])
-          : p.current_stock, // if not filled, assume matches system
+          : p.current_stock,
       }))
       .filter((e) => !isNaN(e.counted_quantity) && e.counted_quantity >= 0);
 
@@ -109,11 +110,12 @@ function CountEntryPhase({ products, onSubmit, colors }) {
   };
 
   const renderItem = ({ item: product }) => {
-    const value = counts[product.id] ?? "";
+    const value   = counts[product.id] ?? "";
     const entered = value !== "";
-    const diff = entered
-      ? Number(value) - product.current_stock
-      : null;
+    const diff    = entered ? Number(value) - product.current_stock : null;
+
+    // category is now an object — extract the name safely
+    const categoryName = product.category?.name || "Uncategorized";
 
     return (
       <View style={[styles.countRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -125,9 +127,11 @@ function CountEntryPhase({ products, onSubmit, colors }) {
             {entered && diff !== null && <DiffPill diff={diff} />}
           </View>
           <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
-            {product.category}
+            {categoryName}
             {"  •  System: "}
-            <Text style={{ fontWeight: "600" }}>{formatQty(product.current_stock)} {product.unit}</Text>
+            <Text style={{ fontWeight: "600" }}>
+              {formatQty(product.current_stock)} {product.unit}
+            </Text>
           </Text>
         </View>
 
@@ -135,8 +139,8 @@ function CountEntryPhase({ products, onSubmit, colors }) {
           style={[
             styles.countInput,
             {
-              borderColor: entered ? colors.accent : colors.border,
-              color: colors.text,
+              borderColor:     entered ? colors.accent : colors.border,
+              color:           colors.text,
               backgroundColor: colors.background,
             },
           ]}
@@ -234,7 +238,7 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
   const [processing, setProcessing] = useState({});
 
   const discrepancies = results.filter((r) => r.difference !== 0);
-  const matches = results.filter((r) => r.difference === 0);
+  const matches       = results.filter((r) => r.difference === 0);
 
   const handleApprove = async (id) => {
     setProcessing((p) => ({ ...p, [id]: "approving" }));
@@ -288,12 +292,12 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
   };
 
   const renderResult = (item) => {
-    const isOver = item.difference > 0;
+    const isOver  = item.difference > 0;
     const isMatch = item.difference === 0;
-    const busy = processing[item.id];
+    const busy     = processing[item.id];
     const approved = item.status === "APPROVED";
     const rejected = item.status === "REJECTED";
-    const settled = approved || rejected;
+    const settled  = approved || rejected;
 
     return (
       <View
@@ -301,18 +305,10 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
         style={[
           styles.resultCard,
           {
-            backgroundColor: colors.card,
-            borderColor: isMatch
-              ? "#30D15830"
-              : isOver
-              ? "#30D15830"
-              : "#FF453A30",
-            borderLeftWidth: 4,
-            borderLeftColor: isMatch
-              ? "#30D158"
-              : isOver
-              ? "#30D158"
-              : "#FF453A",
+            backgroundColor:  colors.card,
+            borderColor:      isMatch ? "#30D15830" : isOver ? "#30D15830" : "#FF453A30",
+            borderLeftWidth:  4,
+            borderLeftColor:  isMatch ? "#30D158" : isOver ? "#30D158" : "#FF453A",
           },
         ]}
       >
@@ -327,9 +323,9 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
               { backgroundColor: approved ? "#30D15820" : "#FF453A20" },
             ]}>
               <Text style={{
-                color: approved ? "#30D158" : "#FF453A",
+                color:      approved ? "#30D158" : "#FF453A",
                 fontWeight: "700",
-                fontSize: 11,
+                fontSize:   11,
               }}>
                 {approved ? "✓ APPROVED" : "✕ REJECTED"}
               </Text>
@@ -367,7 +363,7 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
             <Text style={{ color: colors.tabBarInactive, fontSize: 11 }}>DIFF</Text>
             <Text style={{
               fontWeight: "700",
-              fontSize: 15,
+              fontSize:   15,
               color: isMatch ? "#30D158" : isOver ? "#30D158" : "#FF453A",
             }}>
               {isOver ? "+" : ""}{formatQty(item.difference)}
@@ -435,7 +431,6 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
         </View>
         <Text style={[styles.phaseTitle, { color: colors.text }]}>Review Results</Text>
 
-        {/* Summary pills */}
         <View style={styles.summaryRow}>
           <View style={[styles.summaryPill, { backgroundColor: "#FF453A18" }]}>
             <Text style={{ color: "#FF453A", fontWeight: "700" }}>
@@ -455,7 +450,6 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
         </View>
       </View>
 
-      {/* Discrepancies first */}
       {discrepancies.length > 0 && (
         <>
           <Text style={[styles.sectionLabel, { color: colors.tabBarInactive }]}>
@@ -465,7 +459,6 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
         </>
       )}
 
-      {/* Matches */}
       {matches.length > 0 && (
         <>
           <Text style={[styles.sectionLabel, { color: colors.tabBarInactive, marginTop: 16 }]}>
@@ -475,7 +468,6 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
         </>
       )}
 
-      {/* Done button once all settled */}
       {allSettled && (
         <TouchableOpacity
           style={[styles.submitBtn, { backgroundColor: colors.accent, marginTop: 16 }]}
@@ -499,11 +491,15 @@ function ResultsPhase({ results, onApprove, onReject, onDone, colors }) {
 // ══════════════════════════════════════════════════════════
 
 export default function StockCountScreen() {
-  const { products, submitReconciliation, approveReconciliation, rejectReconciliation } = useInventory();
+  const {
+    products,
+    submitReconciliation,
+    approveReconciliation,
+    rejectReconciliation,
+  } = useInventory();
   const { colors } = useTheme();
 
-  // phase: "count" | "results"
-  const [phase, setPhase] = useState("count");
+  const [phase,   setPhase]   = useState("count");
   const [results, setResults] = useState([]);
 
   const handleSubmit = async (counts) => {
@@ -514,16 +510,12 @@ export default function StockCountScreen() {
 
   const handleApprove = async (id) => {
     const updated = await approveReconciliation(id);
-    setResults((prev) =>
-      prev.map((r) => (r.id === updated.id ? updated : r))
-    );
+    setResults((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
   };
 
   const handleReject = async (id, notes) => {
     const updated = await rejectReconciliation(id, notes);
-    setResults((prev) =>
-      prev.map((r) => (r.id === updated.id ? updated : r))
-    );
+    setResults((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
   };
 
   const handleDone = () => {
@@ -556,31 +548,31 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16 },
 
   phaseHeader: { paddingVertical: 16 },
-  stepBadge: { alignSelf: "flex-start", paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, marginBottom: 8 },
-  phaseTitle: { fontSize: 20, fontWeight: "700" },
+  stepBadge:   { alignSelf: "flex-start", paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, marginBottom: 8 },
+  phaseTitle:  { fontSize: 20, fontWeight: "700" },
 
   progressRow: { marginTop: 10, gap: 6 },
   progressBar: { height: 4, borderRadius: 2, overflow: "hidden", marginTop: 4 },
-  progressFill: { height: "100%", borderRadius: 2 },
+  progressFill:{ height: "100%", borderRadius: 2 },
 
   search: { borderWidth: 1, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, fontSize: 14, marginBottom: 10 },
 
-  countRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 8, gap: 10 },
-  countInput: { borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 14, width: 80, textAlign: "center" },
+  countRow:  { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 8, gap: 10 },
+  countInput:{ borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 14, width: 80, textAlign: "center" },
 
-  resultCard: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 10 },
-  figuresRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, paddingTop: 10, borderTopWidth: 1, gap: 4 },
-  figure: { alignItems: "center", flex: 1 },
+  resultCard:  { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 10 },
+  figuresRow:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, paddingTop: 10, borderTopWidth: 1, gap: 4 },
+  figure:      { alignItems: "center", flex: 1 },
 
   actionRow: { flexDirection: "row", marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
   actionBtn: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 
-  summaryRow: { flexDirection: "row", gap: 8, marginTop: 10, flexWrap: "wrap" },
+  summaryRow:  { flexDirection: "row", gap: 8, marginTop: 10, flexWrap: "wrap" },
   summaryPill: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 20 },
 
   sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 8 },
-  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  rowBetween:   { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
 
   submitBtn: { position: "absolute", bottom: 16, left: 16, right: 16, padding: 14, borderRadius: 12, alignItems: "center" },
-  btnInner: { flexDirection: "row", alignItems: "center" },
+  btnInner:  { flexDirection: "row", alignItems: "center" },
 });

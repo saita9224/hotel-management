@@ -32,7 +32,7 @@ export default function AddItemSheet({ onClose }) {
   const [form, setForm] = useState({
     name:                "",
     supplier:            "",
-    category_id:         null,   // FK id sent to backend
+    category_id:         null,
     unit:                "kg",
     quantity:            0,
     reason:              "PURCHASE",
@@ -44,11 +44,13 @@ export default function AddItemSheet({ onClose }) {
     notes:               "",
   });
 
+  // Separate string state for the quantity input so the user
+  // can clear it and type freely without NaN flickering
+  const [quantityText,     setQuantityText]     = useState("0");
   const [submitting,       setSubmitting]       = useState(false);
-  const [suggestionBanner, setSuggestionBanner] = useState(null); // { categoryName, matchedName }
+  const [suggestionBanner, setSuggestionBanner] = useState(null);
   const [suggestLoading,   setSuggestLoading]   = useState(false);
 
-  // ── New category modal state ─────────────────────────
   const [newCatModalVisible, setNewCatModalVisible] = useState(false);
   const [newCatName,         setNewCatName]         = useState("");
   const [newCatSaving,       setNewCatSaving]       = useState(false);
@@ -58,16 +60,48 @@ export default function AddItemSheet({ onClose }) {
   const thresholdRef = useRef(null);
   const costRef      = useRef(null);
   const notesRef     = useRef(null);
+  const qtyInputRef  = useRef(null);
   const suggestTimer = useRef(null);
 
   const update = (key, value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  // ── Auto-suggest category as user types ──────────────
+  // ── Quantity helpers ──────────────────────────────────
+
+  const applyQuantity = (raw) => {
+    const n = parseFloat(raw);
+    const safe = isNaN(n) || n < 0 ? 0 : n;
+    setQuantityText(String(safe));
+    update("quantity", safe);
+  };
+
+  const incrementQty = () => {
+    const next = form.quantity + 1;
+    setQuantityText(String(next));
+    update("quantity", next);
+  };
+
+  const decrementQty = () => {
+    const next = Math.max(0, form.quantity - 1);
+    setQuantityText(String(next));
+    update("quantity", next);
+  };
+
+  const onQtyChange = (v) => {
+    // Allow free typing — only strip non-numeric chars
+    const cleaned = v.replace(/[^0-9.]/g, "");
+    setQuantityText(cleaned);
+  };
+
+  const onQtyBlur = () => {
+    applyQuantity(quantityText);
+  };
+
+  // ── Auto-suggest category ─────────────────────────────
+
   useEffect(() => {
     if (suggestTimer.current) clearTimeout(suggestTimer.current);
 
-    // Only fire if no category is already selected
     if (form.category_id || form.name.trim().length < 3) {
       setSuggestionBanner(null);
       return;
@@ -91,7 +125,7 @@ export default function AddItemSheet({ onClose }) {
       } finally {
         setSuggestLoading(false);
       }
-    }, 600); // debounce 600ms
+    }, 600);
 
     return () => clearTimeout(suggestTimer.current);
   }, [form.name]);
@@ -104,16 +138,12 @@ export default function AddItemSheet({ onClose }) {
 
   const dismissSuggestion = () => setSuggestionBanner(null);
 
-  // ── Selected category object (for display) ───────────
   const selectedCategory = serverCategories.find(
     (c) => c.id === form.category_id
   ) || null;
 
-  // ── Quantity stepper ──────────────────────────────────
-  const incrementQty = () => update("quantity", form.quantity + 1);
-  const decrementQty = () => update("quantity", Math.max(0, form.quantity - 1));
-
   // ── Create new category ───────────────────────────────
+
   const saveNewCategory = async () => {
     const name = newCatName.trim();
     if (!name) return;
@@ -131,6 +161,7 @@ export default function AddItemSheet({ onClose }) {
   };
 
   // ── Submit ────────────────────────────────────────────
+
   const submit = async () => {
     if (!form.name.trim())
       return Alert.alert("Validation", "Item name is required.");
@@ -173,7 +204,10 @@ export default function AddItemSheet({ onClose }) {
         >
           {/* ── HEADER ── */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons name="arrow-back" size={22} color={colors.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: colors.text }]}>
@@ -185,10 +219,14 @@ export default function AddItemSheet({ onClose }) {
           {/* ══════════════════════════════════════
               SECTION 1 — PRODUCT DETAILS
           ══════════════════════════════════════ */}
-          <Text style={[styles.sectionHeader, { color: colors.accent }]}>Product Details</Text>
+          <Text style={[styles.sectionHeader, { color: colors.accent }]}>
+            Product Details
+          </Text>
 
           {/* Item Name */}
-          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>Item Name</Text>
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
+            Item Name
+          </Text>
           <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <Ionicons name="pricetag-outline" size={15} color={colors.tabBarInactive} style={styles.fieldIcon} />
             <TextInput
@@ -243,9 +281,10 @@ export default function AddItemSheet({ onClose }) {
           </View>
 
           {/* Category */}
-          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>Category</Text>
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
+            Category
+          </Text>
 
-          {/* Selected category indicator */}
           {selectedCategory && (
             <View style={[styles.selectedCatRow, { backgroundColor: colors.accent + "15", borderColor: colors.accent }]}>
               <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
@@ -258,7 +297,6 @@ export default function AddItemSheet({ onClose }) {
             </View>
           )}
 
-          {/* Category grid — from backend */}
           <View style={styles.categoryGrid}>
             {serverCategories.map((cat) => {
               const active = form.category_id === cat.id;
@@ -279,17 +317,13 @@ export default function AddItemSheet({ onClose }) {
                     size={22}
                     color={active ? "#fff" : colors.tabBarInactive}
                   />
-                  <Text style={[
-                    styles.categoryCardLabel,
-                    { color: active ? "#fff" : colors.text },
-                  ]}>
+                  <Text style={[styles.categoryCardLabel, { color: active ? "#fff" : colors.text }]}>
                     {cat.name}
                   </Text>
                 </TouchableOpacity>
               );
             })}
 
-            {/* Add new category tile */}
             <TouchableOpacity
               onPress={() => setNewCatModalVisible(true)}
               style={[
@@ -299,19 +333,21 @@ export default function AddItemSheet({ onClose }) {
               ]}
             >
               <Ionicons name="add-circle-outline" size={22} color={colors.tabBarInactive} />
-              <Text style={[styles.categoryCardLabel, { color: colors.tabBarInactive }]}>
-                New
-              </Text>
+              <Text style={[styles.categoryCardLabel, { color: colors.tabBarInactive }]}>New</Text>
             </TouchableOpacity>
           </View>
 
           {/* ══════════════════════════════════════
               SECTION 2 — INVENTORY SPECIFICS
           ══════════════════════════════════════ */}
-          <Text style={[styles.sectionHeader, { color: colors.accent }]}>Inventory Specifics</Text>
+          <Text style={[styles.sectionHeader, { color: colors.accent }]}>
+            Inventory Specifics
+          </Text>
 
           {/* Unit of Measure */}
-          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>Unit of Measure</Text>
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
+            Unit of Measure
+          </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillRow}>
             {UNITS.map((u) => {
               const active = form.unit === u;
@@ -338,7 +374,9 @@ export default function AddItemSheet({ onClose }) {
           {/* Low Stock Alert */}
           <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>Low Stock Alert</Text>
+              <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>
+                Low Stock Alert
+              </Text>
               <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
                 Notify when below threshold
               </Text>
@@ -376,7 +414,9 @@ export default function AddItemSheet({ onClose }) {
           {/* Track as POS Item */}
           <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background, marginTop: 12 }]}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>Track as POS Item</Text>
+              <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>
+                Track as POS Item
+              </Text>
               <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
                 Auto-deduct stock on Point of Sale transactions
               </Text>
@@ -392,23 +432,59 @@ export default function AddItemSheet({ onClose }) {
           {/* ══════════════════════════════════════
               SECTION 3 — STOCK & COST
           ══════════════════════════════════════ */}
-          <Text style={[styles.sectionHeader, { color: colors.accent }]}>Stock & Cost</Text>
+          <Text style={[styles.sectionHeader, { color: colors.accent }]}>
+            Stock & Cost
+          </Text>
 
-          {/* Quantity Stepper */}
-          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>Current Stock Level</Text>
+          {/* ── STOCK QUANTITY — hybrid stepper + direct input ── */}
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
+            Stock Quantity
+          </Text>
           <View style={[styles.stepper, { borderColor: colors.border, backgroundColor: colors.background }]}>
-            <TouchableOpacity onPress={decrementQty} style={[styles.stepBtn, { borderRightColor: colors.border }]}>
-              <Ionicons name="remove" size={20} color={colors.text} />
+
+            {/* Decrement */}
+            <TouchableOpacity
+              onPress={decrementQty}
+              style={[styles.stepBtn, { borderRightColor: colors.border }]}
+            >
+              <Ionicons name="remove" size={22} color={form.quantity > 0 ? colors.text : colors.tabBarInactive} />
             </TouchableOpacity>
-            <Text style={[styles.stepValue, { color: colors.text }]}>{form.quantity}</Text>
-            <TouchableOpacity onPress={incrementQty} style={[styles.stepBtn, { borderLeftColor: colors.border }]}>
-              <Ionicons name="add" size={20} color={colors.text} />
+
+            {/* Editable centre — tap to type directly */}
+            <TextInput
+              ref={qtyInputRef}
+              style={[styles.stepInput, { color: colors.text }]}
+              value={quantityText}
+              onChangeText={onQtyChange}
+              onBlur={onQtyBlur}
+              keyboardType="decimal-pad"
+              textAlign="center"
+              returnKeyType="done"
+              onSubmitEditing={onQtyBlur}
+              selectTextOnFocus
+            />
+
+            {/* Unit label beside the number */}
+            <Text style={[styles.stepUnit, { color: colors.tabBarInactive }]}>
+              {form.unit}
+            </Text>
+
+            {/* Increment */}
+            <TouchableOpacity
+              onPress={incrementQty}
+              style={[styles.stepBtn, { borderLeftColor: colors.border }]}
+            >
+              <Ionicons name="add" size={22} color={colors.text} />
             </TouchableOpacity>
           </View>
+          <Text style={{ color: colors.tabBarInactive, fontSize: 11, marginTop: 4 }}>
+            Tap the number to type directly, or use − / + to adjust.
+          </Text>
 
           {/* Cost Price */}
-          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
-            Cost Price (per Unit) <Text style={{ fontSize: 11, fontWeight: "400" }}>(optional)</Text>
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 14 }]}>
+            Cost Price (per Unit){" "}
+            <Text style={{ fontSize: 11, fontWeight: "400" }}>(optional)</Text>
           </Text>
           <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <Text style={[styles.currencySymbol, { color: colors.tabBarInactive }]}>KES</Text>
@@ -457,7 +533,9 @@ export default function AddItemSheet({ onClose }) {
 
               <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>Funded by Business</Text>
+                  <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>
+                    Funded by Business
+                  </Text>
                   <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
                     Was this stock paid for by the business?
                   </Text>
@@ -546,7 +624,11 @@ export default function AddItemSheet({ onClose }) {
           </View>
 
           <TouchableOpacity
-            style={[catModal.primaryBtn, { backgroundColor: newCatSaving || !newCatName.trim() ? colors.border : colors.accent }]}
+            style={[catModal.primaryBtn, {
+              backgroundColor: newCatSaving || !newCatName.trim()
+                ? colors.border
+                : colors.accent,
+            }]}
             onPress={saveNewCategory}
             disabled={newCatSaving || !newCatName.trim()}
           >
@@ -586,53 +668,72 @@ const styles = StyleSheet.create({
 
   currencySymbol: { fontSize: 13, fontWeight: "600", marginRight: 4 },
 
-  // Suggestion banner
   suggestionBanner: {
-    flexDirection:  "row",
-    alignItems:     "center",
-    gap:            6,
-    borderWidth:    1,
-    borderRadius:   8,
-    padding:        10,
-    marginTop:      6,
+    flexDirection: "row",
+    alignItems:    "center",
+    gap:           6,
+    borderWidth:   1,
+    borderRadius:  8,
+    padding:       10,
+    marginTop:     6,
   },
   suggestionText:   { flex: 1, fontSize: 12 },
   suggestionAccept: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
 
-  // Selected category row
   selectedCatRow: {
-    flexDirection:  "row",
-    alignItems:     "center",
-    borderWidth:    1,
-    borderRadius:   8,
-    padding:        10,
-    marginBottom:   8,
+    flexDirection: "row",
+    alignItems:    "center",
+    borderWidth:   1,
+    borderRadius:  8,
+    padding:       10,
+    marginBottom:  8,
   },
 
-  // Category grid
   categoryGrid:     { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 4 },
   categoryCard:     { width: "47%", borderWidth: 1, borderRadius: 12, paddingVertical: 14, alignItems: "center", gap: 6 },
   categoryCardLabel:{ fontSize: 12, fontWeight: "600", textAlign: "center" },
   newCatCard:       { borderStyle: "dashed" },
 
-  // Pills
   pillRow: { marginVertical: 4 },
   pill:    { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, marginRight: 8 },
 
-  // Toggle
   toggleRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, padding: 12, marginTop: 10, gap: 12 },
 
-  // Stepper
-  stepper:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderRadius: 10, overflow: "hidden" },
-  stepBtn:   { padding: 14, borderRightWidth: 0, borderLeftWidth: 0 },
-  stepValue: { flex: 1, textAlign: "center", fontSize: 20, fontWeight: "700" },
+  // ── Hybrid stepper ──────────────────────────────────
+  stepper: {
+    flexDirection:  "row",
+    alignItems:     "center",
+    borderWidth:    1,
+    borderRadius:   10,
+    overflow:       "hidden",
+    height:         56,
+  },
+  stepBtn: {
+    width:           52,
+    height:          "100%",
+    alignItems:      "center",
+    justifyContent:  "center",
+    borderRightWidth: 0,
+    borderLeftWidth:  0,
+  },
+  stepInput: {
+    flex:       1,
+    fontSize:   22,
+    fontWeight: "700",
+    textAlign:  "center",
+    paddingVertical: 0,
+    height:     "100%",
+  },
+  stepUnit: {
+    fontSize:    13,
+    fontWeight:  "500",
+    marginRight: 10,
+  },
 
-  // Submit
   submitBtn:  { marginTop: 24, padding: 14, borderRadius: 12, alignItems: "center", flexDirection: "row", justifyContent: "center" },
   submitText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 });
 
-// New category modal styles
 const catModal = StyleSheet.create({
   backdrop:        { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
   sheet:           { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingBottom: 40 },
