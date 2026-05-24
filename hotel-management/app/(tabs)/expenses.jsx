@@ -1,6 +1,6 @@
 // app/(tabs)/expenses.jsx
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, StyleSheet, TouchableOpacity, FlatList, Text,
   BackHandler, Animated, Dimensions, TouchableWithoutFeedback,
@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { useTheme } from "../../hooks/useTheme";  // 👈 replaced useColorScheme + Colors
 import { useExpenses } from "../../context/ExpensesContext";
@@ -23,7 +24,7 @@ const SHEET_HEIGHT = SCREEN_HEIGHT * 0.82;
 
 export default function ExpensesScreen() {
   const { colors } = useTheme();  // 👈 single source of truth
-  const { expenses } = useExpenses();
+  const { expenses, loadExpenses, loadSuppliers } = useExpenses();
 
   const [activeTab, setActiveTab] = useState("table");
   const [showForm, setShowForm] = useState(false);
@@ -33,6 +34,16 @@ export default function ExpensesScreen() {
 
   const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
+  const focusRefreshRef = useRef({ loadExpenses, loadSuppliers });
+
+  focusRefreshRef.current = { loadExpenses, loadSuppliers };
+
+  useFocusEffect(
+    useCallback(() => {
+      focusRefreshRef.current.loadExpenses();
+      focusRefreshRef.current.loadSuppliers();
+    }, [])
+  );
 
   const openSheet = () => {
     setShowForm(true);

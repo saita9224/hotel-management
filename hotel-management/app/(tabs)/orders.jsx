@@ -16,9 +16,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { useTheme } from "../../hooks/useTheme";
 import { usePOS } from "../../context/POSContext";
+import { useInventory } from "../../context/InventoryContext";
+import { useMenu } from "../../context/MenuContext";
 
 import POSScreen from "../../components/POS/POSScreen";
 import ReceiptDetailSheet from "../../components/POS/ReceiptDetailSheet";
@@ -360,7 +363,14 @@ function CashierView({ colors, onOpenReceipt }) {
 export default function OrdersScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation();
-  const { session } = usePOS();
+  const {
+    session,
+    loadSession,
+    loadCashierData,
+    loadUnsettledCredits,
+  } = usePOS();
+  const { loadProducts } = useInventory();
+  const { refreshMenu }  = useMenu();
 
   const [activeView, setActiveView]               = useState("waiter");
   const [showPOS, setShowPOS]                     = useState(false);
@@ -374,6 +384,31 @@ export default function OrdersScreen() {
 
   const slideAnim    = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
+  const focusRefreshRef = useRef({
+    loadSession,
+    loadCashierData,
+    loadUnsettledCredits,
+    loadProducts,
+    refreshMenu,
+  });
+
+  focusRefreshRef.current = {
+    loadSession,
+    loadCashierData,
+    loadUnsettledCredits,
+    loadProducts,
+    refreshMenu,
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      focusRefreshRef.current.loadSession();
+      focusRefreshRef.current.loadCashierData();
+      focusRefreshRef.current.loadUnsettledCredits();
+      focusRefreshRef.current.loadProducts();
+      focusRefreshRef.current.refreshMenu();
+    }, [])
+  );
 
   // ── Header toggle ─────────────────────────────────────
   useEffect(() => {

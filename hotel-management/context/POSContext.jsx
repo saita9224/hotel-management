@@ -29,11 +29,16 @@ import {
   settleCreditService,
   refundReceiptService,
 } from "../services/posService";
+import { useInventory } from "./InventoryContext";
+import { useMenu } from "./MenuContext";
 
 const POSContext = createContext();
 export const usePOS = () => useContext(POSContext);
 
 export const POSProvider = ({ children }) => {
+  const { loadProducts } = useInventory();
+  const { refreshMenu }  = useMenu();
+
   const [session, setSession]                   = useState(null);
   const [receipts, setReceipts]                 = useState([]);
   const [cashierQueue, setCashierQueue]         = useState([]);
@@ -199,6 +204,7 @@ export const POSProvider = ({ children }) => {
         if (exists) return prev.map((r) => (r.id === updated.id ? updated : r));
         return [updated, ...prev.filter((r) => r.id !== updated.id)];
       });
+      await Promise.all([loadProducts(), refreshMenu()]);
       return updated;
     } catch (err) {
       console.log("Submit Order Error:", err);
@@ -223,7 +229,7 @@ export const POSProvider = ({ children }) => {
   const acceptPayment = async (input) => {
     try {
       const payment = await acceptPaymentService(input);
-      await Promise.all([loadCashierData(), loadReceipts()]);
+      await Promise.all([loadCashierData(), loadReceipts(), loadProducts(), refreshMenu()]);
       return payment;
     } catch (err) {
       console.log("Accept Payment Error:", err);
@@ -234,7 +240,7 @@ export const POSProvider = ({ children }) => {
   const createCredit = async (input) => {
     try {
       const credit = await createCreditService(input);
-      await Promise.all([loadCashierData(), loadReceipts()]);
+      await Promise.all([loadCashierData(), loadReceipts(), loadProducts(), refreshMenu()]);
       return credit;
     } catch (err) {
       console.log("Create Credit Error:", err);
@@ -259,6 +265,7 @@ export const POSProvider = ({ children }) => {
       replaceReceipt(updated);
       setCashierQueue((prev) => prev.filter((r) => r.id !== updated.id));
       setOpenReceipts((prev) => prev.filter((r) => r.id !== updated.id));
+      await Promise.all([loadProducts(), refreshMenu()]);
       return updated;
     } catch (err) {
       console.log("Refund Receipt Error:", err);

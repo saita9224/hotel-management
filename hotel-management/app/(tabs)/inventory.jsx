@@ -1,6 +1,6 @@
 // app/(tabs)/inventory.jsx
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useNavigation } from "expo-router";
 
 import { useInventory } from "../../context/InventoryContext";
@@ -74,7 +75,14 @@ const toggle = StyleSheet.create({
 
 export default function InventoryScreen() {
   const { colors } = useTheme();
-  const { products, categories, loading } = useInventory();
+  const {
+    products,
+    categories,
+    loading,
+    loadProducts,
+    loadCategories,
+    loadPendingReconciliations,
+  } = useInventory();
   const navigation = useNavigation();
 
   const [activeTab,        setActiveTab]        = useState("inventory");
@@ -87,6 +95,25 @@ export default function InventoryScreen() {
 
   const slideAnim    = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
+  const focusRefreshRef = useRef({
+    loadProducts,
+    loadCategories,
+    loadPendingReconciliations,
+  });
+
+  focusRefreshRef.current = {
+    loadProducts,
+    loadCategories,
+    loadPendingReconciliations,
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      focusRefreshRef.current.loadProducts();
+      focusRefreshRef.current.loadCategories();
+      focusRefreshRef.current.loadPendingReconciliations();
+    }, [])
+  );
 
   useEffect(() => {
     navigation.setOptions({
