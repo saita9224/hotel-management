@@ -12,6 +12,8 @@ import {
   Dimensions,
   TouchableWithoutFeedback,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "expo-router";
@@ -51,7 +53,7 @@ const formatKES = (v) =>
 
 // ── RECEIPT CARD ──────────────────────────────────────────
 
-function ReceiptCard({ item, onPress, showEditHint = false, colors }) {
+function ReceiptCard({ item, onPress, onLongPress, showEditHint = false, colors }) {
   const statusColor = STATUS_COLORS[item.status] ?? colors.tabBarInactive;
   const itemCount   = item.orders?.reduce(
     (sum, o) => sum + (o.items?.length ?? 0), 0
@@ -62,6 +64,8 @@ function ReceiptCard({ item, onPress, showEditHint = false, colors }) {
     <TouchableOpacity
       style={[styles.receiptCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={() => onPress(item)}
+      onLongPress={item.status === "DRAFT" ? () => onLongPress?.(item) : undefined}
+      delayLongPress={450}
       activeOpacity={0.75}
     >
       <View style={styles.rowBetween}>
@@ -111,9 +115,64 @@ function ReceiptCard({ item, onPress, showEditHint = false, colors }) {
   );
 }
 
+function DraftReceiptActions({ visible, receipt, deleting, onClose, onDelete, colors }) {
+  if (!receipt) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.actionSheetBackdrop} />
+      </TouchableWithoutFeedback>
+      <View style={[styles.actionSheet, { backgroundColor: colors.card }]}>
+        <View style={styles.handleRow}>
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+        </View>
+        <Text style={[styles.actionSheetTitle, { color: colors.text }]}>
+          {receipt.receipt_number}
+        </Text>
+        <Text style={{ color: colors.tabBarInactive, fontSize: 13, textAlign: "center", marginTop: 4 }}>
+          Draft receipt
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.deleteDraftBtn, { backgroundColor: deleting ? colors.border : "#FF453A" }]}
+          onPress={onDelete}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="trash-outline" size={18} color="#fff" />
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+                Delete Draft
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.cancelActionBtn, { borderColor: colors.border }]}
+          onPress={onClose}
+          disabled={deleting}
+        >
+          <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 15 }}>
+            Cancel
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+}
+
 // ── WAITER VIEW ───────────────────────────────────────────
 
-function WaiterView({ colors, onEditReceipt, onViewReceipt }) {
+function WaiterView({ colors, onEditReceipt, onViewReceipt, onDeleteDraftPress }) {
   const { receipts, loading, getSummary } = usePOS();
   const { totalSales, pendingCount } = getSummary();
 
@@ -177,6 +236,7 @@ function WaiterView({ colors, onEditReceipt, onViewReceipt }) {
             <ReceiptCard
               item={item}
               onPress={handlePress}
+              onLongPress={onDeleteDraftPress}
               showEditHint
               colors={colors}
             />
@@ -368,6 +428,7 @@ export default function OrdersScreen() {
     loadSession,
     loadCashierData,
     loadUnsettledCredits,
+    deleteDraftReceipt,
   } = usePOS();
   const { loadProducts } = useInventory();
   const { refreshMenu }  = useMenu();
@@ -381,6 +442,8 @@ export default function OrdersScreen() {
   const [showCloseSession, setShowCloseSession]   = useState(false);
   const [showMenu, setShowMenu]                   = useState(false);
   const [selectedReceipt, setSelectedReceipt]     = useState(null);
+  const [draftActionReceipt, setDraftActionReceipt] = useState(null);
+  const [deletingDraft, setDeletingDraft]         = useState(false);
 
   const slideAnim    = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -477,6 +540,43 @@ export default function OrdersScreen() {
     setShowReceipt(true);
   }, []);
 
+  const handleDeleteDraftPress = useCallback((receipt) => {
+    if (receipt.status !== "DRAFT") return;
+    setDraftActionReceipt(receipt);
+  }, []);
+
+  const closeDraftActions = useCallback(() => {
+    if (deletingDraft) return;
+    setDraftActionReceipt(null);
+  }, [deletingDraft]);
+
+  const confirmDeleteDraft = useCallback(() => {
+    if (!draftActionReceipt || deletingDraft) return;
+
+    Alert.alert(
+      "Delete draft receipt?",
+      "This receipt has not been submitted yet. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeletingDraft(true);
+              await deleteDraftReceipt(draftActionReceipt.id);
+              setDraftActionReceipt(null);
+            } catch (err) {
+              Alert.alert("Delete Failed", err?.message || "Failed to delete draft receipt.");
+            } finally {
+              setDeletingDraft(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [deleteDraftReceipt, deletingDraft, draftActionReceipt]);
+
   // ── Cashier receipt handler ───────────────────────────
   const handleCashierOpenReceipt = useCallback((receipt) => {
     setSelectedReceipt(receipt);
@@ -490,11 +590,12 @@ export default function OrdersScreen() {
       if (showCashierPayment) { setShowCashierPayment(false); return true; }
       if (showReceipt)        { setShowReceipt(false); return true; }
       if (showMenu)           { setShowMenu(false); return true; }
+      if (draftActionReceipt) { closeDraftActions(); return true; }
       return false;
     };
     const sub = BackHandler.addEventListener("hardwareBackPress", onBack);
     return () => sub.remove();
-  }, [showPOS, showCashierPayment, showReceipt, showMenu]);
+  }, [showPOS, showCashierPayment, showReceipt, showMenu, draftActionReceipt, closeDraftActions]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -505,6 +606,7 @@ export default function OrdersScreen() {
             colors={colors}
             onEditReceipt={handleEditReceipt}
             onViewReceipt={handleViewReceipt}
+            onDeleteDraftPress={handleDeleteDraftPress}
           />
         ) : (
           <CashierView
@@ -578,6 +680,14 @@ export default function OrdersScreen() {
         visible={showMenu}
         onClose={() => setShowMenu(false)}
       />
+      <DraftReceiptActions
+        visible={!!draftActionReceipt}
+        receipt={draftActionReceipt}
+        deleting={deletingDraft}
+        onClose={closeDraftActions}
+        onDelete={confirmDeleteDraft}
+        colors={colors}
+      />
     </View>
   );
 }
@@ -644,4 +754,36 @@ const styles = StyleSheet.create({
   },
   handleRow: { alignItems: "center", paddingVertical: 10 },
   handle: { width: 40, height: 4, borderRadius: 2 },
+  actionSheetBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  actionSheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  actionSheetTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  deleteDraftBtn: {
+    marginTop: 22,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  cancelActionBtn: {
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+  },
 });

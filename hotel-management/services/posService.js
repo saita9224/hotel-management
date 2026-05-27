@@ -263,6 +263,16 @@ export const fetchOpenReceipts = async (sessionId = null) => {
   return (data?.openReceipts ?? []).map(normalizeReceipt);
 };
 
+export const deleteDraftReceiptService = async (receiptId) => {
+  const data = await graphqlRequest(
+    `mutation($receiptId: ID!) {
+      deleteDraftReceipt(receiptId: $receiptId)
+    }`,
+    { receiptId: String(receiptId) }
+  );
+  return data.deleteDraftReceipt;
+};
+
 
 // ======================================================
 // ORDERS

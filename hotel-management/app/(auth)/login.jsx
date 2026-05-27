@@ -1,17 +1,19 @@
 // app/(auth)/login.jsx
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
+  View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -21,18 +23,9 @@ import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../hooks/useTheme";
 
-// Required — allows the browser tab to close and hand
-// the result back to the app after Google sign-in.
 WebBrowser.maybeCompleteAuthSession();
 
-// ─────────────────────────────────────────────────────
-// CLIENT IDs
-// ─────────────────────────────────────────────────────
-const WEB_CLIENT_ID =
-  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-
-const ANDROID_CLIENT_ID =
-  process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
 export default function LoginScreen() {
   const { login, googleSignIn } = useAuth();
@@ -45,12 +38,32 @@ export default function LoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // ── Redirect URI ──────────────────────────────────────
+  const logoProgress = useRef(new Animated.Value(0)).current;
+  const formProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.delay(300),
+      Animated.parallel([
+        Animated.timing(logoProgress, {
+          toValue: 1,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+        Animated.timing(formProgress, {
+          toValue: 1,
+          duration: 550,
+          delay: 250,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [formProgress, logoProgress]);
+
   const redirectUri = AuthSession.makeRedirectUri({
     useProxy: true,
   });
 
-  // ── Google auth request — PKCE code flow ─────────────
   const [request, , promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: WEB_CLIENT_ID,
@@ -62,12 +75,10 @@ export default function LoginScreen() {
     {
       authorizationEndpoint:
         "https://accounts.google.com/o/oauth2/v2/auth",
-      tokenEndpoint:
-        "https://oauth2.googleapis.com/token",
+      tokenEndpoint: "https://oauth2.googleapis.com/token",
     }
   );
 
-  // ── Navigation helper ──────────────────────────────────
   const navigateAfterAuth = (isEmailVerified) => {
     if (!isEmailVerified) {
       router.replace("/(auth)/verify-email");
@@ -76,36 +87,25 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Email + password login ─────────────────────────────
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert(
-        "Validation",
-        "Email and password are required."
-      );
+      Alert.alert("Validation", "Email and password are required.");
       return;
     }
 
     try {
       setLoading(true);
 
-      const result = await login(
-        email.trim(),
-        password
-      );
+      const result = await login(email.trim(), password);
 
       navigateAfterAuth(result.isEmailVerified);
     } catch (err) {
-      Alert.alert(
-        "Login failed",
-        err?.message || "Something went wrong."
-      );
+      Alert.alert("Login failed", err?.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Google Sign-In — PKCE code exchange ───────────────
   const handleGoogle = async () => {
     try {
       setGoogleLoading(true);
@@ -116,356 +116,305 @@ export default function LoginScreen() {
         return;
       }
 
-      // Exchange authorization code for tokens
-      const tokenResult =
-        await AuthSession.exchangeCodeAsync(
-          {
-            clientId: WEB_CLIENT_ID,
-            redirectUri,
-            code: authResult.params.code,
-            extraParams: {
-              code_verifier: request.codeVerifier,
-            },
+      const tokenResult = await AuthSession.exchangeCodeAsync(
+        {
+          clientId: WEB_CLIENT_ID,
+          redirectUri,
+          code: authResult.params.code,
+          extraParams: {
+            code_verifier: request.codeVerifier,
           },
-          {
-            tokenEndpoint:
-              "https://oauth2.googleapis.com/token",
-          }
-        );
+        },
+        {
+          tokenEndpoint: "https://oauth2.googleapis.com/token",
+        }
+      );
 
       const idToken = tokenResult.idToken;
 
       if (!idToken) {
         throw new Error(
-          "No id_token in token response. " +
-            "Check that 'openid' scope is included and " +
-            "the Web client ID is used."
+          "No id_token in token response. Check that 'openid' scope is included and the Web client ID is used."
         );
       }
 
-      // Send id_token to backend
       await googleSignIn(idToken);
 
       router.replace("/(tabs)");
     } catch (err) {
       Alert.alert(
         "Google sign-in failed",
-        err?.message ||
-          "Something went wrong. Try again."
+        err?.message || "Something went wrong. Try again."
       );
     } finally {
       setGoogleLoading(false);
     }
   };
 
-  // ── UI ─────────────────────────────────────────────────
+  const logoAnimatedStyle = {
+    opacity: logoProgress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.92, 1],
+    }),
+    transform: [
+      {
+        translateY: logoProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [120, 0],
+        }),
+      },
+      {
+        scale: logoProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1.55, 1],
+        }),
+      },
+    ],
+  };
+
+  const formAnimatedStyle = {
+    opacity: formProgress,
+    transform: [
+      {
+        translateY: formProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [16, 0],
+        }),
+      },
+    ],
+  };
+
   return (
     <KeyboardAvoidingView
-      style={{
-        flex: 1,
-        backgroundColor: colors.background,
-      }}
-      behavior={
-        Platform.OS === "ios"
-          ? "padding"
-          : undefined
-      }
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
     >
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={[
           styles.container,
-          {
-            backgroundColor:
-              colors.background,
-          },
+          { backgroundColor: colors.background },
         ]}
+        automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text
-          style={[
-            styles.title,
-            { color: colors.text },
-          ]}
-        >
-          Welcome
-        </Text>
-
-        <Text
-          style={[
-            styles.subtitle,
-            {
-              color:
-                colors.tabBarInactive,
-            },
-          ]}
-        >
-          Sign in to your account
-        </Text>
-
-        {/* ── Google button ── */}
-        <TouchableOpacity
-          style={[
-            styles.googleButton,
-            {
-              borderColor: colors.border,
-              backgroundColor: colors.card,
-            },
-          ]}
-          onPress={handleGoogle}
-          disabled={
-            googleLoading || loading
-          }
-        >
-          {googleLoading ? (
-            <ActivityIndicator
-              color={colors.accent}
-            />
-          ) : (
-            <>
-              <Ionicons
-                name="logo-google"
-                size={20}
-                color="#4285F4"
-              />
-
-              <Text
-                style={[
-                  styles.googleText,
-                  { color: colors.text },
-                ]}
-              >
-                Continue with Google
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        {/* ── Divider ── */}
-        <View style={styles.divider}>
-          <View
-            style={[
-              styles.dividerLine,
-              {
-                backgroundColor:
-                  colors.border,
-              },
-            ]}
+        <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
+          <Image
+            source={require("../../assets/images/BizzMan logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
           />
+        </Animated.View>
+
+        <Animated.View style={[styles.formContent, formAnimatedStyle]}>
+          <Text style={[styles.title, { color: colors.text }]}>Welcome</Text>
 
           <Text
             style={[
-              styles.dividerText,
+              styles.subtitle,
               {
-                color:
-                  colors.tabBarInactive,
+                color: colors.tabBarInactive,
               },
             ]}
           >
-            or
+            Sign in to your account
           </Text>
 
-          <View
-            style={[
-              styles.dividerLine,
-              {
-                backgroundColor:
-                  colors.border,
-              },
-            ]}
-          />
-        </View>
-
-        {/* ── Email ── */}
-        <TextInput
-          placeholder="Email"
-          placeholderTextColor={
-            colors.tabBarInactive
-          }
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-          style={[
-            styles.input,
-            {
-              backgroundColor:
-                colors.card,
-              color: colors.text,
-              borderColor:
-                colors.border,
-            },
-          ]}
-        />
-
-        {/* ── Password ── */}
-        <View
-          style={[
-            styles.passwordContainer,
-            {
-              backgroundColor:
-                colors.card,
-              borderColor:
-                colors.border,
-            },
-          ]}
-        >
           <TextInput
-            placeholder="Password"
-            placeholderTextColor={
-              colors.tabBarInactive
-            }
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
+            placeholder="Email"
+            placeholderTextColor={colors.tabBarInactive}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            returnKeyType="next"
+            textContentType="emailAddress"
+            value={email}
+            onChangeText={setEmail}
             style={[
-              styles.passwordInput,
-              { color: colors.text },
+              styles.input,
+              {
+                backgroundColor: colors.card,
+                color: colors.text,
+                borderColor: colors.border,
+              },
             ]}
           />
 
-          <TouchableOpacity
-            onPress={() =>
-              setShowPassword((p) => !p)
-            }
-            hitSlop={{
-              top: 10,
-              bottom: 10,
-              left: 10,
-              right: 10,
-            }}
-          >
-            <Ionicons
-              name={
-                showPassword
-                  ? "eye-off-outline"
-                  : "eye-outline"
-              }
-              size={20}
-              color={
-                colors.tabBarInactive
-              }
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Sign in button ── */}
-        <TouchableOpacity
-          style={[
-            styles.button,
-            {
-              backgroundColor: loading
-                ? colors.border
-                : colors.accent,
-            },
-          ]}
-          onPress={handleLogin}
-          disabled={
-            loading || googleLoading
-          }
-        >
-          {loading ? (
-            <ActivityIndicator
-              color="#fff"
-            />
-          ) : (
-            <Text style={styles.buttonText}>
-              Sign in
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* ── Register link ── */}
-        <View style={styles.registerRow}>
-          <Text
+          <View
             style={[
-              styles.registerPrompt,
+              styles.passwordContainer,
               {
-                color:
-                  colors.tabBarInactive,
+                backgroundColor: colors.card,
+                borderColor: colors.border,
               },
             ]}
           >
-            New business?
-          </Text>
+            <TextInput
+              placeholder="Password"
+              placeholderTextColor={colors.tabBarInactive}
+              secureTextEntry={!showPassword}
+              textContentType="password"
+              value={password}
+              onChangeText={setPassword}
+              style={[styles.passwordInput, { color: colors.text }]}
+            />
+
+            <TouchableOpacity
+              onPress={() => setShowPassword((p) => !p)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color={colors.tabBarInactive}
+              />
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
-            onPress={() =>
-              router.push(
-                "/(auth)/register"
-              )
-            }
-            disabled={
-              loading || googleLoading
-            }
+            style={[
+              styles.button,
+              {
+                backgroundColor: loading ? colors.border : colors.accent,
+              },
+            ]}
+            onPress={handleLogin}
+            disabled={loading || googleLoading}
           >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Sign in</Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.divider}>
+            <View
+              style={[
+                styles.dividerLine,
+                {
+                  backgroundColor: colors.border,
+                },
+              ]}
+            />
+
             <Text
               style={[
-                styles.registerLink,
+                styles.dividerText,
                 {
-                  color: colors.accent,
+                  color: colors.tabBarInactive,
                 },
               ]}
             >
-              {" "}Register here
+              or
             </Text>
+
+            <View
+              style={[
+                styles.dividerLine,
+                {
+                  backgroundColor: colors.border,
+                },
+              ]}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.googleButton,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.card,
+              },
+            ]}
+            onPress={handleGoogle}
+            disabled={googleLoading || loading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <>
+                <Ionicons name="logo-google" size={20} color="#4285F4" />
+
+                <Text style={[styles.googleText, { color: colors.text }]}>
+                  Continue with Google
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
-        </View>
+
+          <View style={styles.registerRow}>
+            <Text
+              style={[
+                styles.registerPrompt,
+                {
+                  color: colors.tabBarInactive,
+                },
+              ]}
+            >
+              New business?
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => router.push("/(auth)/register")}
+              disabled={loading || googleLoading}
+            >
+              <Text style={[styles.registerLink, { color: colors.accent }]}>
+                {" "}
+                Register here
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+
   container: {
     flexGrow: 1,
     justifyContent: "center",
     padding: 24,
-    paddingBottom: 40,
+    paddingTop: 48,
+    paddingBottom: 56,
+  },
+
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 28,
+  },
+
+  logo: {
+    width: 180,
+    height: 96,
+  },
+
+  formContent: {
+    width: "100%",
   },
 
   title: {
     fontSize: 28,
     fontWeight: "700",
     marginBottom: 6,
+    textAlign: "center",
   },
 
   subtitle: {
     fontSize: 15,
-    marginBottom: 32,
-  },
-
-  googleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 20,
-    minHeight: 52,
-  },
-
-  googleText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-    gap: 10,
-  },
-
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-
-  dividerText: {
-    fontSize: 13,
+    marginBottom: 30,
+    textAlign: "center",
   },
 
   input: {
@@ -495,7 +444,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 10,
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 18,
     minHeight: 52,
     justifyContent: "center",
   },
@@ -504,6 +453,39 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "600",
     fontSize: 16,
+  },
+
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+    gap: 10,
+  },
+
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+
+  dividerText: {
+    fontSize: 13,
+  },
+
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 24,
+    minHeight: 52,
+  },
+
+  googleText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
 
   registerRow: {

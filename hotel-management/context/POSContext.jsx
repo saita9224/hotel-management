@@ -19,6 +19,7 @@ import {
   fetchCashierQueue,
   fetchOpenReceipts,
   fetchUnsettledCredits,
+  deleteDraftReceiptService,
   createOrderService,
   addOrderItemService,
   addMenuOrderItemService,
@@ -165,6 +166,20 @@ export const POSProvider = ({ children }) => {
     }
   };
 
+  const deleteDraftReceipt = async (receiptId) => {
+    try {
+      await deleteDraftReceiptService(receiptId);
+      setReceipts((prev) => prev.filter((r) => r.id !== receiptId));
+      setCashierQueue((prev) => prev.filter((r) => r.id !== receiptId));
+      setOpenReceipts((prev) => prev.filter((r) => r.id !== receiptId));
+      setActiveReceipt((prev) => (prev?.id === receiptId ? null : prev));
+      return true;
+    } catch (err) {
+      console.log("Delete Draft Receipt Error:", err);
+      throw err;
+    }
+  };
+
   // ── Orders ────────────────────────────────────────────
 
   const createOrder = async (receiptId) => {
@@ -303,6 +318,7 @@ export const POSProvider = ({ children }) => {
       loadSession, loadReceipts, loadCashierData, loadUnsettledCredits,
       openSession, closeSession,
       createReceipt, startNewReceipt, clearActiveReceipt, getMyPendingReceipts,
+      deleteDraftReceipt,
       createOrder, addOrderItem, addMenuOrderItem,
       submitOrder, recallOrder,
       acceptPayment, createCredit, settleCredit, refundReceipt,
