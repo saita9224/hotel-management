@@ -3,10 +3,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { publicRequest } from "../lib/graphql";
+import {
+  AUTH_STORAGE_KEYS,
+  clearStoredSession,
+  subscribeToAuthFailure,
+} from "../lib/authSession";
 
 const AuthContext = createContext();
-
-const STORAGE_KEYS = ["token", "schemaName", "roles", "permissions"];
 
 const GOOGLE_AUTH_MUTATION = `
   mutation GoogleAuth($idToken: String!, $businessName: String) {
@@ -33,26 +36,47 @@ export function AuthProvider({ children }) {
   const [isEmailVerified, setIsEmailVerified] = useState(true);
   const [loading,         setLoading]         = useState(true);
 
+  const clearSessionState = () => {
+    setToken(null);
+    setSchemaName(null);
+    setUserId(null);
+    setName(null);
+    setRoles([]);
+    setPermissions([]);
+    setIsEmailVerified(true);
+  };
+
   // ─── Restore session on app boot ────────────────────────
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        const pairs  = await AsyncStorage.multiGet(STORAGE_KEYS);
+        const pairs  = await AsyncStorage.multiGet(AUTH_STORAGE_KEYS);
         const stored = Object.fromEntries(pairs.map(([k, v]) => [k, v]));
 
-        if (stored.token) {
+        if (stored.token && stored.schemaName) {
           setToken(stored.token);
           setSchemaName(stored.schemaName);
           setRoles(stored.roles           ? JSON.parse(stored.roles)       : []);
           setPermissions(stored.permissions ? JSON.parse(stored.permissions) : []);
+        } else {
+          await clearStoredSession();
+          clearSessionState();
         }
       } catch (err) {
         console.error("Session restore failed:", err);
+        await clearStoredSession();
+        clearSessionState();
       } finally {
         setLoading(false);
       }
     };
     restoreSession();
+  }, []);
+
+  useEffect(() => {
+    return subscribeToAuthFailure(() => {
+      clearSessionState();
+    });
   }, []);
 
   // ─── Shared session writer ───────────────────────────────
@@ -113,14 +137,8 @@ export function AuthProvider({ children }) {
 
   // ─── Logout ──────────────────────────────────────────────
   const logout = async () => {
-    await AsyncStorage.multiRemove(STORAGE_KEYS);
-    setToken(null);
-    setSchemaName(null);
-    setUserId(null);
-    setName(null);
-    setRoles([]);
-    setPermissions([]);
-    setIsEmailVerified(true);
+    await clearStoredSession();
+    clearSessionState();
   };
 
   return (

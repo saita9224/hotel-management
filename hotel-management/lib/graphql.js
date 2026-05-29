@@ -1,6 +1,7 @@
 // lib/graphql.js
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { handleAuthFailure } from "./authSession";
 
 // ─────────────────────────────────────────────────────────────
 // HOST CONFIGURATION
@@ -111,6 +112,16 @@ async function _fetch(
   if (json.errors?.length > 0) {
     console.error("GRAPHQL ERRORS:", json.errors);
 
+    if (
+      json.errors.some((error) =>
+        String(error?.message ?? "")
+          .toLowerCase()
+          .includes("authentication required")
+      )
+    ) {
+      await handleAuthFailure();
+    }
+
     throw new Error(
       json.errors[0]?.message || "GraphQL request failed."
     );
@@ -151,6 +162,12 @@ export async function graphqlRequest(query, variables = {}) {
 
     const token = pairs[0][1];
     const schemaName = pairs[1][1];
+
+    if (!token) {
+      throw new Error(
+        "No auth token found in storage."
+      );
+    }
 
     if (!schemaName) {
       throw new Error(

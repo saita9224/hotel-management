@@ -1,7 +1,4 @@
-// app/_layout.jsx
-
-import { Slot, useRouter, useSegments } from "expo-router";
-import { useEffect } from "react";
+import { Redirect, Slot, useSegments } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 
 import { AuthProvider, useAuth }  from "../context/AuthContext";
@@ -15,14 +12,7 @@ import { ReportsProvider }        from "../context/ReportsContext";
 function RouteGuard({ children }) {
   const { loading, isAuthenticated } = useAuth();
   const segments = useSegments();
-  const router   = useRouter();
-
-  useEffect(() => {
-    if (loading) return;
-    const inAuthGroup = segments[0] === "(auth)";
-    if (!isAuthenticated && !inAuthGroup) router.replace("/(auth)/login");
-    else if (isAuthenticated && inAuthGroup) router.replace("/(tabs)");
-  }, [loading, isAuthenticated, segments]);
+  const inAuthGroup = segments[0] === "(auth)";
 
   if (loading) {
     return (
@@ -32,7 +22,15 @@ function RouteGuard({ children }) {
     );
   }
 
-  if (!isAuthenticated) return <Slot />;
+  if (!isAuthenticated && !inAuthGroup) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (!isAuthenticated) return children;
+
+  if (inAuthGroup) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   return (
     <MenuProvider>
