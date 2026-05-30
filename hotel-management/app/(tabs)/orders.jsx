@@ -174,7 +174,7 @@ function DraftReceiptActions({ visible, receipt, deleting, onClose, onDelete, co
 
 function WaiterView({ colors, onEditReceipt, onViewReceipt, onDeleteDraftPress }) {
   const { receipts, loading, getSummary } = usePOS();
-  const { totalSales, pendingCount } = getSummary();
+  const { totalSales, pendingCount, todayCount } = getSummary();
 
   const myReceipts = receipts.filter(
     (r) => !["PAID", "REFUNDED"].includes(r.status)
@@ -194,7 +194,7 @@ function WaiterView({ colors, onEditReceipt, onViewReceipt, onDeleteDraftPress }
         <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="receipt-outline" size={22} color={colors.accent} />
           <Text style={[styles.summaryValue, { color: colors.text }]}>
-            {receipts.length}
+            {todayCount}
           </Text>
           <Text style={[styles.summaryLabel, { color: colors.tabBarInactive }]}>
             Today

@@ -36,6 +36,19 @@ import { useMenu } from "./MenuContext";
 const POSContext = createContext();
 export const usePOS = () => useContext(POSContext);
 
+const isToday = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const today = new Date();
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
+};
+
 export const POSProvider = ({ children }) => {
   const { loadProducts } = useInventory();
   const { refreshMenu }  = useMenu();
@@ -291,19 +304,22 @@ export const POSProvider = ({ children }) => {
   // ── Summaries ─────────────────────────────────────────
 
   const getSummary = useCallback(() => {
-    const totalSales   = receipts
+    const todayReceipts = receipts.filter((r) => isToday(r.created_at));
+    const totalSales   = todayReceipts
       .filter((r) => r.status === "PAID")
       .reduce((sum, r) => sum + r.total, 0);
-    const pendingCount = receipts.filter((r) => r.status === "PENDING").length;
-    const openCount    = receipts.filter((r) => r.status === "OPEN").length;
-    const creditCount  = receipts.filter((r) => r.status === "CREDIT").length;
-    return { totalSales, pendingCount, openCount, creditCount };
+    const pendingCount = todayReceipts.filter((r) => r.status === "PENDING").length;
+    const openCount    = todayReceipts.filter((r) => r.status === "OPEN").length;
+    const creditCount  = todayReceipts.filter((r) => r.status === "CREDIT").length;
+    const todayCount   = todayReceipts.length;
+    return { totalSales, pendingCount, openCount, creditCount, todayCount };
   }, [receipts]);
 
   const getCashierSummary = useCallback(() => {
-    const queueCount = cashierQueue.length;
-    const openCount  = openReceipts.length;
+    const queueCount = cashierQueue.filter((r) => isToday(r.created_at)).length;
+    const openCount  = openReceipts.filter((r) => isToday(r.created_at)).length;
     const paidToday  = receipts
+      .filter((r) => isToday(r.created_at))
       .filter((r) => r.status === "PAID")
       .reduce((sum, r) => sum + r.total, 0);
     return { queueCount, openCount, paidToday };
