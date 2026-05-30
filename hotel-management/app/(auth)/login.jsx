@@ -39,26 +39,32 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   const logoProgress = useRef(new Animated.Value(0)).current;
+  const taglineProgress = useRef(new Animated.Value(0)).current;
   const formProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.sequence([
       Animated.delay(300),
+      Animated.timing(logoProgress, {
+        toValue: 1,
+        duration: 700,
+        useNativeDriver: true,
+      }),
       Animated.parallel([
-        Animated.timing(logoProgress, {
+        Animated.timing(taglineProgress, {
           toValue: 1,
-          duration: 750,
+          duration: 420,
           useNativeDriver: true,
         }),
         Animated.timing(formProgress, {
           toValue: 1,
           duration: 550,
-          delay: 250,
+          delay: 120,
           useNativeDriver: true,
         }),
       ]),
     ]).start();
-  }, [formProgress, logoProgress]);
+  }, [formProgress, logoProgress, taglineProgress]);
 
   const redirectUri = AuthSession.makeRedirectUri({
     useProxy: true,
@@ -160,13 +166,13 @@ export default function LoginScreen() {
       {
         translateY: logoProgress.interpolate({
           inputRange: [0, 1],
-          outputRange: [120, 0],
+          outputRange: [96, 0],
         }),
       },
       {
         scale: logoProgress.interpolate({
           inputRange: [0, 1],
-          outputRange: [1.55, 1],
+          outputRange: [1.28, 1],
         }),
       },
     ],
@@ -179,6 +185,18 @@ export default function LoginScreen() {
         translateY: formProgress.interpolate({
           inputRange: [0, 1],
           outputRange: [16, 0],
+        }),
+      },
+    ],
+  };
+
+  const taglineAnimatedStyle = {
+    opacity: taglineProgress,
+    transform: [
+      {
+        translateY: taglineProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-6, 0],
         }),
       },
     ],
@@ -201,11 +219,18 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
-          <Image
-            source={require("../../assets/images/BizzMan logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <View style={styles.logoGroup}>
+            <Image
+              source={require("../../assets/images/bizzman-login-logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Animated.Image
+              source={require("../../assets/images/bizzman-login-tagline.png")}
+              style={[styles.logoTagline, taglineAnimatedStyle]}
+              resizeMode="contain"
+            />
+          </View>
         </Animated.View>
 
         <Animated.View style={[styles.formContent, formAnimatedStyle]}>
@@ -392,12 +417,26 @@ const styles = StyleSheet.create({
 
   logoContainer: {
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: 32,
+  },
+
+  logoGroup: {
+    width: 268,
+    height: 96,
+    position: "relative",
   },
 
   logo: {
-    width: 180,
-    height: 96,
+    width: 268,
+    height: 78,
+  },
+
+  logoTagline: {
+    position: "absolute",
+    left: 96,
+    top: 62,
+    width: 178,
+    height: 26,
   },
 
   formContent: {
