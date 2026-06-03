@@ -12,8 +12,10 @@ const normalizeMenuItem = (m) => ({
   price:         Number(m.price ?? 0),
   is_available:  m.isAvailable,
   is_pinned:     m.isPinned,
+  category:      m.category ?? "other",   // ← was missing; caused the crash
   has_inventory: m.hasInventory,
   product_id:    m.productId ?? null,
+  order_count:   m.orderCount ?? 0,
 });
 
 const normalizeUnpricedProduct = (p) => ({
@@ -22,6 +24,8 @@ const normalizeUnpricedProduct = (p) => ({
   unit:         p.unit ?? "",
 });
 
+// category and orderCount added so the waiter POS and Menu Manager
+// both have everything they need from a single fetch.
 const MENU_ITEM_FIELDS = `
   id
   name
@@ -29,6 +33,7 @@ const MENU_ITEM_FIELDS = `
   price
   isAvailable
   isPinned
+  category
   hasInventory
   productId
 `;
@@ -78,6 +83,7 @@ export const createMenuItemService = async ({
   name,
   emoji,
   price,
+  category   = "other",   // ← new
   is_pinned  = false,
   product_id = null,
 }) => {
@@ -92,6 +98,7 @@ export const createMenuItemService = async ({
         name,
         emoji,
         price:     Number(price),
+        category,                          // ← new
         isPinned:  is_pinned,
         productId: product_id ? String(product_id) : null,
       },
@@ -105,6 +112,7 @@ export const updateMenuItemService = async ({
   name         = null,
   emoji        = null,
   price        = null,
+  category     = null,   // ← new
   is_pinned    = null,
   is_available = null,
 }) => {
@@ -120,6 +128,7 @@ export const updateMenuItemService = async ({
         name,
         emoji,
         price:       price !== null ? Number(price) : null,
+        category,                          // ← new
         isPinned:    is_pinned,
         isAvailable: is_available,
       },

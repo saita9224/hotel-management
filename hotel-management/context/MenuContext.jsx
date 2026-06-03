@@ -20,11 +20,12 @@ const MenuContext = createContext();
 export const useMenu = () => useContext(MenuContext);
 
 export const MenuProvider = ({ children }) => {
-  const [menuItems, setMenuItems]           = useState([]);
-  const [unpricedItems, setUnpricedItems]   = useState([]);
-  const [loading, setLoading]               = useState(false);
+  const [menuItems, setMenuItems]         = useState([]);
+  const [unpricedItems, setUnpricedItems] = useState([]);
+  const [loading, setLoading]             = useState(false);
 
-  // frequentItems — available, price > 0, pinned first then by order_count
+  // frequentItems — available, price > 0, pinned first then by order_count.
+  // Derives from menuItems so it's always in sync without a separate fetch.
   const frequentItems = useMemo(() => {
     return [...menuItems]
       .filter((m) => m.is_available && m.price > 0)
@@ -42,10 +43,12 @@ export const MenuProvider = ({ children }) => {
         fetchAllMenuItems(),
         fetchUnpricedInventoryItems(),
       ]);
-      setMenuItems(items);
-      setUnpricedItems(unpriced);
+      // Defensive: guarantee arrays even if the service returns null/undefined
+      setMenuItems(Array.isArray(items) ? items : []);
+      setUnpricedItems(Array.isArray(unpriced) ? unpriced : []);
     } catch (err) {
-      console.log("MenuContext load error:", err);
+      console.error("MenuContext load error:", err);
+      // Keep existing state on error rather than blowing up the UI
     } finally {
       setLoading(false);
     }
@@ -54,7 +57,6 @@ export const MenuProvider = ({ children }) => {
   const createMenuItem = async (input) => {
     const item = await createMenuItemService(input);
     setMenuItems((prev) => [...prev, item]);
-    // Remove from unpriced list if it was there
     if (input.product_id) {
       setUnpricedItems((prev) =>
         prev.filter((p) => String(p.product_id) !== String(input.product_id))
@@ -68,7 +70,6 @@ export const MenuProvider = ({ children }) => {
     setMenuItems((prev) =>
       prev.map((m) => (m.id === updated.id ? updated : m))
     );
-    // If price was updated from 0, remove from unpriced list
     if (updated.price > 0 && updated.product_id) {
       setUnpricedItems((prev) =>
         prev.filter((p) => String(p.product_id) !== String(updated.product_id))

@@ -33,18 +33,6 @@ const POS_CATEGORIES = [
   { key: "other",    label: "Other",    icon: "apps-outline" },
 ];
 
-const DRINK_WORDS = ["tea","coffee","soda","juice","water","milk","drink","beer","wine","chai","coke","fanta","sprite"];
-const SNACK_WORDS = ["chips","crisps","cake","biscuit","mandazi","samosa","snack","fries","sausage"];
-const FOOD_WORDS  = ["rice","pilau","ugali","beef","chicken","fish","stew","soup","meal","breakfast","lunch","dinner","chapati","beans","matoke"];
-
-const inferPOSCategory = (item) => {
-  const name = item.name.toLowerCase();
-  if (DRINK_WORDS.some((w) => name.includes(w))) return "drinks";
-  if (SNACK_WORDS.some((w) => name.includes(w))) return "snacks";
-  if (FOOD_WORDS.some((w)  => name.includes(w))) return "food";
-  return "other";
-};
-
 // ─── CartItem ────────────────────────────────────────────────────────────────
 function CartItem({ item, onIncrement, onDecrement, onRemove, colors }) {
   return (
@@ -281,9 +269,8 @@ export default function POSScreen({ onClose, editReceipt = null }) {
   const [preparing, setPreparing]                 = useState(isEditMode);
   const [reviewMode, setReviewMode]               = useState(false);
 
-  // Tile width derived from screen width, not layout measurement.
-  // Container has 16px horizontal padding on each side → content width = screenWidth - 32.
-  // 3 columns with 8px gap between them → subtract 2 gaps from content width.
+  // Tile sizing: container has 16px padding each side (32px total).
+  // 3 columns with 8px gap between them (2 gaps).
   const CONTAINER_H_PADDING = 32;
   const TILE_GAP            = 8;
   const COLS                = 3;
@@ -313,20 +300,25 @@ export default function POSScreen({ onClose, editReceipt = null }) {
     [menuItems]
   );
 
+  // Category counts now use item.category from the API — no inference.
   const categoryCounts = useMemo(() => {
-    const counts = POS_CATEGORIES.reduce((acc, c) => { acc[c.key] = 0; return acc; }, {});
+    const counts = { frequent: 0, all: 0, food: 0, drinks: 0, snacks: 0, other: 0 };
     counts.frequent = frequentItems.length;
-    counts.all = availableMenuItems.length;
-    availableMenuItems.forEach((item) => { counts[inferPOSCategory(item)] += 1; });
+    counts.all      = availableMenuItems.length;
+    availableMenuItems.forEach((item) => {
+      const cat = item.category ?? "other";
+      if (cat in counts) counts[cat] += 1;
+    });
     return counts;
   }, [availableMenuItems, frequentItems]);
 
+  // Filtering uses item.category directly — no word-list inference.
   const visibleMenuItems = useMemo(() => {
     const q = search.toLowerCase();
     const baseItems =
       selectedCategory === "frequent" ? frequentItems :
       selectedCategory === "all"      ? availableMenuItems :
-      availableMenuItems.filter((item) => inferPOSCategory(item) === selectedCategory);
+      availableMenuItems.filter((item) => (item.category ?? "other") === selectedCategory);
     return baseItems
       .filter((item) => !q.trim() || item.name.toLowerCase().includes(q))
       .slice(0, 24);
@@ -599,9 +591,6 @@ export default function POSScreen({ onClose, editReceipt = null }) {
       </ScrollView>
 
       {/* ── SCROLLABLE BODY ─────────────────────────────────────────── */}
-      {/* flex: 1 here is the critical fix — it makes this fill all
-          remaining vertical space after the fixed header, search, and pills,
-          giving the ScrollView a definite height to scroll within. */}
       <View style={{ flex: 1 }}>
         <ScrollView
           style={StyleSheet.absoluteFill}
@@ -751,7 +740,7 @@ const styles = StyleSheet.create({
   posHeader:    { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
   posTitle:     { fontSize: 18, fontWeight: "700" },
 
-  searchBox:           { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 10 },
+  searchBox:            { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 10 },
   categoryStripWrapper: { flexGrow: 0, flexShrink: 0, marginBottom: 10 },
   categoryStrip:        { gap: 8, paddingVertical: 4 },
   categoryPill:         { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12 },
