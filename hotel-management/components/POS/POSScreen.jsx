@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "../../hooks/useTheme";
 import { usePOS } from "../../context/POSContext";
@@ -24,13 +25,23 @@ const formatKES = (v) =>
     maximumFractionDigits: 2,
   });
 
-const POS_CATEGORIES = [
-  { key: "frequent", label: "Frequent", icon: "flash-outline" },
-  { key: "all",      label: "All",      icon: "grid-outline" },
-  { key: "food",     label: "Food",     icon: "restaurant-outline" },
-  { key: "drinks",   label: "Drinks",   icon: "cafe-outline" },
-  { key: "snacks",   label: "Snacks",   icon: "fast-food-outline" },
-  { key: "other",    label: "Other",    icon: "apps-outline" },
+// Icon map keyed by backend category key.
+// This is purely a UI concern — icons have no meaning on the backend.
+// If a new category key is added on the backend with no entry here,
+// it falls back to "pricetag-outline" so the pill still renders.
+const CATEGORY_ICON_MAP = {
+  food:   "restaurant-outline",
+  drinks: "cafe-outline",
+  snacks: "fast-food-outline",
+  other:  "apps-outline",
+};
+
+// The two frontend-only pills that are not backend categories.
+// "Frequent" = pinned + top-ordered items derived in MenuContext.
+// "All"      = every available, priced item.
+const STATIC_PILLS = [
+  { key: "frequent", name: "Frequent", icon: "flash-outline" },
+  { key: "all",      name: "All",      icon: "grid-outline" },
 ];
 
 // ─── CartItem ────────────────────────────────────────────────────────────────
@@ -124,9 +135,13 @@ function CategoryPill({ category, active, count, onPress, colors }) {
       onPress={onPress}
       activeOpacity={0.75}
     >
-      <Ionicons name={category.icon} size={15} color={active ? "#fff" : colors.tabBarInactive} />
+      <Ionicons
+        name={category.icon}
+        size={15}
+        color={active ? "#fff" : colors.tabBarInactive}
+      />
       <Text style={[styles.categoryPillText, { color: active ? "#fff" : colors.text }]}>
-        {category.label}
+        {category.name}
       </Text>
       <Text style={{ color: active ? "#DDEBFF" : colors.tabBarInactive, fontSize: 11, fontWeight: "700" }}>
         {count}
@@ -147,14 +162,19 @@ function OrderReviewPanel({ cart, cartTotal, onClose, onIncrement, onDecrement, 
             <Ionicons name="receipt-outline" size={18} color={colors.accent} />
           </View>
           <View>
-            <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16 }}>Order Review</Text>
+            <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16 }}>
+              Order Review
+            </Text>
             <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 1 }}>
               {itemCount} item{itemCount !== 1 ? "s" : ""} · adjust before sending
             </Text>
           </View>
         </View>
         <TouchableOpacity
-          style={[styles.reviewCloseBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+          style={[
+            styles.reviewCloseBtn,
+            { backgroundColor: colors.background, borderColor: colors.border },
+          ]}
           onPress={onClose}
           activeOpacity={0.75}
         >
@@ -189,7 +209,12 @@ function OrderReviewPanel({ cart, cartTotal, onClose, onIncrement, onDecrement, 
         )}
       </ScrollView>
 
-      <View style={[styles.reviewFooter, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.reviewFooter,
+          { borderTopColor: colors.border, backgroundColor: colors.background },
+        ]}
+      >
         <View style={styles.reviewSummaryRow}>
           <Text style={{ color: colors.tabBarInactive, fontSize: 13 }}>Subtotal</Text>
           <Text style={{ color: colors.text, fontWeight: "600", fontSize: 13 }}>
@@ -233,10 +258,15 @@ function OrderSentOverlay({ receiptNumber, isEdit, onNewOrder, onClose, colors }
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.closeOverlayBtn, { borderColor: colors.border, marginTop: isEdit ? 28 : 12 }]}
+          style={[
+            styles.closeOverlayBtn,
+            { borderColor: colors.border, marginTop: isEdit ? 28 : 12 },
+          ]}
           onPress={onClose}
         >
-          <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 14 }}>Close</Text>
+          <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 14 }}>
+            Close
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -245,8 +275,9 @@ function OrderSentOverlay({ receiptNumber, isEdit, onNewOrder, onClose, colors }
 
 // ─── POSScreen ────────────────────────────────────────────────────────────────
 export default function POSScreen({ onClose, editReceipt = null }) {
-  const { colors } = useTheme();
-  const { width: screenWidth } = useWindowDimensions();
+  const { colors }              = useTheme();
+  const { width: screenWidth }  = useWindowDimensions();
+  const insets                  = useSafeAreaInsets();
   const {
     session,
     createReceipt,
@@ -256,7 +287,7 @@ export default function POSScreen({ onClose, editReceipt = null }) {
     submitOrder,
     recallOrder,
   } = usePOS();
-  const { frequentItems, menuItems } = useMenu();
+  const { frequentItems, menuItems, menuCategories } = useMenu();
 
   const isEditMode = editReceipt !== null;
 
@@ -269,8 +300,6 @@ export default function POSScreen({ onClose, editReceipt = null }) {
   const [preparing, setPreparing]                 = useState(isEditMode);
   const [reviewMode, setReviewMode]               = useState(false);
 
-  // Tile sizing: container has 16px padding each side (32px total).
-  // 3 columns with 8px gap between them (2 gaps).
   const CONTAINER_H_PADDING = 32;
   const TILE_GAP            = 8;
   const COLS                = 3;
@@ -296,27 +325,41 @@ export default function POSScreen({ onClose, editReceipt = null }) {
   }, [editReceipt?.id]);
 
   const availableMenuItems = useMemo(
-    () => menuItems.filter((m) => m.is_available && m.price > 0),
+    () => (menuItems ?? []).filter((m) => m.is_available && m.price > 0),
     [menuItems]
   );
 
-  // Category counts now use item.category from the API — no inference.
+  // All category pills. Static "Frequent" and "All" always appear first.
+  // The rest come from the backend menuCategories — keys, labels, and
+  // counts are all backend-driven. Only icons are mapped here since
+  // they are a UI-only concept with no backend representation.
+  const posCategories = useMemo(() => [
+    ...STATIC_PILLS,
+    ...(menuCategories ?? []).map((cat) => ({
+      key:  cat.key,
+      name: cat.label,
+      icon: CATEGORY_ICON_MAP[cat.key] ?? "pricetag-outline",
+    })),
+  ], [menuCategories]);
+
+  // Counts for each pill. Keys seeded from menuCategories so they stay
+  // in sync with whatever the backend currently defines.
   const categoryCounts = useMemo(() => {
-    const counts = { frequent: 0, all: 0, food: 0, drinks: 0, snacks: 0, other: 0 };
-    counts.frequent = frequentItems.length;
+    const counts = { frequent: 0, all: 0 };
+    (menuCategories ?? []).forEach((cat) => { counts[cat.key] = 0; });
+    counts.frequent = (frequentItems ?? []).length;
     counts.all      = availableMenuItems.length;
     availableMenuItems.forEach((item) => {
       const cat = item.category ?? "other";
       if (cat in counts) counts[cat] += 1;
     });
     return counts;
-  }, [availableMenuItems, frequentItems]);
+  }, [availableMenuItems, frequentItems, menuCategories]);
 
-  // Filtering uses item.category directly — no word-list inference.
   const visibleMenuItems = useMemo(() => {
     const q = search.toLowerCase();
     const baseItems =
-      selectedCategory === "frequent" ? frequentItems :
+      selectedCategory === "frequent" ? (frequentItems ?? []) :
       selectedCategory === "all"      ? availableMenuItems :
       availableMenuItems.filter((item) => (item.category ?? "other") === selectedCategory);
     return baseItems
@@ -450,8 +493,17 @@ export default function POSScreen({ onClose, editReceipt = null }) {
     setReviewMode(false);
   };
 
+  // ── Shared footer ─────────────────────────────────────────────────────────
   const Footer = () => (
-    <View style={[styles.cartFooter, { borderTopColor: colors.border }]}>
+    <View
+      style={[
+        styles.cartFooter,
+        {
+          borderTopColor: colors.border,
+          paddingBottom: Math.max(insets.bottom, 10),
+        },
+      ]}
+    >
       <View>
         <Text style={{ color: colors.tabBarInactive, fontSize: 12 }}>
           {isEditMode ? "Updated Total" : "Total"}
@@ -482,21 +534,55 @@ export default function POSScreen({ onClose, editReceipt = null }) {
     </View>
   );
 
+  // ── Shared header ─────────────────────────────────────────────────────────
+  // paddingTop uses the safe area top inset so the arrow clears the
+  // status bar on all devices including notched and Dynamic Island models.
   const Header = () => (
-    <View style={styles.posHeader}>
-      <View>
+    <View
+      style={[
+        styles.posHeader,
+        {
+          borderBottomColor: colors.border,
+          paddingTop: insets.top + 8,
+          backgroundColor: colors.card,
+        },
+      ]}
+    >
+      {/* Back arrow */}
+      <TouchableOpacity
+        style={[styles.backBtn, { backgroundColor: colors.background }]}
+        onPress={onClose}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="arrow-back" size={20} color={colors.text} />
+      </TouchableOpacity>
+
+      {/* Title block */}
+      <View style={{ flex: 1, marginLeft: 12 }}>
         <Text style={[styles.posTitle, { color: colors.text }]}>
           {isEditMode ? "Edit Order" : "New Order"}
         </Text>
         {isEditMode && (
-          <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
+          <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 1 }}>
             {editReceipt.receipt_number}
           </Text>
         )}
       </View>
-      <TouchableOpacity onPress={onClose}>
-        <Ionicons name="close" size={22} color={colors.tabBarInactive} />
-      </TouchableOpacity>
+
+      {/* Cart item count badge — only shown when cart has items */}
+      {cart.length > 0 && (
+        <View
+          style={[
+            styles.headerCartBadge,
+            { backgroundColor: colors.accent + "18", borderColor: colors.accent + "35" },
+          ]}
+        >
+          <Ionicons name="cart-outline" size={14} color={colors.accent} />
+          <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700" }}>
+            {cartItemQty}
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -516,7 +602,17 @@ export default function POSScreen({ onClose, editReceipt = null }) {
   // ── Phase: loading edit ──
   if (preparing) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.card, justifyContent: "center", alignItems: "center" }]}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.card,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingTop: insets.top,
+          },
+        ]}
+      >
         <ActivityIndicator color={colors.accent} />
         <Text style={{ color: colors.tabBarInactive, marginTop: 12, fontSize: 13 }}>
           Loading order...
@@ -530,15 +626,17 @@ export default function POSScreen({ onClose, editReceipt = null }) {
     return (
       <View style={[styles.container, { backgroundColor: colors.card }]}>
         <Header />
-        <OrderReviewPanel
-          cart={cart}
-          cartTotal={cartTotal}
-          onClose={() => setReviewMode(false)}
-          onIncrement={increment}
-          onDecrement={decrement}
-          onRemove={removeFromCart}
-          colors={colors}
-        />
+        <View style={{ flex: 1, paddingHorizontal: 16 }}>
+          <OrderReviewPanel
+            cart={cart}
+            cartTotal={cartTotal}
+            onClose={() => setReviewMode(false)}
+            onIncrement={increment}
+            onDecrement={decrement}
+            onRemove={removeFromCart}
+            colors={colors}
+          />
+        </View>
         <Footer />
       </View>
     );
@@ -549,198 +647,247 @@ export default function POSScreen({ onClose, editReceipt = null }) {
     <View style={[styles.container, { backgroundColor: colors.card }]}>
       <Header />
 
-      {/* ── SEARCH (fixed) ──────────────────────────────────────────── */}
-      <View
-        style={[
-          styles.searchBox,
-          { borderColor: colors.border, backgroundColor: colors.background },
-        ]}
-      >
-        <Ionicons name="search-outline" size={16} color={colors.tabBarInactive} />
-        <TextInput
-          style={{ flex: 1, color: colors.text, marginLeft: 8, fontSize: 14 }}
-          placeholder="Search menu..."
-          placeholderTextColor={colors.tabBarInactive}
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch("")}>
-            <Ionicons name="close-circle" size={16} color={colors.tabBarInactive} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* ── CATEGORY PILLS (fixed) ──────────────────────────────────── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryStrip}
-        style={styles.categoryStripWrapper}
-      >
-        {POS_CATEGORIES.map((category) => (
-          <CategoryPill
-            key={category.key}
-            category={category}
-            active={selectedCategory === category.key}
-            count={categoryCounts[category.key] ?? 0}
-            onPress={() => setSelectedCategory(category.key)}
-            colors={colors}
-          />
-        ))}
-      </ScrollView>
-
-      {/* ── SCROLLABLE BODY ─────────────────────────────────────────── */}
-      <View style={{ flex: 1 }}>
-        <ScrollView
-          style={StyleSheet.absoluteFill}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 12 }}
+      <View style={styles.body}>
+        {/* ── SEARCH (fixed) ────────────────────────────────────────── */}
+        <View
+          style={[
+            styles.searchBox,
+            { borderColor: colors.border, backgroundColor: colors.background },
+          ]}
         >
+          <Ionicons name="search-outline" size={16} color={colors.tabBarInactive} />
+          <TextInput
+            style={{ flex: 1, color: colors.text, marginLeft: 8, fontSize: 14 }}
+            placeholder="Search menu..."
+            placeholderTextColor={colors.tabBarInactive}
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <Ionicons name="close-circle" size={16} color={colors.tabBarInactive} />
+            </TouchableOpacity>
+          )}
+        </View>
 
-          {/* ── CURRENT ORDER ─────────────────────────────────────────── */}
-          <View
-            style={[
-              styles.cartPanel,
-              { borderColor: colors.border, backgroundColor: colors.background, marginBottom: 14 },
-            ]}
+        {/* ── CATEGORY PILLS (fixed) ────────────────────────────────── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryStrip}
+          style={styles.categoryStripWrapper}
+        >
+          {posCategories.map((category) => (
+            <CategoryPill
+              key={category.key}
+              category={category}
+              active={selectedCategory === category.key}
+              count={categoryCounts[category.key] ?? 0}
+              onPress={() => setSelectedCategory(category.key)}
+              colors={colors}
+            />
+          ))}
+        </ScrollView>
+
+        {/* ── SCROLLABLE BODY ───────────────────────────────────────── */}
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            style={StyleSheet.absoluteFill}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 12 }}
           >
-            <View style={styles.cartPanelHeader}>
-              <View>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Current Order</Text>
-                <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
-                  {cart.length === 0
-                    ? "Tap a tile below to start"
-                    : `${cartItemQty} item${cartItemQty !== 1 ? "s" : ""} · KES ${formatKES(cartTotal)}`}
-                </Text>
-              </View>
 
-              {cart.length > 0 && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <TouchableOpacity
-                    style={[
-                      styles.cartActionBtn,
-                      { borderColor: colors.accent, backgroundColor: colors.accent + "15" },
-                    ]}
-                    onPress={() => setReviewMode(true)}
-                    activeOpacity={0.75}
-                  >
-                    <Ionicons name="eye-outline" size={14} color={colors.accent} />
-                    <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700" }}>Review</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.cartActionBtn, { borderColor: "#FF453A", backgroundColor: "#FF453A18" }]}
-                    onPress={() =>
-                      Alert.alert(
-                        "Clear Order",
-                        "Remove all items from the current order?",
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          { text: "Clear", style: "destructive", onPress: () => setCart([]) },
-                        ]
-                      )
-                    }
-                  >
-                    <Ionicons name="close-circle-outline" size={14} color="#FF453A" />
-                    <Text style={{ color: "#FF453A", fontSize: 12, fontWeight: "700" }}>Clear</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-            <ScrollView
-              style={{ maxHeight: 220 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-            >
-              {cart.length === 0 ? (
-                <View style={styles.emptyCart}>
-                  <Ionicons name="restaurant-outline" size={34} color={colors.tabBarInactive} />
-                  <Text style={{ color: colors.tabBarInactive, marginTop: 10, fontSize: 13, textAlign: "center" }}>
-                    Tap a tile below to start the order
-                  </Text>
-                </View>
-              ) : (
-                cart.map((item) => (
-                  <CartItem
-                    key={item.key}
-                    item={item}
-                    onIncrement={increment}
-                    onDecrement={decrement}
-                    onRemove={removeFromCart}
-                    colors={colors}
-                  />
-                ))
-              )}
-            </ScrollView>
-          </View>
-
-          {/* ── TAP TO ADD ────────────────────────────────────────────── */}
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Tap To Add</Text>
-              <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
-                {visibleMenuItems.length} items shown
-              </Text>
-            </View>
-            {cart.length > 0 && (
-              <View
-                style={[
-                  styles.itemCountPill,
-                  { backgroundColor: colors.background, borderColor: colors.border },
-                ]}
-              >
-                <Ionicons name="receipt-outline" size={14} color={colors.accent} />
-                <Text style={{ color: colors.text, fontSize: 12, fontWeight: "700" }}>
-                  {cartItemQty} in order
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {visibleMenuItems.length === 0 ? (
+            {/* ── CURRENT ORDER ───────────────────────────────────────── */}
             <View
               style={[
-                styles.emptyMenu,
-                { borderColor: colors.border, backgroundColor: colors.background },
+                styles.cartPanel,
+                { borderColor: colors.border, backgroundColor: colors.background, marginBottom: 14 },
               ]}
             >
-              <Ionicons name="search-outline" size={28} color={colors.tabBarInactive} />
-              <Text style={{ color: colors.tabBarInactive, marginTop: 8, fontSize: 13, textAlign: "center" }}>
-                No menu items match this view.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.menuGrid}>
-              {visibleMenuItems.map((item) => (
-                <MenuTile
-                  key={item.id}
-                  item={item}
-                  quantity={cartQuantities[makeKey(item)] ?? 0}
-                  onPress={addToCart}
-                  colors={colors}
-                  tileWidth={tileWidth}
-                />
-              ))}
-            </View>
-          )}
+              <View style={styles.cartPanelHeader}>
+                <View>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Current Order</Text>
+                  <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
+                    {cart.length === 0
+                      ? "Tap a tile below to start"
+                      : `${cartItemQty} item${cartItemQty !== 1 ? "s" : ""} · KES ${formatKES(cartTotal)}`}
+                  </Text>
+                </View>
 
-        </ScrollView>
+                {cart.length > 0 && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.cartActionBtn,
+                        { borderColor: colors.accent, backgroundColor: colors.accent + "15" },
+                      ]}
+                      onPress={() => setReviewMode(true)}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="eye-outline" size={14} color={colors.accent} />
+                      <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700" }}>
+                        Review
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.cartActionBtn,
+                        { borderColor: "#FF453A", backgroundColor: "#FF453A18" },
+                      ]}
+                      onPress={() =>
+                        Alert.alert(
+                          "Clear Order",
+                          "Remove all items from the current order?",
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            { text: "Clear", style: "destructive", onPress: () => setCart([]) },
+                          ]
+                        )
+                      }
+                    >
+                      <Ionicons name="close-circle-outline" size={14} color="#FF453A" />
+                      <Text style={{ color: "#FF453A", fontSize: 12, fontWeight: "700" }}>Clear</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              <ScrollView
+                style={{ maxHeight: 220 }}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+              >
+                {cart.length === 0 ? (
+                  <View style={styles.emptyCart}>
+                    <Ionicons name="restaurant-outline" size={34} color={colors.tabBarInactive} />
+                    <Text style={{ color: colors.tabBarInactive, marginTop: 10, fontSize: 13, textAlign: "center" }}>
+                      Tap a tile below to start the order
+                    </Text>
+                  </View>
+                ) : (
+                  cart.map((item) => (
+                    <CartItem
+                      key={item.key}
+                      item={item}
+                      onIncrement={increment}
+                      onDecrement={decrement}
+                      onRemove={removeFromCart}
+                      colors={colors}
+                    />
+                  ))
+                )}
+              </ScrollView>
+            </View>
+
+            {/* ── TAP TO ADD ──────────────────────────────────────────── */}
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Tap To Add</Text>
+                <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
+                  {visibleMenuItems.length} items shown
+                </Text>
+              </View>
+              {cart.length > 0 && (
+                <View
+                  style={[
+                    styles.itemCountPill,
+                    { backgroundColor: colors.background, borderColor: colors.border },
+                  ]}
+                >
+                  <Ionicons name="receipt-outline" size={14} color={colors.accent} />
+                  <Text style={{ color: colors.text, fontSize: 12, fontWeight: "700" }}>
+                    {cartItemQty} in order
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {visibleMenuItems.length === 0 ? (
+              <View
+                style={[
+                  styles.emptyMenu,
+                  { borderColor: colors.border, backgroundColor: colors.background },
+                ]}
+              >
+                <Ionicons name="search-outline" size={28} color={colors.tabBarInactive} />
+                <Text style={{ color: colors.tabBarInactive, marginTop: 8, fontSize: 13, textAlign: "center" }}>
+                  No menu items match this view.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.menuGrid}>
+                {visibleMenuItems.map((item) => (
+                  <MenuTile
+                    key={item.id}
+                    item={item}
+                    quantity={cartQuantities[makeKey(item)] ?? 0}
+                    onPress={addToCart}
+                    colors={colors}
+                    tileWidth={tileWidth}
+                  />
+                ))}
+              </View>
+            )}
+
+          </ScrollView>
+        </View>
+
+        <Footer />
       </View>
-
-      <Footer />
     </View>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container:    { flex: 1, paddingHorizontal: 16 },
-  posHeader:    { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
-  posTitle:     { fontSize: 18, fontWeight: "700" },
+  // Root container — no horizontal padding here so the header can
+  // span full width. Padding is applied inside `body` instead.
+  container: { flex: 1 },
 
-  searchBox:            { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 10 },
+  // Header sits outside `body` so it can own its own top padding
+  // (set dynamically via insets.top in the component).
+  posHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  posTitle: { fontSize: 17, fontWeight: "700" },
+
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  headerCartBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+
+  // Body — everything below the header, horizontally padded.
+  body: { flex: 1, paddingHorizontal: 16 },
+
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginTop: 12,
+    marginBottom: 10,
+  },
+
   categoryStripWrapper: { flexGrow: 0, flexShrink: 0, marginBottom: 10 },
   categoryStrip:        { gap: 8, paddingVertical: 4 },
   categoryPill:         { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12 },
@@ -767,7 +914,7 @@ const styles = StyleSheet.create({
   qtyBtn:          { width: 28, height: 28, borderRadius: 6, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   emptyCart:       { alignItems: "center", paddingVertical: 28 },
 
-  cartFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10, borderTopWidth: 1 },
+  cartFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTopWidth: 1 },
   sendBtn:    { paddingVertical: 11, paddingHorizontal: 20, borderRadius: 10 },
 
   overlay:         { flex: 1, justifyContent: "center", alignItems: "center" },

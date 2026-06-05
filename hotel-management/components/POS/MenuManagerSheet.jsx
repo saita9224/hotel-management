@@ -25,25 +25,43 @@ const formatKES = (v) =>
     maximumFractionDigits: 2,
   });
 
-// ── Category definitions ──────────────────────────────────
-// Mirrors MenuItem.CATEGORY_CHOICES on the backend.
-// The "frequent" pill from POSScreen is a frontend-only concept
-// and is not a storable category — only these four are valid.
-
-const MENU_CATEGORIES = [
-  { key: "food",   label: "Food",   icon: "restaurant-outline" },
-  { key: "drinks", label: "Drinks", icon: "cafe-outline" },
-  { key: "snacks", label: "Snacks", icon: "fast-food-outline" },
-  { key: "other",  label: "Other",  icon: "apps-outline" },
-];
+const CATEGORY_ICONS = {
+  food:   "restaurant-outline",
+  drinks: "cafe-outline",
+  snacks: "fast-food-outline",
+  other:  "apps-outline",
+};
 
 // ── CategoryPicker ────────────────────────────────────────
 // Rendered inside forms wherever category needs to be set.
 
-function CategoryPicker({ selected, onSelect, colors }) {
+function CategoryPicker({ selected, onSelect, categories, colors }) {
+  const { createMenuCategory } = useMenu();
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleAddCategory = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return Alert.alert("Required", "Category name is required.");
+
+    try {
+      setSaving(true);
+      const category = await createMenuCategory(trimmed);
+      setName("");
+      setAdding(false);
+      onSelect(category.key);
+    } catch (err) {
+      Alert.alert("Error", err?.message || "Failed to create category.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <View style={styles.categoryPickerRow}>
-      {MENU_CATEGORIES.map((cat) => {
+    <View>
+      <View style={styles.categoryPickerRow}>
+      {(categories ?? []).map((cat) => {
         const active = selected === cat.key;
         return (
           <TouchableOpacity
@@ -59,7 +77,7 @@ function CategoryPicker({ selected, onSelect, colors }) {
             activeOpacity={0.75}
           >
             <Ionicons
-              name={cat.icon}
+              name={CATEGORY_ICONS[cat.key] ?? "pricetag-outline"}
               size={13}
               color={active ? "#fff" : colors.tabBarInactive}
             />
@@ -67,11 +85,45 @@ function CategoryPicker({ selected, onSelect, colors }) {
               styles.categoryChipText,
               { color: active ? "#fff" : colors.text },
             ]}>
-              {cat.label}
+              {cat.name}
             </Text>
           </TouchableOpacity>
         );
       })}
+        <TouchableOpacity
+          style={[styles.categoryChip, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => setAdding((v) => !v)}
+          activeOpacity={0.75}
+        >
+          <Ionicons name={adding ? "remove-circle-outline" : "add-circle-outline"} size={13} color={colors.accent} />
+          <Text style={[styles.categoryChipText, { color: colors.accent }]}>
+            Category
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {adding && (
+        <View style={styles.categoryAddRow}>
+          <TextInput
+            style={[styles.categoryAddInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.card }]}
+            placeholder="Category name"
+            placeholderTextColor={colors.tabBarInactive}
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+          />
+          <TouchableOpacity
+            style={[styles.categoryAddBtn, { backgroundColor: saving ? colors.border : colors.accent }]}
+            onPress={handleAddCategory}
+            disabled={saving}
+          >
+            {saving
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Ionicons name="checkmark" size={16} color="#fff" />
+            }
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -81,7 +133,7 @@ function CategoryPicker({ selected, onSelect, colors }) {
 // Shown in "Needs Pricing". Staff set emoji, price, and
 // category before adding an inventory item to the menu.
 
-function UnpricedProductRow({ product, onAdded, colors }) {
+function UnpricedProductRow({ product, onAdded, categories, colors }) {
   const { createMenuItem } = useMenu();
   const [price, setPrice]       = useState("");
   const [emoji, setEmoji]       = useState("🛒");
@@ -182,6 +234,7 @@ function UnpricedProductRow({ product, onAdded, colors }) {
           <CategoryPicker
             selected={category}
             onSelect={setCategory}
+            categories={categories}
             colors={colors}
           />
 
@@ -211,7 +264,7 @@ function UnpricedProductRow({ product, onAdded, colors }) {
 // ── ADD ITEM FORM ─────────────────────────────────────────
 // For completely new manual items (no inventory link).
 
-function AddItemForm({ onDone, colors }) {
+function AddItemForm({ onDone, categories, colors }) {
   const { createMenuItem } = useMenu();
   const [name, setName]         = useState("");
   const [emoji, setEmoji]       = useState("🛒");
@@ -294,6 +347,7 @@ function AddItemForm({ onDone, colors }) {
       <CategoryPicker
         selected={category}
         onSelect={setCategory}
+        categories={categories}
         colors={colors}
       />
 
@@ -327,7 +381,7 @@ function AddItemForm({ onDone, colors }) {
 // Normal view: shows name, price, category badge, toggles.
 // Edit view: inline form to update emoji, price, category, pin.
 
-function MenuItemRow({ item, colors }) {
+function MenuItemRow({ item, categories, colors }) {
   const { updateMenuItem, deleteMenuItem } = useMenu();
 
   const [editing, setEditing]       = useState(false);
@@ -338,7 +392,10 @@ function MenuItemRow({ item, colors }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [saving, setSaving]         = useState(false);
 
-  const categoryLabel = MENU_CATEGORIES.find((c) => c.key === (item.category ?? "other"))?.label ?? "Other";
+  const categoryLabel =
+    categories.find((c) => c.key === (item.category ?? "other"))?.name ??
+    item.category ??
+    "Other";
 
   const toggleAvailable = () =>
     updateMenuItem({ item_id: item.id, is_available: !item.is_available });
@@ -427,6 +484,7 @@ function MenuItemRow({ item, colors }) {
         <CategoryPicker
           selected={category}
           onSelect={setCategory}
+          categories={categories}
           colors={colors}
         />
 
@@ -534,11 +592,12 @@ function MenuItemRow({ item, colors }) {
 
 export default function MenuManagerSheet({ visible, onClose }) {
   const { colors } = useTheme();
-  const { menuItems, unpricedItems, loading, refreshMenu } = useMenu();
+  const { menuItems, unpricedItems, menuCategories, loading, refreshMenu } = useMenu();
   const [showAddForm, setShowAddForm] = useState(false);
 
   const inventoryItems = (menuItems ?? []).filter((m) => m.has_inventory && m.price > 0);
   const manualItems    = (menuItems ?? []).filter((m) => !m.has_inventory);
+  const categories     = menuCategories ?? [];
 
   return (
     <Modal
@@ -598,6 +657,7 @@ export default function MenuManagerSheet({ visible, onClose }) {
                     <UnpricedProductRow
                       key={product.product_id}
                       product={product}
+                      categories={categories}
                       colors={colors}
                       onAdded={refreshMenu}
                     />
@@ -625,6 +685,7 @@ export default function MenuManagerSheet({ visible, onClose }) {
 
               {showAddForm && (
                 <AddItemForm
+                  categories={categories}
                   colors={colors}
                   onDone={() => setShowAddForm(false)}
                 />
@@ -637,7 +698,7 @@ export default function MenuManagerSheet({ visible, onClose }) {
                     FROM INVENTORY
                   </Text>
                   {inventoryItems.map((item) => (
-                    <MenuItemRow key={item.id} item={item} colors={colors} />
+                    <MenuItemRow key={item.id} item={item} categories={categories} colors={colors} />
                   ))}
                 </>
               )}
@@ -649,7 +710,7 @@ export default function MenuManagerSheet({ visible, onClose }) {
                     MANUAL ITEMS
                   </Text>
                   {manualItems.map((item) => (
-                    <MenuItemRow key={item.id} item={item} colors={colors} />
+                    <MenuItemRow key={item.id} item={item} categories={categories} colors={colors} />
                   ))}
                 </>
               )}
@@ -746,4 +807,19 @@ const styles = StyleSheet.create({
     borderRadius: 16, borderWidth: 1,
   },
   categoryChipText: { fontSize: 12, fontWeight: "700" },
+  categoryAddRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  categoryAddInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+  },
+  categoryAddBtn: {
+    width: 42,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

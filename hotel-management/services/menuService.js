@@ -18,6 +18,12 @@ const normalizeMenuItem = (m) => ({
   order_count:   m.orderCount ?? 0,
 });
 
+const normalizeMenuCategory = (c) => ({
+  key:        c.key,
+  name:       c.label ?? c.name,
+  item_count: Number(c.count ?? c.itemCount ?? c.item_count ?? 0),
+});
+
 const normalizeUnpricedProduct = (p) => ({
   product_id:   p.productId,
   product_name: p.productName,
@@ -76,6 +82,19 @@ export const fetchUnpricedInventoryItems = async () => {
   return (data?.unpricedInventoryItems ?? []).map(normalizeUnpricedProduct);
 };
 
+export const fetchMenuCategories = async () => {
+  const data = await graphqlRequest(`
+    query {
+      menuCategories {
+        key
+        label
+        count
+      }
+    }
+  `);
+  return (data?.menuCategories ?? []).map(normalizeMenuCategory);
+};
+
 
 // ── Mutations ─────────────────────────────────────────────
 
@@ -105,6 +124,20 @@ export const createMenuItemService = async ({
     }
   );
   return normalizeMenuItem(data.createMenuItem);
+};
+
+export const createMenuCategoryService = async (name) => {
+  const data = await graphqlRequest(
+    `mutation($input: CreateMenuCategoryInput!) {
+      createMenuCategory(input: $input) {
+        key
+        label
+        count
+      }
+    }`,
+    { input: { name: name.trim() } }
+  );
+  return normalizeMenuCategory(data.createMenuCategory);
 };
 
 export const updateMenuItemService = async ({
