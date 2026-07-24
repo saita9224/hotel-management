@@ -7,34 +7,36 @@ import { handleAuthFailure } from "./authSession";
 // HOST CONFIGURATION
 // ─────────────────────────────────────────────────────────────
 //
-// DEVELOPMENT
-// Uses your laptop LAN IP so Expo on your phone can reach Django.
+// Which backend to hit is controlled explicitly by
+// EXPO_PUBLIC_API_ENV, NOT by __DEV__ (which only reflects
+// whether the Metro dev bundler is running — you can be on
+// the dev bundler and still want to test production).
 //
-// IMPORTANT:
-// Run Django using:
+// Set in .env or via `EXPO_PUBLIC_API_ENV=production npx expo start`:
+//   EXPO_PUBLIC_API_ENV=local        -> laptop LAN IP
+//   EXPO_PUBLIC_API_ENV=production   -> api.bizzman.hoppers.ink
 //
-// python manage.py runserver 0.0.0.0:8000
-//
-// PROD
-// Uses real tenant subdomains:
-// hoppers.yourdomain.com/graphql/
+// Defaults to "production" if unset, so a real release build
+// with no env var set does the safe thing.
 // ─────────────────────────────────────────────────────────────
 
-const __DEV__ = process.env.NODE_ENV !== "production";
+const API_ENV = process.env.EXPO_PUBLIC_API_ENV ?? "production";
+const IS_LOCAL = API_ENV === "local";
 
-const BASE_HOST = __DEV__
-  ? "10.36.215.69:8000"
-  : "yourdomain.com";
+const BASE_HOST = IS_LOCAL
+  ? "172.22.236.69:8000"
+  : "api.bizzman.hoppers.ink";
 
-const PROTOCOL = __DEV__ ? "http" : "https";
+const PROTOCOL = IS_LOCAL ? "http" : "https";
+
+console.log(`[graphql.js] API_ENV=${API_ENV} BASE_HOST=${BASE_HOST}`);
+
+// ...rest of the file (PUBLIC_URL, GRAPHQL_URL, _fetch, publicRequest,
+// graphqlRequest) stays exactly the same, just with IS_LOCAL used
+// anywhere __DEV__ was used before. ? "http" : "https";
 
 // ─────────────────────────────────────────────────────────────
-// PUBLIC URL
-// Used BEFORE login:
-// - login
-// - registration
-// - OTP verification
-// - google auth
+// PUBLIC URL — used BEFORE login: login, registration, OTP, google auth
 // ─────────────────────────────────────────────────────────────
 
 const PUBLIC_URL = `${PROTOCOL}://${BASE_HOST}/auth/`;
@@ -42,50 +44,28 @@ const PUBLIC_URL = `${PROTOCOL}://${BASE_HOST}/auth/`;
 // ─────────────────────────────────────────────────────────────
 // TENANT GRAPHQL URL
 //
-// DEV:
-// Uses ONE shared URL because subdomains do NOT work
-// reliably with LAN IPs.
-//
-// PROD:
-// Uses real tenant subdomains.
+// Always the same host, dev or prod. The JWT alone determines
+// which tenant schema the backend executes against — this app
+// never needs to construct a tenant-specific host.
 // ─────────────────────────────────────────────────────────────
 
-const buildTenantUrl = (schemaName) => {
-  if (__DEV__) {
-    return `${PROTOCOL}://${BASE_HOST}/graphql/`;
-  }
-
-  return `${PROTOCOL}://${schemaName}.${BASE_HOST}/graphql/`;
-};
+const GRAPHQL_URL = `${PROTOCOL}://${BASE_HOST}/graphql/`;
 
 // ─────────────────────────────────────────────────────────────
 // CORE FETCH
 // ─────────────────────────────────────────────────────────────
 
-async function _fetch(
-  url,
-  query,
-  variables = {},
-  token = null,
-  schemaName = null
-) {
+async function _fetch(url, query, variables = {}, token = null, schemaName = null) {
   const headers = {
     "Content-Type": "application/json",
   };
 
-  // Add auth token if available
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  // DEV:
-// Send tenant using custom header
-//
-// Your Django middleware must read:
-// request.headers.get("X-Tenant")
-//
-// PROD:
-// Optional, but still okay to send
+  // X-Tenant is now just a fallback for non-JWT requests
+  // (the backend's XTenantMiddleware). Harmless to keep sending.
   if (schemaName) {
     headers["X-Tenant"] = schemaName;
   }
@@ -93,17 +73,12 @@ async function _fetch(
   const response = await fetch(url, {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      query,
-      variables,
-    }),
+    body: JSON.stringify({ query, variables }),
   });
 
   if (!response.ok) {
     const text = await response.text();
-
     console.error("HTTP ERROR:", text);
-
     throw new Error(`Network error: ${response.status}`);
   }
 
@@ -114,17 +89,13 @@ async function _fetch(
 
     if (
       json.errors.some((error) =>
-        String(error?.message ?? "")
-          .toLowerCase()
-          .includes("authentication required")
+        String(error?.message ?? "").toLowerCase().includes("authentication required")
       )
     ) {
       await handleAuthFailure();
     }
 
-    throw new Error(
-      json.errors[0]?.message || "GraphQL request failed."
-    );
+    throw new Error(json.errors[0]?.message || "GraphQL request failed.");
   }
 
   return json.data;
@@ -136,13 +107,7 @@ async function _fetch(
 
 export async function publicRequest(query, variables = {}) {
   try {
-    return await _fetch(
-      PUBLIC_URL,
-      query,
-      variables,
-      null,
-      null
-    );
+    return await _fetch(PUBLIC_URL, query, variables, null, null);
   } catch (error) {
     console.error("publicRequest error:", error.message);
     throw error;
@@ -155,41 +120,23 @@ export async function publicRequest(query, variables = {}) {
 
 export async function graphqlRequest(query, variables = {}) {
   try {
-    const pairs = await AsyncStorage.multiGet([
-      "token",
-      "schemaName",
-    ]);
-
+    const pairs = await AsyncStorage.multiGet(["token", "schemaName"]);
     const token = pairs[0][1];
     const schemaName = pairs[1][1];
 
     if (!token) {
-      throw new Error(
-        "No auth token found in storage."
-      );
+      throw new Error("No auth token found in storage.");
     }
 
+    // schemaName is no longer required to build the URL — it's
+    // only sent as the X-Tenant fallback header. Warn, don't hard-fail.
     if (!schemaName) {
-      throw new Error(
-        "No schemaName found in storage."
-      );
+      console.warn("No schemaName found in storage — relying on JWT-based tenant resolution.");
     }
 
-    const url = buildTenantUrl(schemaName);
-
-    return await _fetch(
-      url,
-      query,
-      variables,
-      token,
-      schemaName
-    );
+    return await _fetch(GRAPHQL_URL, query, variables, token, schemaName);
   } catch (error) {
-    console.error(
-      "graphqlRequest error:",
-      error.message
-    );
-
+    console.error("graphqlRequest error:", error.message);
     throw error;
   }
 }

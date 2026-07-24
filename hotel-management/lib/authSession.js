@@ -1,6 +1,8 @@
+//lib/authSession.js
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const AUTH_STORAGE_KEYS = ["token", "schemaName", "roles", "permissions"];
+export const AUTH_STORAGE_KEYS = ["token", "schemaName", "roles", "permissions", "isEmailVerified"];
 
 const listeners = new Set();
 

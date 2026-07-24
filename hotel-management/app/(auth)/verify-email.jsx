@@ -10,10 +10,7 @@ import { useAuth }    from "../../context/AuthContext";
 import { useTheme }   from "../../hooks/useTheme";
 import { graphqlRequest } from "../../lib/graphql";
 
-// ── GraphQL mutations ────────────────────────────────────────
-// Both hit the tenant endpoint — schemaName is already stored
-// in AsyncStorage from the login step, so graphqlRequest builds
-// the correct subdomain URL automatically.
+
 
 const VERIFY_EMAIL_MUTATION = `
   mutation VerifyEmail($pin: String!) {

@@ -26,6 +26,50 @@ const GOOGLE_AUTH_MUTATION = `
   }
 `;
 
+// login now returns a union — LoginPayload (normal session) or
+// LoginChoicePayload (email+password valid in 2+ businesses).
+// __typename lets us tell which one came back; inline fragments
+// select the fields specific to each branch.
+const LOGIN_MUTATION = `
+  mutation Login($email: String!, $password: String!) {
+    login(email: $email, password: $password) {
+      __typename
+      ... on LoginPayload {
+        token
+        userId
+        name
+        email
+        roles
+        permissions
+        schemaName
+        isEmailVerified
+      }
+      ... on LoginChoicePayload {
+        message
+        choices {
+          schemaName
+          businessName
+        }
+      }
+    }
+  }
+`;
+
+const LOGIN_WITH_BUSINESS_MUTATION = `
+  mutation LoginWithBusiness($email: String!, $password: String!, $schemaName: String!) {
+    loginWithBusiness(email: $email, password: $password, schemaName: $schemaName) {
+      token
+      userId
+      name
+      email
+      roles
+      permissions
+      schemaName
+      isEmailVerified
+    }
+  }
+`;
+
 export function AuthProvider({ children }) {
   const [token,           setToken]          = useState(null);
   const [schemaName,      setSchemaName]      = useState(null);
@@ -46,7 +90,6 @@ export function AuthProvider({ children }) {
     setIsEmailVerified(true);
   };
 
-  // ─── Restore session on app boot ────────────────────────
   useEffect(() => {
     const restoreSession = async () => {
       try {
@@ -58,6 +101,11 @@ export function AuthProvider({ children }) {
           setSchemaName(stored.schemaName);
           setRoles(stored.roles           ? JSON.parse(stored.roles)       : []);
           setPermissions(stored.permissions ? JSON.parse(stored.permissions) : []);
+          setIsEmailVerified(
+            stored.isEmailVerified !== null && stored.isEmailVerified !== undefined
+              ? JSON.parse(stored.isEmailVerified)
+              : true
+          );
         } else {
           await clearStoredSession();
           clearSessionState();
@@ -79,47 +127,59 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  // ─── Shared session writer ───────────────────────────────
-  // Called by login, googleSignIn, and register (via applySession).
-  // Writes to AsyncStorage and updates all context state in one call.
-  // Exposed as applySession so register.jsx can call it directly
-  // without duplicating storage logic.
   const applySession = async (result) => {
+    const verified = result.isEmailVerified ?? true;
+
     await AsyncStorage.multiSet([
-      ["token",       result.token],
-      ["schemaName",  result.schemaName],
-      ["roles",       JSON.stringify(result.roles)],
-      ["permissions", JSON.stringify(result.permissions)],
+      ["token",           result.token],
+      ["schemaName",      result.schemaName],
+      ["roles",           JSON.stringify(result.roles)],
+      ["permissions",     JSON.stringify(result.permissions)],
+      ["isEmailVerified", JSON.stringify(verified)],
     ]);
     setToken(result.token);
     setSchemaName(result.schemaName);
-    setUserId(result.userId   ?? null);
-    setName(result.name       ?? null);
-    setRoles(result.roles     ?? []);
+    setUserId(result.userId       ?? null);
+    setName(result.name           ?? null);
+    setRoles(result.roles         ?? []);
     setPermissions(result.permissions ?? []);
+    setIsEmailVerified(verified);
   };
 
-  // ─── Email + password login ──────────────────────────────
+  // Returns either:
+  //   { requiresChoice: false, ...sessionResult }  — normal login, already applied
+  //   { requiresChoice: true, message, choices }   — caller must show a picker,
+  //                                                    then call loginWithBusiness
   const login = async (email, password) => {
-    const data = await publicRequest(`
-      mutation Login($email: String!, $password: String!) {
-        login(email: $email, password: $password) {
-          token userId name email
-          roles permissions schemaName isEmailVerified
-        }
-      }
-    `, { email, password });
-
+    const data = await publicRequest(LOGIN_MUTATION, { email, password });
     const result = data.login;
+
+    if (result.__typename === "LoginChoicePayload") {
+      return {
+        requiresChoice: true,
+        message: result.message,
+        choices: result.choices,
+      };
+    }
+
     await applySession(result);
-    setIsEmailVerified(result.isEmailVerified);
+    return { requiresChoice: false, ...result };
+  };
+
+  // Second step of the disambiguation flow — client already knows
+  // (from a prior login() choice response) which schemaName to use.
+  const loginWithBusiness = async (email, password, schemaName) => {
+    const data = await publicRequest(LOGIN_WITH_BUSINESS_MUTATION, {
+      email,
+      password,
+      schemaName,
+    });
+
+    const result = data.loginWithBusiness;
+    await applySession(result);
     return result;
   };
 
-  // ─── Google Sign-In ──────────────────────────────────────
-  // idToken comes from expo-auth-session (login.jsx).
-  // businessName is only passed when registering a new business
-  // via Google — omit it for returning users.
   const googleSignIn = async (idToken, businessName = null) => {
     const data = await publicRequest(GOOGLE_AUTH_MUTATION, {
       idToken,
@@ -128,14 +188,41 @@ export function AuthProvider({ children }) {
 
     const result = data.googleAuth;
     await applySession(result);
-    setIsEmailVerified(true); // Google users are always verified
-    return result;            // caller can check result.isNewUser if needed
+    return result;
   };
 
-  // ─── Mark email verified (called from verify-email.jsx) ──
-  const markEmailVerified = () => setIsEmailVerified(true);
+  const requestPasswordReset = async (email) => {
+    const data = await publicRequest(`
+      mutation RequestPasswordReset($email: String!) {
+        requestPasswordReset(email: $email) {
+          message
+          email
+        }
+      }
+    `, { email });
+    return data.requestPasswordReset;
+  };
 
-  // ─── Logout ──────────────────────────────────────────────
+  const resetPassword = async (email, pin, newPassword) => {
+    const data = await publicRequest(`
+      mutation ResetPassword($email: String!, $pin: String!, $newPassword: String!) {
+        resetPassword(email: $email, pin: $pin, newPassword: $newPassword) {
+          token userId name email
+          roles permissions schemaName
+        }
+      }
+    `, { email, pin, newPassword });
+
+    const result = data.resetPassword;
+    await applySession(result);
+    return result;
+  };
+
+  const markEmailVerified = async () => {
+    setIsEmailVerified(true);
+    await AsyncStorage.setItem("isEmailVerified", JSON.stringify(true));
+  };
+
   const logout = async () => {
     await clearStoredSession();
     clearSessionState();
@@ -143,7 +230,6 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      // State
       token,
       schemaName,
       userId,
@@ -154,14 +240,14 @@ export function AuthProvider({ children }) {
       loading,
       isAuthenticated: !!token,
 
-      // Actions
       login,
+      loginWithBusiness,
       googleSignIn,
       logout,
       markEmailVerified,
-      applySession,     // exposed so register.jsx can write session
-                        // after verifyRegistration without duplicating
-                        // AsyncStorage logic
+      applySession,
+      requestPasswordReset,
+      resetPassword,
     }}>
       {children}
     </AuthContext.Provider>

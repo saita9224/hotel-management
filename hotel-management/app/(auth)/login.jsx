@@ -7,6 +7,7 @@ import {
   Animated,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -28,19 +29,24 @@ WebBrowser.maybeCompleteAuthSession();
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
 export default function LoginScreen() {
-  const { login, googleSignIn } = useAuth();
+  const { login, loginWithBusiness, googleSignIn } = useAuth();
   const { colors } = useTheme();
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email,         setEmail]         = useState("");
+  const [password,      setPassword]      = useState("");
+  const [loading,       setLoading]       = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword,  setShowPassword]  = useState(false);
 
-  const logoProgress = useRef(new Animated.Value(0)).current;
+  // Business-choice disambiguation state — only populated when the
+  // same email+password is valid in more than one business.
+  const [businessChoices, setBusinessChoices] = useState([]);
+  const [showChoiceModal, setShowChoiceModal] = useState(false);
+
+  const logoProgress    = useRef(new Animated.Value(0)).current;
   const taglineProgress = useRef(new Animated.Value(0)).current;
-  const formProgress = useRef(new Animated.Value(0)).current;
+  const formProgress    = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.sequence([
@@ -66,22 +72,19 @@ export default function LoginScreen() {
     ]).start();
   }, [formProgress, logoProgress, taglineProgress]);
 
-  const redirectUri = AuthSession.makeRedirectUri({
-    useProxy: true,
-  });
+  const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
 
   const [request, , promptAsync] = AuthSession.useAuthRequest(
     {
-      clientId: WEB_CLIENT_ID,
+      clientId:     WEB_CLIENT_ID,
       redirectUri,
-      scopes: ["openid", "profile", "email"],
+      scopes:       ["openid", "profile", "email"],
       responseType: AuthSession.ResponseType.Code,
-      usePKCE: true,
+      usePKCE:      true,
     },
     {
-      authorizationEndpoint:
-        "https://accounts.google.com/o/oauth2/v2/auth",
-      tokenEndpoint: "https://oauth2.googleapis.com/token",
+      authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+      tokenEndpoint:         "https://oauth2.googleapis.com/token",
     }
   );
 
@@ -98,12 +101,31 @@ export default function LoginScreen() {
       Alert.alert("Validation", "Email and password are required.");
       return;
     }
-
     try {
       setLoading(true);
-
       const result = await login(email.trim(), password);
 
+      if (result.requiresChoice) {
+        // Don't navigate yet — show the picker and wait for the user
+        // to pick a business. loginWithBusiness completes the session.
+        setBusinessChoices(result.choices);
+        setShowChoiceModal(true);
+        return;
+      }
+
+      navigateAfterAuth(result.isEmailVerified);
+    } catch (err) {
+      Alert.alert("Login failed", err?.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChooseBusiness = async (schemaName) => {
+    try {
+      setShowChoiceModal(false);
+      setLoading(true);
+      const result = await loginWithBusiness(email.trim(), password, schemaName);
       navigateAfterAuth(result.isEmailVerified);
     } catch (err) {
       Alert.alert("Login failed", err?.message || "Something went wrong.");
@@ -115,29 +137,20 @@ export default function LoginScreen() {
   const handleGoogle = async () => {
     try {
       setGoogleLoading(true);
-
       const authResult = await promptAsync();
-
-      if (authResult?.type !== "success") {
-        return;
-      }
+      if (authResult?.type !== "success") return;
 
       const tokenResult = await AuthSession.exchangeCodeAsync(
         {
-          clientId: WEB_CLIENT_ID,
+          clientId:    WEB_CLIENT_ID,
           redirectUri,
-          code: authResult.params.code,
-          extraParams: {
-            code_verifier: request.codeVerifier,
-          },
+          code:        authResult.params.code,
+          extraParams: { code_verifier: request.codeVerifier },
         },
-        {
-          tokenEndpoint: "https://oauth2.googleapis.com/token",
-        }
+        { tokenEndpoint: "https://oauth2.googleapis.com/token" }
       );
 
       const idToken = tokenResult.idToken;
-
       if (!idToken) {
         throw new Error(
           "No id_token in token response. Check that 'openid' scope is included and the Web client ID is used."
@@ -145,7 +158,6 @@ export default function LoginScreen() {
       }
 
       await googleSignIn(idToken);
-
       router.replace("/(tabs)");
     } catch (err) {
       Alert.alert(
@@ -159,19 +171,19 @@ export default function LoginScreen() {
 
   const logoAnimatedStyle = {
     opacity: logoProgress.interpolate({
-      inputRange: [0, 1],
+      inputRange:  [0, 1],
       outputRange: [0.92, 1],
     }),
     transform: [
       {
         translateY: logoProgress.interpolate({
-          inputRange: [0, 1],
+          inputRange:  [0, 1],
           outputRange: [96, 0],
         }),
       },
       {
         scale: logoProgress.interpolate({
-          inputRange: [0, 1],
+          inputRange:  [0, 1],
           outputRange: [1.28, 1],
         }),
       },
@@ -183,7 +195,7 @@ export default function LoginScreen() {
     transform: [
       {
         translateY: formProgress.interpolate({
-          inputRange: [0, 1],
+          inputRange:  [0, 1],
           outputRange: [16, 0],
         }),
       },
@@ -195,7 +207,7 @@ export default function LoginScreen() {
     transform: [
       {
         translateY: taglineProgress.interpolate({
-          inputRange: [0, 1],
+          inputRange:  [0, 1],
           outputRange: [-6, 0],
         }),
       },
@@ -210,10 +222,7 @@ export default function LoginScreen() {
     >
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.container,
-          { backgroundColor: colors.background },
-        ]}
+        contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -236,14 +245,7 @@ export default function LoginScreen() {
         <Animated.View style={[styles.formContent, formAnimatedStyle]}>
           <Text style={[styles.title, { color: colors.text }]}>Welcome</Text>
 
-          <Text
-            style={[
-              styles.subtitle,
-              {
-                color: colors.tabBarInactive,
-              },
-            ]}
-          >
+          <Text style={[styles.subtitle, { color: colors.tabBarInactive }]}>
             Sign in to your account
           </Text>
 
@@ -261,8 +263,8 @@ export default function LoginScreen() {
               styles.input,
               {
                 backgroundColor: colors.card,
-                color: colors.text,
-                borderColor: colors.border,
+                color:           colors.text,
+                borderColor:     colors.border,
               },
             ]}
           />
@@ -272,7 +274,7 @@ export default function LoginScreen() {
               styles.passwordContainer,
               {
                 backgroundColor: colors.card,
-                borderColor: colors.border,
+                borderColor:     colors.border,
               },
             ]}
           >
@@ -285,7 +287,6 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               style={[styles.passwordInput, { color: colors.text }]}
             />
-
             <TouchableOpacity
               onPress={() => setShowPassword((p) => !p)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -299,11 +300,19 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
+            onPress={() => router.push("/(auth)/forgot-password")}
+            disabled={loading || googleLoading}
+            style={styles.forgotRow}
+          >
+            <Text style={[styles.forgotText, { color: colors.accent }]}>
+              Forgot password?
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[
               styles.button,
-              {
-                backgroundColor: loading ? colors.border : colors.accent,
-              },
+              { backgroundColor: loading ? colors.border : colors.accent },
             ]}
             onPress={handleLogin}
             disabled={loading || googleLoading}
@@ -316,41 +325,16 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <View style={styles.divider}>
-            <View
-              style={[
-                styles.dividerLine,
-                {
-                  backgroundColor: colors.border,
-                },
-              ]}
-            />
-
-            <Text
-              style={[
-                styles.dividerText,
-                {
-                  color: colors.tabBarInactive,
-                },
-              ]}
-            >
-              or
-            </Text>
-
-            <View
-              style={[
-                styles.dividerLine,
-                {
-                  backgroundColor: colors.border,
-                },
-              ]}
-            />
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.tabBarInactive }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
           </View>
 
           <TouchableOpacity
             style={[
               styles.googleButton,
               {
-                borderColor: colors.border,
+                borderColor:     colors.border,
                 backgroundColor: colors.card,
               },
             ]}
@@ -362,7 +346,6 @@ export default function LoginScreen() {
             ) : (
               <>
                 <Ionicons name="logo-google" size={20} color="#4285F4" />
-
                 <Text style={[styles.googleText, { color: colors.text }]}>
                   Continue with Google
                 </Text>
@@ -371,29 +354,64 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <View style={styles.registerRow}>
-            <Text
-              style={[
-                styles.registerPrompt,
-                {
-                  color: colors.tabBarInactive,
-                },
-              ]}
-            >
+            <Text style={[styles.registerPrompt, { color: colors.tabBarInactive }]}>
               New business?
             </Text>
-
             <TouchableOpacity
               onPress={() => router.push("/(auth)/register")}
               disabled={loading || googleLoading}
             >
               <Text style={[styles.registerLink, { color: colors.accent }]}>
-                {" "}
-                Register here
+                {" "}Register here
               </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
       </ScrollView>
+
+      {/* Business disambiguation modal — only shown when the same
+          email+password is valid in more than one business. */}
+      <Modal
+        visible={showChoiceModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowChoiceModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Which business?
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.tabBarInactive }]}>
+              This email is used in more than one business. Choose which one to sign in to.
+            </Text>
+
+            {businessChoices.map((choice) => (
+              <TouchableOpacity
+                key={choice.schemaName}
+                style={[styles.choiceButton, { borderColor: colors.border }]}
+                onPress={() => handleChooseBusiness(choice.schemaName)}
+                disabled={loading}
+              >
+                <Text style={[styles.choiceText, { color: colors.text }]}>
+                  {choice.businessName}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.tabBarInactive} />
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={styles.modalCancel}
+              onPress={() => setShowChoiceModal(false)}
+              disabled={loading}
+            >
+              <Text style={[styles.modalCancelText, { color: colors.tabBarInactive }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -402,143 +420,171 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-
   scrollView: {
     flex: 1,
   },
-
   container: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 24,
-    paddingTop: 48,
-    paddingBottom: 56,
+    padding:        24,
+    paddingTop:     48,
+    paddingBottom:  56,
   },
-
   logoContainer: {
-    alignItems: "center",
+    alignItems:   "center",
     marginBottom: 32,
   },
-
   logoGroup: {
-    width: 268,
-    height: 96,
+    width:    268,
+    height:   96,
     position: "relative",
   },
-
   logo: {
-    width: 268,
+    width:  268,
     height: 78,
   },
-
   logoTagline: {
     position: "absolute",
-    left: 96,
-    top: 62,
-    width: 178,
-    height: 26,
+    left:     96,
+    top:      62,
+    width:    178,
+    height:   26,
   },
-
   formContent: {
     width: "100%",
   },
-
   title: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize:     28,
+    fontWeight:   "700",
     marginBottom: 6,
-    textAlign: "center",
+    textAlign:    "center",
   },
-
   subtitle: {
-    fontSize: 15,
+    fontSize:     15,
     marginBottom: 30,
-    textAlign: "center",
+    textAlign:    "center",
   },
-
   input: {
-    borderWidth: 1,
-    padding: 14,
+    borderWidth:  1,
+    padding:      14,
     marginBottom: 18,
     borderRadius: 10,
-    fontSize: 16,
+    fontSize:     16,
   },
-
   passwordContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 10,
+    flexDirection:   "row",
+    alignItems:      "center",
+    borderWidth:     1,
+    borderRadius:    10,
     paddingHorizontal: 14,
-    marginBottom: 18,
+    marginBottom:    8,
   },
-
   passwordInput: {
-    flex: 1,
+    flex:          1,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize:      16,
   },
-
-  button: {
-    padding: 16,
-    borderRadius: 10,
-    alignItems: "center",
+  forgotRow: {
+    alignSelf:    "flex-end",
     marginBottom: 18,
-    minHeight: 52,
+    paddingVertical: 4,
+  },
+  forgotText: {
+    fontSize:   14,
+    fontWeight: "500",
+  },
+  button: {
+    padding:        16,
+    borderRadius:   10,
+    alignItems:     "center",
+    marginBottom:   18,
+    minHeight:      52,
     justifyContent: "center",
   },
-
   buttonText: {
-    color: "#FFFFFF",
+    color:      "#FFFFFF",
     fontWeight: "600",
-    fontSize: 16,
+    fontSize:   16,
   },
-
   divider: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-    gap: 10,
+    alignItems:    "center",
+    marginBottom:  20,
+    gap:           10,
   },
-
   dividerLine: {
-    flex: 1,
+    flex:   1,
     height: 1,
   },
-
   dividerText: {
     fontSize: 13,
   },
-
   googleButton: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection:  "row",
+    alignItems:     "center",
     justifyContent: "center",
-    gap: 10,
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 24,
-    minHeight: 52,
+    gap:            10,
+    padding:        14,
+    borderRadius:   10,
+    borderWidth:    1,
+    marginBottom:   24,
+    minHeight:      52,
   },
-
   googleText: {
-    fontSize: 16,
+    fontSize:   16,
     fontWeight: "600",
   },
-
   registerRow: {
-    flexDirection: "row",
+    flexDirection:  "row",
     justifyContent: "center",
-    alignItems: "center",
+    alignItems:     "center",
   },
-
   registerPrompt: {
     fontSize: 14,
   },
-
   registerLink: {
-    fontSize: 14,
+    fontSize:   14,
     fontWeight: "600",
+  },
+  modalOverlay: {
+    flex:            1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent:  "center",
+    alignItems:      "center",
+    padding:         24,
+  },
+  modalCard: {
+    width:        "100%",
+    borderRadius: 14,
+    padding:      20,
+  },
+  modalTitle: {
+    fontSize:     20,
+    fontWeight:   "700",
+    marginBottom: 6,
+  },
+  modalSubtitle: {
+    fontSize:     14,
+    lineHeight:   19,
+    marginBottom: 18,
+  },
+  choiceButton: {
+    flexDirection:     "row",
+    alignItems:        "center",
+    justifyContent:    "space-between",
+    paddingVertical:   14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+  },
+  choiceText: {
+    fontSize:   16,
+    fontWeight: "500",
+  },
+  modalCancel: {
+    alignItems: "center",
+    paddingTop: 16,
+  },
+  modalCancelText: {
+    fontSize: 15,
   },
 });
