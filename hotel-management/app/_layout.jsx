@@ -1,3 +1,5 @@
+// app/_layout.jsx
+
 import { Redirect, Slot, useSegments } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 
