@@ -1,5 +1,3 @@
-// context/AuthContext.jsx
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { publicRequest } from "../lib/graphql";
@@ -7,6 +5,10 @@ import {
   AUTH_STORAGE_KEYS,
   clearStoredSession,
   subscribeToAuthFailure,
+  hasPinSet,
+  setPin as setPinStorage,
+  verifyPin as verifyPinStorage,
+  clearPin,
 } from "../lib/authSession";
 
 const AuthContext = createContext();
@@ -26,10 +28,6 @@ const GOOGLE_AUTH_MUTATION = `
   }
 `;
 
-// login now returns a union — LoginPayload (normal session) or
-// LoginChoicePayload (email+password valid in 2+ businesses).
-// __typename lets us tell which one came back; inline fragments
-// select the fields specific to each branch.
 const LOGIN_MUTATION = `
   mutation Login($email: String!, $password: String!) {
     login(email: $email, password: $password) {
@@ -80,6 +78,10 @@ export function AuthProvider({ children }) {
   const [isEmailVerified, setIsEmailVerified] = useState(true);
   const [loading,         setLoading]         = useState(true);
 
+  // --- PIN gate / local session state ---
+  const [pinIsSet,    setPinIsSet]    = useState(null);
+  const [pinVerified, setPinVerified] = useState(false);
+
   const clearSessionState = () => {
     setToken(null);
     setSchemaName(null);
@@ -88,6 +90,12 @@ export function AuthProvider({ children }) {
     setRoles([]);
     setPermissions([]);
     setIsEmailVerified(true);
+  };
+
+  const refreshPinStatus = async () => {
+    const isSet = await hasPinSet();
+    setPinIsSet(isSet);
+    return isSet;
   };
 
   useEffect(() => {
@@ -106,6 +114,7 @@ export function AuthProvider({ children }) {
               ? JSON.parse(stored.isEmailVerified)
               : true
           );
+          await refreshPinStatus();
         } else {
           await clearStoredSession();
           clearSessionState();
@@ -144,12 +153,10 @@ export function AuthProvider({ children }) {
     setRoles(result.roles         ?? []);
     setPermissions(result.permissions ?? []);
     setIsEmailVerified(verified);
+
+    await refreshPinStatus();
   };
 
-  // Returns either:
-  //   { requiresChoice: false, ...sessionResult }  — normal login, already applied
-  //   { requiresChoice: true, message, choices }   — caller must show a picker,
-  //                                                    then call loginWithBusiness
   const login = async (email, password) => {
     const data = await publicRequest(LOGIN_MUTATION, { email, password });
     const result = data.login;
@@ -166,8 +173,6 @@ export function AuthProvider({ children }) {
     return { requiresChoice: false, ...result };
   };
 
-  // Second step of the disambiguation flow — client already knows
-  // (from a prior login() choice response) which schemaName to use.
   const loginWithBusiness = async (email, password, schemaName) => {
     const data = await publicRequest(LOGIN_WITH_BUSINESS_MUTATION, {
       email,
@@ -226,6 +231,26 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     await clearStoredSession();
     clearSessionState();
+    setPinVerified(false);
+  };
+
+  const setDevicePin = async (pin) => {
+    await setPinStorage(pin);
+    setPinIsSet(true);
+    setPinVerified(true);
+  };
+
+  const verifyDevicePin = async (pin) => {
+    const result = await verifyPinStorage(pin);
+    if (result.success) setPinVerified(true);
+    return result;
+  };
+
+  const forgotPin = async () => {
+    await clearPin();
+    setPinIsSet(false);
+    setPinVerified(false);
+    await logout();
   };
 
   return (
@@ -239,6 +264,12 @@ export function AuthProvider({ children }) {
       isEmailVerified,
       loading,
       isAuthenticated: !!token,
+
+      pinIsSet,
+      pinVerified,
+      setDevicePin,
+      verifyDevicePin,
+      forgotPin,
 
       login,
       loginWithBusiness,

@@ -1,5 +1,3 @@
-// app/_layout.jsx
-
 import { Redirect, Slot, useSegments } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 
@@ -11,26 +9,42 @@ import { ExpensesProvider }       from "../context/ExpensesContext";
 import { HRProvider }             from "../context/HRContext";
 import { ReportsProvider }        from "../context/ReportsContext";
 
+function LoadingScreen() {
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <ActivityIndicator size="large" />
+    </View>
+  );
+}
+
 function RouteGuard({ children }) {
-  const { loading, isAuthenticated } = useAuth();
+  const { loading, isAuthenticated, pinIsSet, pinVerified } = useAuth();
   const segments = useSegments();
   const inAuthGroup = segments[0] === "(auth)";
+  const onPinRoute = segments[0] === "pin-gate" || segments[0] === "set-pin";
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+  if (loading || (isAuthenticated && pinIsSet === null)) {
+    return <LoadingScreen />;
   }
 
-  if (!isAuthenticated && !inAuthGroup) {
-    return <Redirect href="/(auth)/login" />;
+  if (!isAuthenticated) {
+    if (!inAuthGroup) {
+      return <Redirect href="/(auth)/login" />;
+    }
+    return children;
   }
 
-  if (!isAuthenticated) return children;
+  if (!pinIsSet) {
+    if (!onPinRoute) return <Redirect href="/set-pin" />;
+    return children;
+  }
 
-  if (inAuthGroup) {
+  if (!pinVerified) {
+    if (!onPinRoute) return <Redirect href="/pin-gate" />;
+    return children;
+  }
+
+  if (onPinRoute || inAuthGroup) {
     return <Redirect href="/(tabs)" />;
   }
 
