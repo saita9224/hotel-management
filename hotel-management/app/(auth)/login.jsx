@@ -39,8 +39,6 @@ export default function LoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword,  setShowPassword]  = useState(false);
 
-  // Business-choice disambiguation state — only populated when the
-  // same email+password is valid in more than one business.
   const [businessChoices, setBusinessChoices] = useState([]);
   const [showChoiceModal, setShowChoiceModal] = useState(false);
 
@@ -88,13 +86,12 @@ export default function LoginScreen() {
     }
   );
 
-  const navigateAfterAuth = (isEmailVerified) => {
-    if (!isEmailVerified) {
-      router.replace("/(auth)/verify-email");
-    } else {
-      router.replace("/(tabs)");
-    }
-  };
+  // Navigation after a successful login/PIN flow is now owned entirely by
+  // RouteGuard's useEffect (app/_layout.jsx) — it reacts to isAuthenticated/
+  // pinIsSet/pinVerified changing and dispatches router.replace() itself,
+  // once it's confirmed the root navigator is actually ready. This screen
+  // no longer needs to (and shouldn't) navigate on its own; doing so from
+  // here caused a race that led to a full navigator reset.
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -106,14 +103,13 @@ export default function LoginScreen() {
       const result = await login(email.trim(), password);
 
       if (result.requiresChoice) {
-        // Don't navigate yet — show the picker and wait for the user
-        // to pick a business. loginWithBusiness completes the session.
         setBusinessChoices(result.choices);
         setShowChoiceModal(true);
         return;
       }
 
-      navigateAfterAuth(result.isEmailVerified);
+      // No manual navigation here — RouteGuard picks up the new
+      // isAuthenticated/pinIsSet state and routes accordingly.
     } catch (err) {
       Alert.alert("Login failed", err?.message || "Something went wrong.");
     } finally {
@@ -125,8 +121,8 @@ export default function LoginScreen() {
     try {
       setShowChoiceModal(false);
       setLoading(true);
-      const result = await loginWithBusiness(email.trim(), password, schemaName);
-      navigateAfterAuth(result.isEmailVerified);
+      await loginWithBusiness(email.trim(), password, schemaName);
+      // RouteGuard handles navigation from here.
     } catch (err) {
       Alert.alert("Login failed", err?.message || "Something went wrong.");
     } finally {
@@ -158,7 +154,7 @@ export default function LoginScreen() {
       }
 
       await googleSignIn(idToken);
-      router.replace("/(tabs)");
+      // RouteGuard handles navigation from here.
     } catch (err) {
       Alert.alert(
         "Google sign-in failed",
@@ -369,8 +365,6 @@ export default function LoginScreen() {
         </Animated.View>
       </ScrollView>
 
-      {/* Business disambiguation modal — only shown when the same
-          email+password is valid in more than one business. */}
       <Modal
         visible={showChoiceModal}
         transparent

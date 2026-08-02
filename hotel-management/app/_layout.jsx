@@ -1,4 +1,7 @@
-import { Redirect, Slot, useSegments } from "expo-router";
+// app/_layout.jsx
+
+import { Slot, useRouter, useSegments, useRootNavigationState } from "expo-router";
+import { useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 
 import { AuthProvider, useAuth }  from "../context/AuthContext";
@@ -20,32 +23,71 @@ function LoadingScreen() {
 function RouteGuard({ children }) {
   const { loading, isAuthenticated, pinIsSet, pinVerified } = useAuth();
   const segments = useSegments();
+  const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
+
   const inAuthGroup = segments[0] === "(auth)";
   const onPinRoute = segments[0] === "pin-gate" || segments[0] === "set-pin";
 
-  if (loading || (isAuthenticated && pinIsSet === null)) {
+  const stillLoading = loading || (isAuthenticated && pinIsSet === null);
+
+  // Navigation is dispatched imperatively, gated on the root navigator
+  // actually being ready (rootNavigationState?.key). Firing a redirect
+  // before that point is what caused "REPLACE action not handled by any
+  // navigator" — which in practice triggered a full reset of the
+  // navigation tree, remounting AuthProvider and wiping pinVerified.
+  useEffect(() => {
+    if (!rootNavigationState?.key) return;
+    if (stillLoading) return;
+
+    if (!isAuthenticated) {
+      if (!inAuthGroup) router.replace("/(auth)/login");
+      return;
+    }
+
+    // From here on, a real (JWT) session exists on this device.
+
+    if (!pinIsSet) {
+      if (!onPinRoute) router.replace("/set-pin");
+      return;
+    }
+
+    if (!pinVerified) {
+      if (!onPinRoute) router.replace("/pin-gate");
+      return;
+    }
+
+    if (onPinRoute || inAuthGroup) {
+      router.replace("/(tabs)");
+    }
+  }, [
+    rootNavigationState?.key,
+    stillLoading,
+    isAuthenticated,
+    pinIsSet,
+    pinVerified,
+    segments.join("/"),
+  ]);
+
+  if (!rootNavigationState?.key || stillLoading) {
     return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
-    if (!inAuthGroup) {
-      return <Redirect href="/(auth)/login" />;
-    }
-    return children;
+    return inAuthGroup ? children : <LoadingScreen />;
   }
 
   if (!pinIsSet) {
-    if (!onPinRoute) return <Redirect href="/set-pin" />;
-    return children;
+    return onPinRoute ? children : <LoadingScreen />;
   }
 
   if (!pinVerified) {
-    if (!onPinRoute) return <Redirect href="/pin-gate" />;
-    return children;
+    return onPinRoute ? children : <LoadingScreen />;
   }
 
   if (onPinRoute || inAuthGroup) {
-    return <Redirect href="/(tabs)" />;
+    // Navigating away — the effect above has already dispatched it.
+    return <LoadingScreen />;
   }
 
   return (
