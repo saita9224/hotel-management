@@ -221,7 +221,7 @@ export default function HomeScreen() {
       {/* ── Today's Overview — same card style, live data ── */}
       <View style={[styles.summaryCard, { borderColor: colors.accent }]}>
         <Text style={[styles.summaryTitle, { color: colors.accent }]}>
-          TODAY'S OVERVIEW
+          {"TODAY'S OVERVIEW"}
         </Text>
 
         {overviewRows.length === 0 ? (

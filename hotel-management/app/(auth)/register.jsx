@@ -195,7 +195,7 @@ export default function RegisterScreen() {
               Register your business
             </Text>
             <Text style={[styles.subtitle, { color: colors.tabBarInactive }]}>
-              We'll send a 6-digit PIN to verify your email before creating your account.
+              {"We'll send a 6-digit PIN to verify your email before creating your account."}
             </Text>
 
             <TextInput

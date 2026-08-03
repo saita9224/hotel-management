@@ -339,7 +339,7 @@ export default function ExpenseForm({ onClose }) {
           <View style={[styles.suggestionBanner, { backgroundColor: colors.accent + "15", borderColor: colors.accent }]}>
             <Ionicons name="bulb-outline" size={15} color={colors.accent} />
             <Text style={[styles.suggestionText, { color: colors.accent }]}>
-              Similar to "{suggestionBanner.matchedName}" — use{" "}
+              Similar to {'"'}{suggestionBanner.matchedName}{'"'} — use{" "}
               <Text style={{ fontWeight: "700" }}>{suggestionBanner.categoryName}</Text>?
             </Text>
             <TouchableOpacity onPress={acceptSuggestion} style={styles.suggestionAccept}>

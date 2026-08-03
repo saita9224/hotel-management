@@ -5,8 +5,6 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../hooks/useTheme";
 import PinPad, { PIN_LENGTH } from "../components/PinPad";
 
-const MIN_PIN_LENGTH = 4;
-
 export default function SetPinScreen() {
   const { setDevicePin } = useAuth();
   const { colors } = useTheme();
@@ -23,7 +21,6 @@ export default function SetPinScreen() {
     const next = value + digit;
     setValue(next);
 
-    if (next.length < MIN_PIN_LENGTH) return;
     if (next.length === PIN_LENGTH) {
       handleComplete(next);
     }
@@ -71,11 +68,11 @@ export default function SetPinScreen() {
       </Text>
       <Text style={[styles.subtitle, { color: colors.tabBarInactive }]}>
         {stage === "create"
-          ? "This unlocks the app on this device, even offline."
+          ? "Choose a 6-digit PIN to unlock this device, even offline."
           : "Enter it again to confirm."}
       </Text>
       {error && (
-        <Text style={styles.errorText}>PINs didn't match — try again.</Text>
+        <Text style={styles.errorText}>PINs did not match. Try again.</Text>
       )}
 
       <PinPad

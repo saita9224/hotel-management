@@ -28,6 +28,7 @@ function RouteGuard({ children }) {
 
   const inAuthGroup = segments[0] === "(auth)";
   const onPinRoute = segments[0] === "pin-gate" || segments[0] === "set-pin";
+  const segmentKey = segments.join("/");
 
   const stillLoading = loading || (isAuthenticated && pinIsSet === null);
 
@@ -58,7 +59,7 @@ function RouteGuard({ children }) {
     }
 
     if (onPinRoute || inAuthGroup) {
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/");
     }
   }, [
     rootNavigationState?.key,
@@ -66,7 +67,10 @@ function RouteGuard({ children }) {
     isAuthenticated,
     pinIsSet,
     pinVerified,
-    segments.join("/"),
+    inAuthGroup,
+    onPinRoute,
+    router,
+    segmentKey,
   ]);
 
   if (!rootNavigationState?.key || stillLoading) {

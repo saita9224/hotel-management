@@ -164,7 +164,7 @@ function CountEntryPhase({ products, onSubmit, colors }) {
         <Text style={[styles.phaseTitle, { color: colors.text }]}>Physical Count</Text>
         <Text style={{ color: colors.tabBarInactive, fontSize: 13, marginTop: 4 }}>
           Enter the actual quantity you can physically see for each item.
-          Leave blank if you haven't counted it yet.
+          {"Leave blank if you haven't counted it yet."}
         </Text>
 
         <View style={styles.progressRow}>

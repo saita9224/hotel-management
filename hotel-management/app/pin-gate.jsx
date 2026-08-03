@@ -1,6 +1,17 @@
+// app/pin-gate.jsx
+//
+// Shown on every cold launch once a real (JWT) session is found on the
+// device and a PIN has already been set. Blocks everything else — no
+// network calls happen here at all; this is purely a local gate.
+//
+// Navigation is NOT handled manually anywhere in this file — RouteGuard
+// (app/_layout.jsx) owns all post-auth/post-PIN navigation via its own
+// effect, gated on the root navigator being ready. Calling router.replace
+// directly from here was the same unsafe pattern that caused the
+// "REPLACE action not handled" bug elsewhere.
+
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useRouter } from "expo-router";
 
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../hooks/useTheme";
@@ -17,7 +28,6 @@ function formatRemaining(ms) {
 export default function PinGateScreen() {
   const { verifyDevicePin, forgotPin } = useAuth();
   const { colors } = useTheme();
-  const router = useRouter();
 
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
@@ -25,12 +35,14 @@ export default function PinGateScreen() {
   const [lockedUntil, setLockedUntil] = useState(null);
   const [now, setNow] = useState(Date.now());
 
+  // Check for an existing lockout on mount (e.g. app was killed mid-lockout).
   useEffect(() => {
     getPinLockout().then((until) => {
       if (until) setLockedUntil(until);
     });
   }, []);
 
+  // Tick while locked out so the countdown updates and clears on expiry.
   useEffect(() => {
     if (!lockedUntil) return;
     const interval = setInterval(() => setNow(Date.now()), 1000);
@@ -60,6 +72,8 @@ export default function PinGateScreen() {
     const result = await verifyDevicePin(pin);
 
     if (result.success) {
+      // RouteGuard's effect picks up pinVerified flipping true and
+      // navigates to (tabs) itself, once the navigator is ready.
       return;
     }
 
@@ -81,7 +95,9 @@ export default function PinGateScreen() {
 
   const handleForgotPin = async () => {
     await forgotPin();
-    router.replace("/(auth)/login");
+    // No manual navigation here — forgotPin() calls logout() internally,
+    // which flips isAuthenticated to false. RouteGuard's effect reacts
+    // to that and navigates to /(auth)/login on its own.
   };
 
   return (

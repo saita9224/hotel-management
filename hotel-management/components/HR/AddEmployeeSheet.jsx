@@ -249,7 +249,7 @@ export default function AddEmployeeSheet({ onClose }) {
         Employee Details
       </Text>
       <Text style={{ color: colors.tabBarInactive, fontSize: 13, marginBottom: 20 }}>
-        Enter the new employee's basic information.
+        {"Enter the new employee's basic information."}
       </Text>
 
       <Text style={[styles.label, { color: colors.tabBarInactive }]}>Full Name</Text>
