@@ -1,16 +1,18 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
-import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../hooks/useTheme";
-import PinPad, { PIN_LENGTH } from "../components/PinPad";
+import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../hooks/useTheme";
+import PinPad, { PIN_LENGTH } from "../../components/PinPad";
 
-export default function SetPinScreen() {
+export default function ConfirmPinScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
   const { setDevicePin } = useAuth();
   const { colors } = useTheme();
 
-  const [stage, setStage] = useState("create"); // "create" | "confirm"
-  const [firstPin, setFirstPin] = useState("");
+  const firstPin = params.pin || "";
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,30 +29,28 @@ export default function SetPinScreen() {
   };
 
   const handleComplete = async (pin) => {
-    if (stage === "create") {
-      setFirstPin(pin);
-      setValue("");
-      setStage("confirm");
-      return;
-    }
-
     if (pin !== firstPin) {
       setError(true);
       setValue("");
-      setStage("create");
-      setFirstPin("");
+      // Go back to create screen to try again
+      setTimeout(() => {
+        router.replace("/(security)/create-pin");
+      }, 1500);
       return;
     }
 
     try {
       setSaving(true);
       await setDevicePin(pin);
+      // RouteGuard will handle navigation to tabs after pinVerified is set
     } catch (err) {
       console.error("Failed to save PIN:", err);
       setError(true);
       setValue("");
-      setStage("create");
-      setFirstPin("");
+      // Go back to create screen to try again
+      setTimeout(() => {
+        router.replace("/(security)/create-pin");
+      }, 1500);
     } finally {
       setSaving(false);
     }
@@ -63,16 +63,14 @@ export default function SetPinScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>
-        {stage === "create" ? "Set a PIN" : "Confirm your PIN"}
-      </Text>
+      <Text style={[styles.title, { color: colors.text }]}>Confirm your PIN</Text>
       <Text style={[styles.subtitle, { color: colors.tabBarInactive }]}>
-        {stage === "create"
-          ? "Choose a 6-digit PIN to unlock this device, even offline."
-          : "Enter it again to confirm."}
+        Enter it again to confirm.
       </Text>
       {error && (
-        <Text style={styles.errorText}>PINs did not match. Try again.</Text>
+        <Text style={styles.errorText}>
+          {saving ? "Saving..." : "PINs did not match. Try again."}
+        </Text>
       )}
 
       <PinPad

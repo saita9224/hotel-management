@@ -1,4 +1,4 @@
-// app/pin-gate.jsx
+// app/(security)/unlock.jsx
 //
 // Shown on every cold launch once a real (JWT) session is found on the
 // device and a PIN has already been set. Blocks everything else — no
@@ -13,10 +13,10 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../hooks/useTheme";
-import PinPad, { PIN_LENGTH } from "../components/PinPad";
-import { getPinLockout } from "../lib/authSession";
+import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../hooks/useTheme";
+import PinPad, { PIN_LENGTH } from "../../components/PinPad";
+import { getPinLockout } from "../../lib/authSession";
 
 function formatRemaining(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -25,7 +25,7 @@ function formatRemaining(ms) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export default function PinGateScreen() {
+export default function UnlockScreen() {
   const { verifyDevicePin, forgotPin } = useAuth();
   const { colors } = useTheme();
 

@@ -27,7 +27,7 @@ function RouteGuard({ children }) {
   const rootNavigationState = useRootNavigationState();
 
   const inAuthGroup = segments[0] === "(auth)";
-  const onPinRoute = segments[0] === "pin-gate" || segments[0] === "set-pin";
+  const inSecurityGroup = segments[0] === "(security)";
   const segmentKey = segments.join("/");
 
   const stillLoading = loading || (isAuthenticated && pinIsSet === null);
@@ -49,16 +49,16 @@ function RouteGuard({ children }) {
     // From here on, a real (JWT) session exists on this device.
 
     if (!pinIsSet) {
-      if (!onPinRoute) router.replace("/set-pin");
+      if (!inSecurityGroup) router.replace("/(security)/create-pin");
       return;
     }
 
     if (!pinVerified) {
-      if (!onPinRoute) router.replace("/pin-gate");
+      if (!inSecurityGroup) router.replace("/(security)/unlock");
       return;
     }
 
-    if (onPinRoute || inAuthGroup) {
+    if (inSecurityGroup || inAuthGroup) {
       router.replace("/(tabs)/");
     }
   }, [
@@ -68,7 +68,7 @@ function RouteGuard({ children }) {
     pinIsSet,
     pinVerified,
     inAuthGroup,
-    onPinRoute,
+    inSecurityGroup,
     router,
     segmentKey,
   ]);
@@ -82,14 +82,14 @@ function RouteGuard({ children }) {
   }
 
   if (!pinIsSet) {
-    return onPinRoute ? children : <LoadingScreen />;
+    return inSecurityGroup ? children : <LoadingScreen />;
   }
 
   if (!pinVerified) {
-    return onPinRoute ? children : <LoadingScreen />;
+    return inSecurityGroup ? children : <LoadingScreen />;
   }
 
-  if (onPinRoute || inAuthGroup) {
+  if (inSecurityGroup || inAuthGroup) {
     // Navigating away — the effect above has already dispatched it.
     return <LoadingScreen />;
   }
