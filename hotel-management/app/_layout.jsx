@@ -1,16 +1,10 @@
 // app/_layout.jsx
 
-import { Slot, useRouter, useSegments, useRootNavigationState } from "expo-router";
+import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 
-import { AuthProvider, useAuth }  from "../context/AuthContext";
-import { MenuProvider }           from "../context/MenuContext";
-import { InventoryProvider }      from "../context/InventoryContext";
-import { POSProvider }            from "../context/POSContext";
-import { ExpensesProvider }       from "../context/ExpensesContext";
-import { HRProvider }             from "../context/HRContext";
-import { ReportsProvider }        from "../context/ReportsContext";
+import { AuthProvider, useAuth } from "../context/AuthContext";
 
 function LoadingScreen() {
   return (
@@ -28,6 +22,7 @@ function RouteGuard({ children }) {
 
   const inAuthGroup = segments[0] === "(auth)";
   const inSecurityGroup = segments[0] === "(security)";
+  const inTabsGroup = segments[0] === "(tabs)";
   const segmentKey = segments.join("/");
 
   const stillLoading = loading || (isAuthenticated && pinIsSet === null);
@@ -69,53 +64,31 @@ function RouteGuard({ children }) {
     pinVerified,
     inAuthGroup,
     inSecurityGroup,
+    inTabsGroup,
     router,
     segmentKey,
   ]);
 
+  // Show loading screen while navigating or loading session
   if (!rootNavigationState?.key || stillLoading) {
     return <LoadingScreen />;
   }
 
-  if (!isAuthenticated) {
-    return inAuthGroup ? children : <LoadingScreen />;
-  }
-
-  if (!pinIsSet) {
-    return inSecurityGroup ? children : <LoadingScreen />;
-  }
-
-  if (!pinVerified) {
-    return inSecurityGroup ? children : <LoadingScreen />;
-  }
-
-  if (inSecurityGroup || inAuthGroup) {
-    // Navigating away — the effect above has already dispatched it.
-    return <LoadingScreen />;
-  }
-
-  return (
-    <MenuProvider>
-      <InventoryProvider>
-        <POSProvider>
-          <ExpensesProvider>
-            <HRProvider>
-              <ReportsProvider>
-                {children}
-              </ReportsProvider>
-            </HRProvider>
-          </ExpensesProvider>
-        </POSProvider>
-      </InventoryProvider>
-    </MenuProvider>
-  );
+  // Return children (the Stack) when ready
+  return children;
 }
 
 export default function RootLayout() {
   return (
     <AuthProvider>
       <RouteGuard>
-        <Slot />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(security)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="hr" options={{ headerShown: false }} />
+          <Stack.Screen name="menu-modal" options={{ headerShown: false, presentation: 'modal' }} />
+        </Stack>
       </RouteGuard>
     </AuthProvider>
   );
