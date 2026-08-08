@@ -40,10 +40,7 @@ export async function hasPinSet() {
 
 export async function setPin(pin) {
   const hash = await hashPin(pin);
-  console.log("[authSession] setPin -> hash", hash);
   await SecureStore.setItemAsync(PIN_HASH_KEY, hash);
-  const verifyWrite = await SecureStore.getItemAsync(PIN_HASH_KEY);
-  console.log("[authSession] setPin -> readback immediately after write", verifyWrite);
   await SecureStore.deleteItemAsync(PIN_ATTEMPTS_KEY).catch(() => {});
   await SecureStore.deleteItemAsync(PIN_LOCKOUT_UNTIL_KEY).catch(() => {});
 }
@@ -75,7 +72,6 @@ export async function verifyPin(pin) {
 
   const storedHash = await SecureStore.getItemAsync(PIN_HASH_KEY);
   const candidateHash = await hashPin(pin);
-  console.log("[authSession] verifyPin", { storedHash, candidateHash, match: storedHash === candidateHash });
 
   if (storedHash && candidateHash === storedHash) {
     await SecureStore.deleteItemAsync(PIN_ATTEMPTS_KEY).catch(() => {});

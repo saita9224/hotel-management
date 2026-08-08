@@ -82,7 +82,7 @@ export const POSProvider = ({ children }) => {
         setReceipts([]);
       }
     } catch (err) {
-      console.log("Load Session Error:", err);
+      // Error handling
     } finally {
       setLoading(false);
     }
@@ -94,7 +94,7 @@ export const POSProvider = ({ children }) => {
       const r = await fetchReceiptsBySession(session.id);
       setReceipts(r);
     } catch (err) {
-      console.log("Load Receipts Error:", err);
+      // Error handling
     }
   };
 
@@ -108,7 +108,7 @@ export const POSProvider = ({ children }) => {
       setCashierQueue(queue);
       setOpenReceipts(open);
     } catch (err) {
-      console.log("Load Cashier Data Error:", err);
+      // Error handling
     } finally {
       setCashierLoading(false);
     }
@@ -120,7 +120,7 @@ export const POSProvider = ({ children }) => {
       setUnsettledCredits(credits);
       return credits;
     } catch (err) {
-      console.log("Load Unsettled Credits Error:", err);
+      // Error handling
       return [];
     }
   }, []);
@@ -133,7 +133,7 @@ export const POSProvider = ({ children }) => {
       setCashierQueue([]);
       setOpenReceipts([]);
     } catch (err) {
-      console.log("Open Session Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -148,7 +148,7 @@ export const POSProvider = ({ children }) => {
       setOpenReceipts([]);
       setActiveReceipt(null);
     } catch (err) {
-      console.log("Close Session Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -161,7 +161,7 @@ export const POSProvider = ({ children }) => {
       setReceipts((prev) => [receipt, ...prev]);
       return receipt;
     } catch (err) {
-      console.log("Create Receipt Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -174,7 +174,7 @@ export const POSProvider = ({ children }) => {
     try {
       return await fetchMyPendingReceipts(session.id);
     } catch (err) {
-      console.log("Fetch My Pending Error:", err);
+      // Error handling
       return [];
     }
   };
@@ -188,7 +188,7 @@ export const POSProvider = ({ children }) => {
       setActiveReceipt((prev) => (prev?.id === receiptId ? null : prev));
       return true;
     } catch (err) {
-      console.log("Delete Draft Receipt Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -199,7 +199,7 @@ export const POSProvider = ({ children }) => {
     try {
       return await createOrderService(receiptId);
     } catch (err) {
-      console.log("Create Order Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -208,7 +208,7 @@ export const POSProvider = ({ children }) => {
     try {
       return await addOrderItemService(input);
     } catch (err) {
-      console.log("Add Order Item Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -217,7 +217,7 @@ export const POSProvider = ({ children }) => {
     try {
       return await addMenuOrderItemService(input);
     } catch (err) {
-      console.log("Add Menu Order Item Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -235,7 +235,7 @@ export const POSProvider = ({ children }) => {
       await Promise.all([loadProducts(), refreshMenu()]);
       return updated;
     } catch (err) {
-      console.log("Submit Order Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -247,7 +247,7 @@ export const POSProvider = ({ children }) => {
       setCashierQueue((prev) => prev.filter((r) => r.id !== updated.id));
       return updated;
     } catch (err) {
-      console.log("Recall Order Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -260,7 +260,7 @@ export const POSProvider = ({ children }) => {
       await Promise.all([loadCashierData(), loadReceipts(), loadProducts(), refreshMenu()]);
       return payment;
     } catch (err) {
-      console.log("Accept Payment Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -271,7 +271,7 @@ export const POSProvider = ({ children }) => {
       await Promise.all([loadCashierData(), loadReceipts(), loadProducts(), refreshMenu()]);
       return credit;
     } catch (err) {
-      console.log("Create Credit Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -282,7 +282,7 @@ export const POSProvider = ({ children }) => {
       await Promise.all([loadUnsettledCredits(), loadReceipts()]);
       return payment;
     } catch (err) {
-      console.log("Settle Credit Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -296,7 +296,7 @@ export const POSProvider = ({ children }) => {
       await Promise.all([loadProducts(), refreshMenu()]);
       return updated;
     } catch (err) {
-      console.log("Refund Receipt Error:", err);
+      // Error handling
       throw err;
     }
   };

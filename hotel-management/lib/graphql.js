@@ -29,8 +29,6 @@ const BASE_HOST = IS_LOCAL
 
 const PROTOCOL = IS_LOCAL ? "http" : "https";
 
-console.log(`[graphql.js] API_ENV=${API_ENV} BASE_HOST=${BASE_HOST}`);
-
 // ...rest of the file (PUBLIC_URL, GRAPHQL_URL, _fetch, publicRequest,
 // graphqlRequest) stays exactly the same, just with IS_LOCAL used
 // anywhere __DEV__ was used before. ? "http" : "https";
@@ -78,14 +76,12 @@ async function _fetch(url, query, variables = {}, token = null, schemaName = nul
 
   if (!response.ok) {
     const text = await response.text();
-    console.error("HTTP ERROR:", text);
     throw new Error(`Network error: ${response.status}`);
   }
 
   const json = await response.json();
 
   if (json.errors?.length > 0) {
-    console.error("GRAPHQL ERRORS:", json.errors);
 
     if (
       json.errors.some((error) =>
@@ -109,7 +105,6 @@ export async function publicRequest(query, variables = {}) {
   try {
     return await _fetch(PUBLIC_URL, query, variables, null, null);
   } catch (error) {
-    console.error("publicRequest error:", error.message);
     throw error;
   }
 }
@@ -129,14 +124,13 @@ export async function graphqlRequest(query, variables = {}) {
     }
 
     // schemaName is no longer required to build the URL — it's
-    // only sent as the X-Tenant fallback header. Warn, don't hard-fail.
+    // only sent as the X-Tenant fallback header.
     if (!schemaName) {
-      console.warn("No schemaName found in storage — relying on JWT-based tenant resolution.");
+      // Relying on JWT-based tenant resolution
     }
 
     return await _fetch(GRAPHQL_URL, query, variables, token, schemaName);
   } catch (error) {
-    console.error("graphqlRequest error:", error.message);
     throw error;
   }
 }

@@ -48,7 +48,7 @@ export const ExpensesProvider = ({ children }) => {
       setExpenses(expenseData);
       setPayments(paymentData);
     } catch (error) {
-      console.log("Load Expenses Error:", error);
+      // Error handling
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export const ExpensesProvider = ({ children }) => {
       const data = await fetchSuppliers();
       setSuppliers(data);
     } catch (error) {
-      console.log("Load Suppliers Error:", error);
+      // Error handling
     }
   };
 
@@ -93,7 +93,7 @@ export const ExpensesProvider = ({ children }) => {
       await loadExpenses();
       return result;
     } catch (error) {
-      console.log("Create Expense Error:", error);
+      // console.log("Create Expense Error:", error);
       throw error;
     }
   };
@@ -107,7 +107,7 @@ export const ExpensesProvider = ({ children }) => {
       await payBalanceService(expenseId, amount);
       await loadExpenses();
     } catch (error) {
-      console.log("Pay Balance Error:", error);
+      // console.log("Pay Balance Error:", error);
       throw error;
     }
   };
@@ -124,7 +124,7 @@ export const ExpensesProvider = ({ children }) => {
       try {
         await refreshMenu();
       } catch (err) {
-        console.log("Menu refresh after expense product creation failed:", err);
+        // console.log("Menu refresh after expense product creation failed:", err);
       }
     }
   };

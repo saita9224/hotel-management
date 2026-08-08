@@ -48,7 +48,7 @@ export const InventoryProvider = ({ children }) => {
       const data = await fetchProducts();
       setProducts(data);
     } catch (error) {
-      console.log("Load Products Error:", error);
+      // Error handling
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export const InventoryProvider = ({ children }) => {
       const data = await fetchCategories();
       setServerCategories(data);
     } catch (error) {
-      console.log("Load Categories Error:", error);
+      // Error handling
     }
   };
 
@@ -80,7 +80,6 @@ export const InventoryProvider = ({ children }) => {
       ));
       return cat;
     } catch (error) {
-      console.log("Create Category Error:", error);
       throw error;
     }
   };
@@ -94,7 +93,7 @@ export const InventoryProvider = ({ children }) => {
       const data = await fetchPendingReconciliations();
       setPendingReconciliations(data);
     } catch (error) {
-      console.log("Load Reconciliations Error:", error);
+      // Error handling
     }
   };
 
@@ -142,7 +141,6 @@ export const InventoryProvider = ({ children }) => {
 
       return productId;
     } catch (error) {
-      console.log("Create Product Error:", error);
       throw error;
     }
   };
@@ -162,7 +160,6 @@ export const InventoryProvider = ({ children }) => {
       });
       await loadProducts();
     } catch (error) {
-      console.log("Add Stock Error:", error);
       throw error;
     }
   };
@@ -176,7 +173,6 @@ export const InventoryProvider = ({ children }) => {
       await removeStockService({ product_id: productId, quantity, reason, notes });
       await loadProducts();
     } catch (error) {
-      console.log("Deduct Stock Error:", error);
       throw error;
     }
   };
@@ -214,7 +210,6 @@ export const InventoryProvider = ({ children }) => {
       await Promise.all([loadProducts(), loadPendingReconciliations()]);
       return result;
     } catch (error) {
-      console.log("Approve Reconciliation Error:", error);
       throw error;
     }
   };
@@ -229,7 +224,6 @@ export const InventoryProvider = ({ children }) => {
       await loadPendingReconciliations();
       return result;
     } catch (error) {
-      console.log("Reject Reconciliation Error:", error);
       throw error;
     }
   };
