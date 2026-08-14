@@ -120,7 +120,6 @@ export function AuthProvider({ children }) {
           clearSessionState();
         }
       } catch (err) {
-        console.error("Session restore failed:", err);
         await clearStoredSession();
         clearSessionState();
       } finally {
