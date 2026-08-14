@@ -51,7 +51,7 @@ export const ReportsProvider = ({ children }) => {
       const data = await fetchSalesReportService(startDate, endDate);
       setSalesReport(data);
     } catch (err) {
-      console.log("Sales Report Error:", err);
+      ("Sales Report Error:", err);
       throw err;
     } finally {
       setSalesLoading(false);
@@ -64,7 +64,7 @@ export const ReportsProvider = ({ children }) => {
       const data = await fetchProductPerformanceService(startDate, endDate, limit);
       setProductReport(data);
     } catch (err) {
-      console.log("Product Report Error:", err);
+      ("Product Report Error:", err);
       throw err;
     } finally {
       setProductLoading(false);
@@ -77,7 +77,7 @@ export const ReportsProvider = ({ children }) => {
       const data = await fetchExpenseReportService(startDate, endDate);
       setExpenseReport(data);
     } catch (err) {
-      console.log("Expense Report Error:", err);
+      ("Expense Report Error:", err);
       throw err;
     } finally {
       setExpenseLoading(false);
@@ -90,7 +90,7 @@ export const ReportsProvider = ({ children }) => {
       const data = await fetchStockHealthService(startDate, endDate);
       setStockReport(data);
     } catch (err) {
-      console.log("Stock Report Error:", err);
+      ("Stock Report Error:", err);
       throw err;
     } finally {
       setStockLoading(false);
@@ -103,7 +103,7 @@ export const ReportsProvider = ({ children }) => {
       const data = await fetchPayrollReportService(year, month);
       setPayrollReport(data);
     } catch (err) {
-      console.log("Payroll Report Error:", err);
+      ("Payroll Report Error:", err);
       throw err;
     } finally {
       setPayrollLoading(false);
@@ -116,7 +116,7 @@ export const ReportsProvider = ({ children }) => {
       const data = await fetchAttendanceReportService(year, month);
       setAttendanceReport(data);
     } catch (err) {
-      console.log("Attendance Report Error:", err);
+      ("Attendance Report Error:", err);
       throw err;
     } finally {
       setAttendanceLoading(false);
@@ -129,7 +129,7 @@ export const ReportsProvider = ({ children }) => {
       const data = await fetchCreditExposureService();
       setCreditReport(data);
     } catch (err) {
-      console.log("Credit Report Error:", err);
+      ("Credit Report Error:", err);
       throw err;
     } finally {
       setCreditLoading(false);

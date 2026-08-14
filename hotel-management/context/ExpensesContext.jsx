@@ -93,7 +93,7 @@ export const ExpensesProvider = ({ children }) => {
       await loadExpenses();
       return result;
     } catch (error) {
-      // console.log("Create Expense Error:", error);
+      // Error handling
       throw error;
     }
   };
@@ -107,7 +107,7 @@ export const ExpensesProvider = ({ children }) => {
       await payBalanceService(expenseId, amount);
       await loadExpenses();
     } catch (error) {
-      // console.log("Pay Balance Error:", error);
+      // Error handling
       throw error;
     }
   };
@@ -124,7 +124,7 @@ export const ExpensesProvider = ({ children }) => {
       try {
         await refreshMenu();
       } catch (err) {
-        // console.log("Menu refresh after expense product creation failed:", err);
+        // Error handling
       }
     }
   };

@@ -59,7 +59,6 @@ export const MenuProvider = ({ children }) => {
       setUnpricedItems(Array.isArray(unpriced) ? unpriced : []);
       setMenuCategories(Array.isArray(categories) && categories.length ? categories : DEFAULT_MENU_CATEGORIES);
     } catch (err) {
-      console.error("MenuContext load error:", err);
       // Keep existing state on error rather than blowing up the UI
     } finally {
       setLoading(false);

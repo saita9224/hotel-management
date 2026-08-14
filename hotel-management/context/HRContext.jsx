@@ -85,7 +85,7 @@ export const HRProvider = ({ children }) => {
         emps.map((e) => ({ ...e, contract: contractMap[e.id] ?? null }))
       );
     } catch (err) {
-      ("Load Employees Error:", err);
+      // Error handling
     } finally {
       setLoading(false);
     }
@@ -97,7 +97,7 @@ export const HRProvider = ({ children }) => {
       await loadEmployees();
       return result;
     } catch (err) {
-      ("Create Employee Error:", err);
+      // Error handling
       throw err;
     }
   };
@@ -113,7 +113,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchGroupedPermissionsService();
       setGroupedPermissions(data);
     } catch (err) {
-      ("Load Grouped Permissions Error:", err);
+("Load Grouped Permissions Error:", err);
       throw err;
     }
   };
@@ -128,7 +128,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchMyContractService();
       setMyContract(data);
     } catch (err) {
-      ("Load My Contract Error:", err);
+("Load My Contract Error:", err);
     }
   };
 
@@ -138,7 +138,7 @@ export const HRProvider = ({ children }) => {
       await loadEmployees();
       return result;
     } catch (err) {
-      ("Create Contract Error:", err);
+("Create Contract Error:", err);
       throw err;
     }
   };
@@ -149,7 +149,7 @@ export const HRProvider = ({ children }) => {
       await loadEmployees();
       return result;
     } catch (err) {
-      ("Update Contract Error:", err);
+("Update Contract Error:", err);
       throw err;
     }
   };
@@ -165,7 +165,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchTodayAttendanceService();
       setTodayAttendance(data);
     } catch (err) {
-      ("Load Today Attendance Error:", err);
+("Load Today Attendance Error:", err);
     } finally {
       setAttendanceLoading(false);
     }
@@ -177,7 +177,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchEmployeeAttendanceService(employeeId, year, month);
       setEmployeeAttendance(data);
     } catch (err) {
-      ("Load Employee Attendance Error:", err);
+("Load Employee Attendance Error:", err);
     } finally {
       setAttendanceLoading(false);
     }
@@ -188,7 +188,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchMyAttendanceService(year, month);
       setMyAttendance(data);
     } catch (err) {
-      ("Load My Attendance Error:", err);
+("Load My Attendance Error:", err);
     }
   };
 
@@ -198,7 +198,7 @@ export const HRProvider = ({ children }) => {
       await loadTodayAttendance();
       return result;
     } catch (err) {
-      ("Self Check-in Error:", err);
+("Self Check-in Error:", err);
       throw err;
     }
   };
@@ -209,7 +209,7 @@ export const HRProvider = ({ children }) => {
       await loadTodayAttendance();
       return result;
     } catch (err) {
-      ("Self Check-out Error:", err);
+("Self Check-out Error:", err);
       throw err;
     }
   };
@@ -220,7 +220,7 @@ export const HRProvider = ({ children }) => {
       await loadTodayAttendance();
       return result;
     } catch (err) {
-      ("Record Attendance Error:", err);
+("Record Attendance Error:", err);
       throw err;
     }
   };
@@ -231,7 +231,7 @@ export const HRProvider = ({ children }) => {
       await loadTodayAttendance();
       return result;
     } catch (err) {
-      ("Manager Check-out Error:", err);
+("Manager Check-out Error:", err);
       throw err;
     }
   };
@@ -247,7 +247,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchLeaveRequestsService(filters);
       setLeaveRequests(data);
     } catch (err) {
-      ("Load Leave Requests Error:", err);
+("Load Leave Requests Error:", err);
     } finally {
       setLoading(false);
     }
@@ -258,7 +258,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchMyLeaveRequestsService();
       setMyLeaveRequests(data);
     } catch (err) {
-      ("Load My Leave Requests Error:", err);
+("Load My Leave Requests Error:", err);
     }
   };
 
@@ -268,7 +268,7 @@ export const HRProvider = ({ children }) => {
       await loadMyLeaveRequests();
       return result;
     } catch (err) {
-      ("Request Leave Error:", err);
+("Request Leave Error:", err);
       throw err;
     }
   };
@@ -279,7 +279,7 @@ export const HRProvider = ({ children }) => {
       await loadLeaveRequests();
       return result;
     } catch (err) {
-      ("Review Leave Error:", err);
+("Review Leave Error:", err);
       throw err;
     }
   };
@@ -295,7 +295,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchSalaryRecordsService(filters);
       setSalaryRecords(data);
     } catch (err) {
-      ("Load Salary Records Error:", err);
+("Load Salary Records Error:", err);
     } finally {
       setPayrollLoading(false);
     }
@@ -306,7 +306,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchMyPayslipsService(year);
       setMyPayslips(data);
     } catch (err) {
-      ("Load My Payslips Error:", err);
+("Load My Payslips Error:", err);
     }
   };
 
@@ -315,7 +315,7 @@ export const HRProvider = ({ children }) => {
       const data = await fetchSalaryPaymentsService(salaryRecordId);
       setSalaryPayments(data);
     } catch (err) {
-      ("Load Salary Payments Error:", err);
+("Load Salary Payments Error:", err);
     }
   };
 
@@ -325,7 +325,7 @@ export const HRProvider = ({ children }) => {
       await loadSalaryRecords();
       return result;
     } catch (err) {
-      ("Generate Payslip Error:", err);
+("Generate Payslip Error:", err);
       throw err;
     }
   };
@@ -336,7 +336,7 @@ export const HRProvider = ({ children }) => {
       await loadSalaryRecords();
       return result;
     } catch (err) {
-      ("Approve Payslip Error:", err);
+("Approve Payslip Error:", err);
       throw err;
     }
   };
@@ -347,7 +347,7 @@ export const HRProvider = ({ children }) => {
       await loadSalaryRecords();
       return result;
     } catch (err) {
-      ("Add Salary Payment Error:", err);
+("Add Salary Payment Error:", err);
       throw err;
     }
   };
