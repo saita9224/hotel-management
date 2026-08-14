@@ -9,6 +9,8 @@ import React, {
 } from "react";
 
 import { useMenu } from "./MenuContext";
+import { useOffline } from "./OfflineContext";
+import { enqueueMutation } from "../lib/offlineQueue";
 
 import {
   fetchAllExpenses,
@@ -33,6 +35,7 @@ export const ExpensesProvider = ({ children }) => {
   const [loading, setLoading]     = useState(false);
 
   const { refreshMenu } = useMenu();
+  const { isOnline, refreshQueueCount } = useOffline();
 
   // =====================================================
   // LOAD ALL EXPENSES + PAYMENTS
@@ -88,12 +91,29 @@ export const ExpensesProvider = ({ children }) => {
   // =====================================================
 
   const createExpense = async (input) => {
+    if (!isOnline) {
+      await enqueueMutation("CREATE_EXPENSE", input);
+      await refreshQueueCount();
+      const mockExpense = {
+        id: `offline-${Date.now()}`,
+        item_name: input.item_name,
+        quantity: Number(input.quantity),
+        unit_price: Number(input.unit_price),
+        total_price: Number(input.quantity) * Number(input.unit_price),
+        amount_paid: Number(input.quantity) * Number(input.unit_price),
+        balance: 0,
+        is_fully_paid: true,
+        created_at: new Date().toISOString(),
+        supplier_name: input.supplier_name || "",
+      };
+      setExpenses((prev) => [mockExpense, ...prev]);
+      return { expense: mockExpense, matchedProduct: null };
+    }
     try {
       const result = await createExpenseService(input);
       await loadExpenses();
       return result;
     } catch (error) {
-      // Error handling
       throw error;
     }
   };
@@ -103,11 +123,22 @@ export const ExpensesProvider = ({ children }) => {
   // =====================================================
 
   const payBalance = async (expenseId, amount) => {
+    if (!isOnline) {
+      await enqueueMutation("PAY_BALANCE", { expenseId, amount });
+      await refreshQueueCount();
+      setExpenses((prev) =>
+        prev.map((e) =>
+          e.id === expenseId
+            ? { ...e, amount_paid: e.amount_paid + Number(amount), balance: Math.max(0, e.balance - Number(amount)) }
+            : e
+        )
+      );
+      return;
+    }
     try {
       await payBalanceService(expenseId, amount);
       await loadExpenses();
     } catch (error) {
-      // Error handling
       throw error;
     }
   };

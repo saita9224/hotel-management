@@ -10,6 +10,8 @@ import React, {
 
 import { useAuth } from "./AuthContext";
 import { useMenu } from "./MenuContext";
+import { useOffline } from "./OfflineContext";
+import { enqueueMutation } from "../lib/offlineQueue";
 
 import {
   fetchProducts,
@@ -37,6 +39,7 @@ export const InventoryProvider = ({ children }) => {
 
   const { isAuthenticated } = useAuth();
   const { refreshMenu }     = useMenu();
+  const { isOnline, refreshQueueCount } = useOffline();
 
   // =====================================================
   // LOAD PRODUCTS
@@ -72,12 +75,16 @@ export const InventoryProvider = ({ children }) => {
   // =====================================================
 
   const createCategory = async (name) => {
+    if (!isOnline) {
+      const item = await enqueueMutation("CREATE_CATEGORY", { name });
+      await refreshQueueCount();
+      const mockCategory = { id: item.clientId, name: name.trim() };
+      setServerCategories((prev) => [...prev, mockCategory].sort((a, b) => a.name.localeCompare(b.name)));
+      return mockCategory;
+    }
     try {
       const cat = await createCategoryService(name);
-      // Append immediately so the UI updates without a full reload
-      setServerCategories((prev) => [...prev, cat].sort((a, b) =>
-        a.name.localeCompare(b.name)
-      ));
+      setServerCategories((prev) => [...prev, cat].sort((a, b) => a.name.localeCompare(b.name)));
       return cat;
     } catch (error) {
       throw error;
@@ -99,7 +106,6 @@ export const InventoryProvider = ({ children }) => {
 
   // =====================================================
   // CREATE PRODUCT + INITIAL STOCK
-  // category_id is now passed instead of a string
   // =====================================================
 
   const createProduct = async ({
@@ -112,6 +118,30 @@ export const InventoryProvider = ({ children }) => {
     notes,
     auto_deduct_on_sale,
   }) => {
+    if (!isOnline) {
+      const item = await enqueueMutation("CREATE_PRODUCT", {
+        name,
+        category_id,
+        unit,
+        quantity,
+        reason,
+        funded_by_business,
+        notes,
+        auto_deduct_on_sale,
+      });
+      await refreshQueueCount();
+      const mockProduct = {
+        id: item.clientId,
+        name,
+        category: serverCategories.find((c) => c.id === category_id) || null,
+        unit,
+        current_stock: Number(quantity || 0),
+        auto_deduct_on_sale: auto_deduct_on_sale ?? false,
+        created_at: new Date().toISOString(),
+      };
+      setProducts((prev) => [mockProduct, ...prev]);
+      return item.clientId;
+    }
     try {
       const result = await createProductService({
         name,
@@ -150,6 +180,24 @@ export const InventoryProvider = ({ children }) => {
   // =====================================================
 
   const addStock = async (productId, quantity, reason, funded_by_business, notes) => {
+    if (!isOnline) {
+      await enqueueMutation("ADD_STOCK", {
+        product_id: productId,
+        quantity: Number(quantity),
+        reason,
+        funded_by_business,
+        notes,
+      });
+      await refreshQueueCount();
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId
+            ? { ...p, current_stock: p.current_stock + Number(quantity) }
+            : p
+        )
+      );
+      return;
+    }
     try {
       await addStockService({
         product_id:         productId,
@@ -169,6 +217,23 @@ export const InventoryProvider = ({ children }) => {
   // =====================================================
 
   const deductStock = async (productId, quantity, reason, notes) => {
+    if (!isOnline) {
+      await enqueueMutation("REMOVE_STOCK", {
+        product_id: productId,
+        quantity: Number(quantity),
+        reason,
+        notes,
+      });
+      await refreshQueueCount();
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId
+            ? { ...p, current_stock: Math.max(0, p.current_stock - Number(quantity)) }
+            : p
+        )
+      );
+      return;
+    }
     try {
       await removeStockService({ product_id: productId, quantity, reason, notes });
       await loadProducts();

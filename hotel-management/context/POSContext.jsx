@@ -32,6 +32,8 @@ import {
 } from "../services/posService";
 import { useInventory } from "./InventoryContext";
 import { useMenu } from "./MenuContext";
+import { useOffline } from "./OfflineContext";
+import { enqueueMutation } from "../lib/offlineQueue";
 
 const POSContext = createContext();
 export const usePOS = () => useContext(POSContext);
@@ -52,6 +54,7 @@ const isToday = (value) => {
 export const POSProvider = ({ children }) => {
   const { loadProducts } = useInventory();
   const { refreshMenu }  = useMenu();
+  const { isOnline, refreshQueueCount } = useOffline();
 
   const [session, setSession]                   = useState(null);
   const [receipts, setReceipts]                 = useState([]);
@@ -156,12 +159,36 @@ export const POSProvider = ({ children }) => {
   // ── Receipt ───────────────────────────────────────────
 
   const createReceipt = async ({ session_id, discount = 0, table_note = "" }) => {
+    if (!isOnline) {
+      const item = await enqueueMutation("CREATE_RECEIPT", { session_id, discount, table_note });
+      await refreshQueueCount();
+      const mockReceipt = {
+        id: item.clientId,
+        receipt_number: `OFFLINE-${item.clientId.slice(0, 6)}`,
+        subtotal: 0,
+        discount: Number(discount),
+        total: 0,
+        balance: 0,
+        status: "OPEN",
+        table_note,
+        created_at: new Date().toISOString(),
+        orders: [],
+        payments: [],
+        credit: null,
+      };
+      setReceipts((prev) => [mockReceipt, ...prev]);
+      return mockReceipt;
+    }
+
     try {
       const receipt = await createReceiptService({ session_id, discount, table_note });
       setReceipts((prev) => [receipt, ...prev]);
       return receipt;
     } catch (err) {
-      // Error handling
+      if (err?.message?.includes("Network")) {
+        const item = await enqueueMutation("CREATE_RECEIPT", { session_id, discount, table_note });
+        await refreshQueueCount();
+      }
       throw err;
     }
   };
@@ -174,7 +201,6 @@ export const POSProvider = ({ children }) => {
     try {
       return await fetchMyPendingReceipts(session.id);
     } catch (err) {
-      // Error handling
       return [];
     }
   };
@@ -188,7 +214,6 @@ export const POSProvider = ({ children }) => {
       setActiveReceipt((prev) => (prev?.id === receiptId ? null : prev));
       return true;
     } catch (err) {
-      // Error handling
       throw err;
     }
   };
@@ -196,28 +221,65 @@ export const POSProvider = ({ children }) => {
   // ── Orders ────────────────────────────────────────────
 
   const createOrder = async (receiptId) => {
+    if (!isOnline) {
+      const item = await enqueueMutation("CREATE_ORDER", { receiptId });
+      await refreshQueueCount();
+      return {
+        id: item.clientId,
+        is_saved: false,
+        is_refunded: false,
+        created_at: new Date().toISOString(),
+        items: [],
+      };
+    }
     try {
       return await createOrderService(receiptId);
     } catch (err) {
-      // Error handling
       throw err;
     }
   };
 
   const addOrderItem = async (input) => {
+    if (!isOnline) {
+      await enqueueMutation("ADD_ORDER_ITEM", input);
+      await refreshQueueCount();
+      return {
+        id: `offline-${Date.now()}`,
+        product_id: input.product_id,
+        product_name: "Offline Item",
+        quantity: Number(input.quantity),
+        listed_price: Number(input.final_price),
+        final_price: Number(input.final_price),
+        line_total: Number(input.quantity) * Number(input.final_price),
+        price_overridden: false,
+        price_override_reason: input.price_override_reason,
+      };
+    }
     try {
       return await addOrderItemService(input);
     } catch (err) {
-      // Error handling
       throw err;
     }
   };
 
   const addMenuOrderItem = async (input) => {
+    if (!isOnline) {
+      await enqueueMutation("ADD_MENU_ORDER_ITEM", input);
+      await refreshQueueCount();
+      return {
+        id: `offline-${Date.now()}`,
+        product_id: input.menu_item_id,
+        product_name: "Offline Menu Item",
+        quantity: Number(input.quantity),
+        listed_price: 0,
+        final_price: 0,
+        line_total: 0,
+        price_overridden: false,
+      };
+    }
     try {
       return await addMenuOrderItemService(input);
     } catch (err) {
-      // Error handling
       throw err;
     }
   };
@@ -225,6 +287,14 @@ export const POSProvider = ({ children }) => {
   // ── Submit / Recall ───────────────────────────────────
 
   const submitOrder = async (receiptId) => {
+    if (!isOnline) {
+      await enqueueMutation("SUBMIT_ORDER", { receiptId });
+      await refreshQueueCount();
+      setReceipts((prev) =>
+        prev.map((r) => (r.id === receiptId ? { ...r, status: "PENDING" } : r))
+      );
+      return receipts.find((r) => r.id === receiptId);
+    }
     try {
       const updated = await submitOrderService(receiptId);
       setReceipts((prev) => {
@@ -235,7 +305,6 @@ export const POSProvider = ({ children }) => {
       await Promise.all([loadProducts(), refreshMenu()]);
       return updated;
     } catch (err) {
-      // Error handling
       throw err;
     }
   };
@@ -247,7 +316,6 @@ export const POSProvider = ({ children }) => {
       setCashierQueue((prev) => prev.filter((r) => r.id !== updated.id));
       return updated;
     } catch (err) {
-      // Error handling
       throw err;
     }
   };
@@ -255,12 +323,25 @@ export const POSProvider = ({ children }) => {
   // ── Payment ───────────────────────────────────────────
 
   const acceptPayment = async (input) => {
+    if (!isOnline) {
+      await enqueueMutation("ACCEPT_PAYMENT", input);
+      await refreshQueueCount();
+      const offlinePayment = {
+        id: `offline-${Date.now()}`,
+        method: input.method,
+        amount: Number(input.amount),
+        created_at: new Date().toISOString(),
+      };
+      setReceipts((prev) =>
+        prev.map((r) => (r.id === input.receipt_id ? { ...r, status: "PAID" } : r))
+      );
+      return offlinePayment;
+    }
     try {
       const payment = await acceptPaymentService(input);
       await Promise.all([loadCashierData(), loadReceipts(), loadProducts(), refreshMenu()]);
       return payment;
     } catch (err) {
-      // Error handling
       throw err;
     }
   };
