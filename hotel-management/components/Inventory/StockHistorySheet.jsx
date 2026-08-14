@@ -62,7 +62,7 @@ export default function StockHistorySheet({ visible, product, onClose }) {
       const data = await getProductMovements(product.id);
       setMovements(data);
     } catch (err) {
-      console.log("Stock history error:", err);
+      // Error handling
     } finally {
       setLoading(false);
     }

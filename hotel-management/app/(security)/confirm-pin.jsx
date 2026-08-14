@@ -44,7 +44,6 @@ export default function ConfirmPinScreen() {
       await setDevicePin(pin);
       // RouteGuard will handle navigation to tabs after pinVerified is set
     } catch (err) {
-      console.error("Failed to save PIN:", err);
       setError(true);
       setValue("");
       // Go back to create screen to try again
