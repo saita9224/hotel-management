@@ -205,16 +205,16 @@ export default function HomeScreen() {
       {/* ── Logo section — unchanged from original ── */}
       <View style={styles.logoContainer}>
         <Image
-          source={require("../../assets/images/hoppers_logo.png")}
+          source={require("../../assets/images/Bizzman_logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={[styles.title, { color: colors.accent }]}>HOPPERS</Text>
+        <Text style={[styles.title, { color: colors.accent }]}>BIZZMAN</Text>
         <Text style={[styles.subtitle, { color: colors.text }]}>
-          HOTEL & BUTCHERY
+          BUSINESS MANAGEMENT
         </Text>
         <Text style={[styles.motto, { color: colors.tabBarInactive }]}>
-          STAY. SAVOR. SMILE.
+          MANAGE. GROW. SUCCEED.
         </Text>
       </View>
 

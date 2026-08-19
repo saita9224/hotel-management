@@ -42,9 +42,8 @@ export default function LoginScreen() {
   const [businessChoices, setBusinessChoices] = useState([]);
   const [showChoiceModal, setShowChoiceModal] = useState(false);
 
-  const logoProgress    = useRef(new Animated.Value(0)).current;
-  const taglineProgress = useRef(new Animated.Value(0)).current;
-  const formProgress    = useRef(new Animated.Value(0)).current;
+  const logoProgress = useRef(new Animated.Value(0)).current;
+  const formProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.sequence([
@@ -54,21 +53,14 @@ export default function LoginScreen() {
         duration: 700,
         useNativeDriver: true,
       }),
-      Animated.parallel([
-        Animated.timing(taglineProgress, {
-          toValue: 1,
-          duration: 420,
-          useNativeDriver: true,
-        }),
-        Animated.timing(formProgress, {
-          toValue: 1,
-          duration: 550,
-          delay: 120,
-          useNativeDriver: true,
-        }),
-      ]),
+      Animated.timing(formProgress, {
+        toValue: 1,
+        duration: 550,
+        delay: 120,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [formProgress, logoProgress, taglineProgress]);
+  }, [formProgress, logoProgress]);
 
   const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
 
@@ -198,17 +190,7 @@ export default function LoginScreen() {
     ],
   };
 
-  const taglineAnimatedStyle = {
-    opacity: taglineProgress,
-    transform: [
-      {
-        translateY: taglineProgress.interpolate({
-          inputRange:  [0, 1],
-          outputRange: [-6, 0],
-        }),
-      },
-    ],
-  };
+
 
   return (
     <KeyboardAvoidingView
@@ -224,18 +206,11 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
-          <View style={styles.logoGroup}>
-            <Image
-              source={require("../../assets/images/bizzman-login-logo.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Animated.Image
-              source={require("../../assets/images/bizzman-login-tagline.png")}
-              style={[styles.logoTagline, taglineAnimatedStyle]}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={require("../../assets/images/Bizzman_full_logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
         </Animated.View>
 
         <Animated.View style={[styles.formContent, formAnimatedStyle]}>
@@ -428,21 +403,9 @@ const styles = StyleSheet.create({
     alignItems:   "center",
     marginBottom: 32,
   },
-  logoGroup: {
-    width:    268,
-    height:   96,
-    position: "relative",
-  },
   logo: {
-    width:  268,
-    height: 78,
-  },
-  logoTagline: {
-    position: "absolute",
-    left:     96,
-    top:      62,
-    width:    178,
-    height:   26,
+    width:  280,
+    height: 187,
   },
   formContent: {
     width: "100%",
