@@ -10,7 +10,8 @@ import React, {
 
 import { useMenu } from "./MenuContext";
 import { useOffline } from "./OfflineContext";
-import { enqueueMutation } from "../lib/offlineQueue";
+import { enqueueMutation } from "../database/syncQueue";
+import { ExpenseRepository } from "../database/repositories/expenseRepository";
 
 import {
   fetchAllExpenses,
@@ -44,14 +45,34 @@ export const ExpensesProvider = ({ children }) => {
   const loadExpenses = async () => {
     try {
       setLoading(true);
-      const [expenseData, paymentData] = await Promise.all([
-        fetchAllExpenses(),
-        fetchAllPayments(),
-      ]);
-      setExpenses(expenseData);
-      setPayments(paymentData);
+      // Try to load from server first if online
+      if (isOnline) {
+        const [expenseData, paymentData] = await Promise.all([
+          fetchAllExpenses(),
+          fetchAllPayments(),
+        ]);
+        // Sync server data to local database
+        for (const expense of expenseData) {
+          const existing = await ExpenseRepository.findById(expense.id);
+          if (existing) {
+            await ExpenseRepository.update(expense.id, expense);
+          } else {
+            await ExpenseRepository.create({ ...expense, synced: true });
+          }
+        }
+        setPayments(paymentData);
+      }
+      // Load from local database
+      const localData = await ExpenseRepository.findAll();
+      setExpenses(localData);
     } catch (error) {
-      // Error handling
+      // Fallback to local data if server fails
+      try {
+        const localData = await ExpenseRepository.findAll();
+        setExpenses(localData);
+      } catch (localError) {
+        console.error("Failed to load expenses from local database:", localError);
+      }
     } finally {
       setLoading(false);
     }
@@ -92,10 +113,11 @@ export const ExpensesProvider = ({ children }) => {
 
   const createExpense = async (input) => {
     if (!isOnline) {
-      await enqueueMutation("CREATE_EXPENSE", input);
+      const { clientId } = await enqueueMutation("CREATE_EXPENSE", input);
       await refreshQueueCount();
+      
       const mockExpense = {
-        id: `offline-${Date.now()}`,
+        id: clientId,
         item_name: input.item_name,
         quantity: Number(input.quantity),
         unit_price: Number(input.unit_price),
@@ -106,11 +128,33 @@ export const ExpensesProvider = ({ children }) => {
         created_at: new Date().toISOString(),
         supplier_name: input.supplier_name || "",
       };
+      
+      // Store in local database
+      await ExpenseRepository.create({
+        id: clientId,
+        item_name: input.item_name,
+        quantity: Number(input.quantity),
+        unit_price: Number(input.unit_price),
+        total_price: Number(input.quantity) * Number(input.unit_price),
+        amount_paid: Number(input.quantity) * Number(input.unit_price),
+        balance: 0,
+        is_fully_paid: true,
+        supplier_name: input.supplier_name || "",
+        synced: false,
+      });
+      
       setExpenses((prev) => [mockExpense, ...prev]);
       return { expense: mockExpense, matchedProduct: null };
     }
     try {
       const result = await createExpenseService(input);
+      
+      // Store in local database
+      await ExpenseRepository.create({
+        ...result.expense,
+        synced: true,
+      });
+      
       await loadExpenses();
       return result;
     } catch (error) {
@@ -126,6 +170,10 @@ export const ExpensesProvider = ({ children }) => {
     if (!isOnline) {
       await enqueueMutation("PAY_BALANCE", { expenseId, amount });
       await refreshQueueCount();
+      
+      // Update local database
+      await ExpenseRepository.updatePayment(expenseId, Number(amount));
+      
       setExpenses((prev) =>
         prev.map((e) =>
           e.id === expenseId

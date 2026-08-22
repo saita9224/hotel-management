@@ -1,13 +1,7 @@
 // services/syncService.js
 
 import { graphqlRequest } from "../lib/graphql";
-import {
-  getPendingMutations,
-  markMutationsSyncing,
-  resetSyncingToPending,
-  removeMutations,
-  markMutationFailed,
-} from "../lib/offlineQueue";
+import { SyncQueue } from "../database/syncQueue";
 
 const PUSH_SYNC_MUTATION = `
   mutation PushSync($mutations: [SyncMutationInput!]!) {
@@ -25,7 +19,7 @@ const PUSH_SYNC_MUTATION = `
  * Process all pending offline mutations in sequence/batch via pushSync GraphQL mutation.
  */
 export async function processOfflineQueue() {
-  const pendingItems = await getPendingMutations();
+  const pendingItems = await SyncQueue.getPending();
   if (!pendingItems || pendingItems.length === 0) {
     return { syncedCount: 0, failedCount: 0 };
   }
@@ -33,13 +27,13 @@ export async function processOfflineQueue() {
   const clientIds = pendingItems.map((item) => item.clientId);
 
   // 1. Mark items as SYNCING
-  await markMutationsSyncing(clientIds);
+  await SyncQueue.markSyncing(clientIds);
 
   // 2. Prepare payload for backend pushSync mutation
   const pushPayload = pendingItems.map((item) => ({
     clientId: item.clientId,
     mutationType: item.mutationType,
-    payload: item.payload,
+    payload: JSON.parse(item.payload), // Parse JSON string back to object
   }));
 
   try {
@@ -54,13 +48,13 @@ export async function processOfflineQueue() {
         succeededIds.push(res.clientId);
       } else {
         failedCount++;
-        await markMutationFailed(res.clientId, res.error || "Server processing failed");
+        await SyncQueue.markFailed(res.clientId, res.error || "Server processing failed");
       }
     }
 
     // Remove succeeded/duplicate items from local offline queue
     if (succeededIds.length > 0) {
-      await removeMutations(succeededIds);
+      await SyncQueue.removeSucceeded(succeededIds);
     }
 
     return {
@@ -70,7 +64,7 @@ export async function processOfflineQueue() {
   } catch (error) {
     console.error("pushSync network execution failed:", error);
     // Reset items back to PENDING so they can retry when connection recovers
-    await resetSyncingToPending(clientIds);
+    await SyncQueue.resetToPending(clientIds);
     throw error;
   }
 }

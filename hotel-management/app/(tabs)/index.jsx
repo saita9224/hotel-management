@@ -11,6 +11,7 @@ import { useInventory } from "../../context/InventoryContext";
 import { usePOS }       from "../../context/POSContext";
 import { useExpenses }  from "../../context/ExpensesContext";
 import { useRouter }    from "expo-router";
+import OfflineIndicator from "../../components/OfflineIndicator";
 
 const formatKES = (v) =>
   Number(v || 0).toLocaleString("en-KE", {
@@ -197,11 +198,13 @@ export default function HomeScreen() {
   // ── UI ─────────────────────────────────────────────
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ alignItems: "center", paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <OfflineIndicator position="top" />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ alignItems: "center", paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+      >
       {/* ── Logo section — unchanged from original ── */}
       <View style={styles.logoContainer}>
         <Image
@@ -266,6 +269,7 @@ export default function HomeScreen() {
         ))}
       </View>
     </ScrollView>
+    </View>
   );
 }
 

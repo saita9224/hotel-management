@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { processOfflineQueue } from "../services/syncService";
-import { getQueueCount } from "../lib/offlineQueue";
+import { SyncQueue } from "../database/syncQueue";
 
 const OfflineContext = createContext({
   isOnline: true,
@@ -19,7 +19,7 @@ export function OfflineProvider({ children }) {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const refreshQueueCount = useCallback(async () => {
-    const count = await getQueueCount();
+    const count = await SyncQueue.getCount();
     setPendingCount(count);
   }, []);
 

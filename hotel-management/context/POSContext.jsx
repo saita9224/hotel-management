@@ -33,7 +33,8 @@ import {
 import { useInventory } from "./InventoryContext";
 import { useMenu } from "./MenuContext";
 import { useOffline } from "./OfflineContext";
-import { enqueueMutation } from "../lib/offlineQueue";
+import { enqueueMutation } from "../database/syncQueue";
+import { ReceiptRepository } from "../database/repositories/receiptRepository";
 
 const POSContext = createContext();
 export const usePOS = () => useContext(POSContext);
@@ -160,11 +161,12 @@ export const POSProvider = ({ children }) => {
 
   const createReceipt = async ({ session_id, discount = 0, table_note = "" }) => {
     if (!isOnline) {
-      const item = await enqueueMutation("CREATE_RECEIPT", { session_id, discount, table_note });
+      const { clientId } = await enqueueMutation("CREATE_RECEIPT", { session_id, discount, table_note });
       await refreshQueueCount();
+      
       const mockReceipt = {
-        id: item.clientId,
-        receipt_number: `OFFLINE-${item.clientId.slice(0, 6)}`,
+        id: clientId,
+        receipt_number: `OFFLINE-${clientId.slice(0, 6)}`,
         subtotal: 0,
         discount: Number(discount),
         total: 0,
@@ -176,18 +178,71 @@ export const POSProvider = ({ children }) => {
         payments: [],
         credit: null,
       };
+      
+      // Store in local database
+      await ReceiptRepository.create({
+        id: clientId,
+        session_id,
+        receipt_number: mockReceipt.receipt_number,
+        subtotal: 0,
+        discount: Number(discount),
+        total: 0,
+        balance: 0,
+        status: "OPEN",
+        table_note,
+        synced: false,
+      });
+      
       setReceipts((prev) => [mockReceipt, ...prev]);
       return mockReceipt;
     }
 
     try {
       const receipt = await createReceiptService({ session_id, discount, table_note });
+      
+      // Store in local database
+      await ReceiptRepository.create({
+        ...receipt,
+        synced: true,
+      });
+      
       setReceipts((prev) => [receipt, ...prev]);
       return receipt;
     } catch (err) {
       if (err?.message?.includes("Network")) {
-        const item = await enqueueMutation("CREATE_RECEIPT", { session_id, discount, table_note });
+        const { clientId } = await enqueueMutation("CREATE_RECEIPT", { session_id, discount, table_note });
         await refreshQueueCount();
+        
+        const mockReceipt = {
+          id: clientId,
+          receipt_number: `OFFLINE-${clientId.slice(0, 6)}`,
+          subtotal: 0,
+          discount: Number(discount),
+          total: 0,
+          balance: 0,
+          status: "OPEN",
+          table_note,
+          created_at: new Date().toISOString(),
+          orders: [],
+          payments: [],
+          credit: null,
+        };
+        
+        await ReceiptRepository.create({
+          id: clientId,
+          session_id,
+          receipt_number: mockReceipt.receipt_number,
+          subtotal: 0,
+          discount: Number(discount),
+          total: 0,
+          balance: 0,
+          status: "OPEN",
+          table_note,
+          synced: false,
+        });
+        
+        setReceipts((prev) => [mockReceipt, ...prev]);
+        return mockReceipt;
       }
       throw err;
     }

@@ -36,9 +36,9 @@
           "image": "./assets/images/Bizzman_full_logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#E6F4FE",
+          "backgroundColor": "#ffffff",
           "dark": {
-            "backgroundColor": "#1a1a1a"
+            "backgroundColor": "#000000"
           }
         }
       ],

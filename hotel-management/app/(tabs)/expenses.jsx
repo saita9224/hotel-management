@@ -12,6 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { useTheme } from "../../hooks/useTheme";  // 👈 replaced useColorScheme + Colors
 import { useExpenses } from "../../context/ExpensesContext";
+import OfflineIndicator from "../../components/OfflineIndicator";
 
 import ExpenseTable from "../../components/Expenses/ExpenseTable";
 import ExpenseForm from "../../components/Expenses/ExpenseForm";
@@ -96,6 +97,7 @@ export default function ExpensesScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <OfflineIndicator position="top" />
       <View style={styles.tabsRow}>
         <Tab id="table" label="Expenses" />
         <Tab id="summary" label="Supplier Debts" />

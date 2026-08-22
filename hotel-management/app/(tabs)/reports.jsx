@@ -7,6 +7,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../hooks/useTheme";
+import OfflineIndicator from "../../components/OfflineIndicator";
 
 import SalesReportTab      from "../../components/Reports/SalesReportTab";
 import ProductsReportTab   from "../../components/Reports/ProductsReportTab";
@@ -134,6 +135,7 @@ export default function ReportsScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+      <OfflineIndicator position="top" />
 
       {/* ── Tab bar ── */}
       <ScrollView

@@ -6,6 +6,8 @@ import { View, ActivityIndicator } from "react-native";
 
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { OfflineProvider } from "../context/OfflineContext";
+import { DatabaseProvider } from "../database/DatabaseProvider";
+import { database } from "../database";
 import SyncStatusBanner from "../components/SyncStatusBanner";
 
 function LoadingScreen() {
@@ -74,20 +76,22 @@ function RouteGuard({ children }) {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <OfflineProvider>
-        <RouteGuard>
-          <View style={{ flex: 1 }}>
-            <SyncStatusBanner />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(security)" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="hr" options={{ headerShown: false }} />
-              <Stack.Screen name="menu-modal" options={{ headerShown: false, presentation: 'modal' }} />
-            </Stack>
-          </View>
-        </RouteGuard>
-      </OfflineProvider>
+      <DatabaseProvider database={database}>
+        <OfflineProvider>
+          <RouteGuard>
+            <View style={{ flex: 1 }}>
+              <SyncStatusBanner />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(security)" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="hr" options={{ headerShown: false }} />
+                <Stack.Screen name="menu-modal" options={{ headerShown: false, presentation: 'modal' }} />
+              </Stack>
+            </View>
+          </RouteGuard>
+        </OfflineProvider>
+      </DatabaseProvider>
     </AuthProvider>
   );
 }

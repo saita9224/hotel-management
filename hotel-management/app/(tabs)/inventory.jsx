@@ -23,6 +23,7 @@ import { useNavigation } from "expo-router";
 
 import { useInventory } from "../../context/InventoryContext";
 import { useTheme } from "../../hooks/useTheme";
+import OfflineIndicator from "../../components/OfflineIndicator";
 
 import AddItemSheet      from "../../components/Inventory/AddItemSheet";
 import DeductStockModal  from "../../components/Inventory/DeductStockModal";
@@ -252,6 +253,7 @@ export default function InventoryScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <OfflineIndicator position="top" />
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         {activeTab === "inventory" && (
           <>

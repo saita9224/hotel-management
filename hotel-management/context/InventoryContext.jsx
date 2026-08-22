@@ -11,7 +11,8 @@ import React, {
 import { useAuth } from "./AuthContext";
 import { useMenu } from "./MenuContext";
 import { useOffline } from "./OfflineContext";
-import { enqueueMutation } from "../lib/offlineQueue";
+import { enqueueMutation } from "../database/syncQueue";
+import { ProductRepository } from "../database/repositories/productRepository";
 
 import {
   fetchProducts,
@@ -48,10 +49,30 @@ export const InventoryProvider = ({ children }) => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await fetchProducts();
-      setProducts(data);
+      // Try to load from server first if online
+      if (isOnline) {
+        const data = await fetchProducts();
+        // Sync server data to local database
+        for (const product of data) {
+          const existing = await ProductRepository.findById(product.id);
+          if (existing) {
+            await ProductRepository.update(product.id, product);
+          } else {
+            await ProductRepository.create({ ...product, synced: true });
+          }
+        }
+      }
+      // Load from local database
+      const localData = await ProductRepository.findAll();
+      setProducts(localData);
     } catch (error) {
-      // Error handling
+      // Fallback to local data if server fails
+      try {
+        const localData = await ProductRepository.findAll();
+        setProducts(localData);
+      } catch (localError) {
+        console.error("Failed to load products from local database:", localError);
+      }
     } finally {
       setLoading(false);
     }
@@ -119,7 +140,7 @@ export const InventoryProvider = ({ children }) => {
     auto_deduct_on_sale,
   }) => {
     if (!isOnline) {
-      const item = await enqueueMutation("CREATE_PRODUCT", {
+      const { clientId } = await enqueueMutation("CREATE_PRODUCT", {
         name,
         category_id,
         unit,
@@ -130,8 +151,9 @@ export const InventoryProvider = ({ children }) => {
         auto_deduct_on_sale,
       });
       await refreshQueueCount();
+      
       const mockProduct = {
-        id: item.clientId,
+        id: clientId,
         name,
         category: serverCategories.find((c) => c.id === category_id) || null,
         unit,
@@ -139,8 +161,20 @@ export const InventoryProvider = ({ children }) => {
         auto_deduct_on_sale: auto_deduct_on_sale ?? false,
         created_at: new Date().toISOString(),
       };
+      
+      // Store in local database
+      await ProductRepository.create({
+        id: clientId,
+        name,
+        category_id,
+        unit,
+        current_stock: Number(quantity || 0),
+        auto_deduct_on_sale: auto_deduct_on_sale ?? false,
+        synced: false,
+      });
+      
       setProducts((prev) => [mockProduct, ...prev]);
-      return item.clientId;
+      return clientId;
     }
     try {
       const result = await createProductService({
@@ -189,6 +223,10 @@ export const InventoryProvider = ({ children }) => {
         notes,
       });
       await refreshQueueCount();
+      
+      // Update local database
+      await ProductRepository.updateStock(productId, Number(quantity));
+      
       setProducts((prev) =>
         prev.map((p) =>
           p.id === productId
@@ -225,6 +263,10 @@ export const InventoryProvider = ({ children }) => {
         notes,
       });
       await refreshQueueCount();
+      
+      // Update local database
+      await ProductRepository.updateStock(productId, -Number(quantity));
+      
       setProducts((prev) =>
         prev.map((p) =>
           p.id === productId

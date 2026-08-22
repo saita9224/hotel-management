@@ -5,6 +5,14 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
+    languageOptions: {
+      parserOptions: {
+        babelOptions: {
+          presets: ['babel-preset-expo'],
+          plugins: [['@babel/plugin-proposal-decorators', { legacy: true }]],
+        },
+      },
+    },
     ignores: ['dist/*'],
   },
 ]);
