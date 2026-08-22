@@ -20,6 +20,12 @@ const formatKES = (value) =>
     maximumFractionDigits: 2,
   });
 
+const formatDate = (val) => {
+  if (!val) return "N/A";
+  const d = val instanceof Date ? val : new Date(typeof val === "number" ? val : String(val));
+  return isNaN(d.getTime()) ? "N/A" : d.toLocaleDateString();
+};
+
 export default function SupplierExpenses() {
   const { expenses } = useExpenses();
   const { colors } = useTheme();
@@ -121,7 +127,7 @@ export default function SupplierExpenses() {
             {item.item_name}
           </Text>
           <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
-            {new Date(item.created_at).toLocaleDateString()}
+            {formatDate(item.created_at || item.createdAt)}
           </Text>
           {isNextToPay && (
             <Text style={{ color: colors.accent, fontSize: 12, marginTop: 1 }}>

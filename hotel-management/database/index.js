@@ -16,7 +16,7 @@ import { SalaryRecordModel } from './models/SalaryRecord';
 
 const adapter = new SQLiteAdapter({
   schema,
-  jsi: true, // Enable JSI for better performance
+  jsi: false, // Set to false to avoid JSI fallback warnings during JS dev bundling
 });
 
 export const database = new Database({

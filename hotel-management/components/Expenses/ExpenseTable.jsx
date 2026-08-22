@@ -24,8 +24,16 @@ const formatKES = (value) =>
     maximumFractionDigits: 2,
   });
 
-const toDateKey = (dateStr) => {
-  const d = new Date(dateStr);
+const toDateKey = (val) => {
+  if (!val) {
+    const fallback = new Date();
+    return `${fallback.getFullYear()}-${String(fallback.getMonth() + 1).padStart(2, "0")}-${String(fallback.getDate()).padStart(2, "0")}`;
+  }
+  const d = val instanceof Date ? val : new Date(typeof val === "number" ? val : String(val));
+  if (isNaN(d.getTime())) {
+    const fallback = new Date();
+    return `${fallback.getFullYear()}-${String(fallback.getMonth() + 1).padStart(2, "0")}-${String(fallback.getDate()).padStart(2, "0")}`;
+  }
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
@@ -83,23 +91,19 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
     };
 
     // Step 1: group expenses by purchase date
-    // total_same_day_paid = sum of amount_paid on expenses created this day
-    // (these are payments that happened on the same day as the purchase)
     expenses.forEach((e) => {
-      const key = toDateKey(e.created_at);
+      const key = toDateKey(e.created_at || e.createdAt);
       ensureGroup(key);
       groups[key].entries.push(e);
-      groups[key].total_same_day_paid += safeNumber(e.amount_paid);
+      groups[key].total_same_day_paid += safeNumber(e.amount_paid ?? e.amountPaid);
     });
 
     // Step 2: group cross-day payments by paid_at date
-    // Only included if paid on a DIFFERENT day from the purchase —
-    // same-day payments are already captured in amount_paid above
     payments.forEach((p) => {
-      const paidKey = toDateKey(p.paid_at);
+      const paidKey = toDateKey(p.paid_at || p.paidAt);
+      const matchedExpense = expenses.find((e) => String(e.id) === String(p.expense_id || p.expenseId));
       const purchaseKey = toDateKey(
-        expenses.find((e) => String(e.id) === String(p.expense_id))?.created_at
-        || p.paid_at
+        matchedExpense?.created_at || matchedExpense?.createdAt || p.paid_at || p.paidAt
       );
 
       if (paidKey !== purchaseKey) {
@@ -110,8 +114,8 @@ export default function ExpenseTable({ onPayBalance, onSupplierPress }) {
     });
 
     Object.values(groups).forEach((g) => {
-      g.entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      g.balance_payments.sort((a, b) => new Date(b.paid_at) - new Date(a.paid_at));
+      g.entries.sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0));
+      g.balance_payments.sort((a, b) => new Date(b.paid_at || b.paidAt || 0) - new Date(a.paid_at || a.paidAt || 0));
     });
 
     return Object.values(groups).sort(
