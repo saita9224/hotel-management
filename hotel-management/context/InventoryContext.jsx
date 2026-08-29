@@ -52,24 +52,40 @@ export const InventoryProvider = ({ children }) => {
       // Try to load from server first if online
       if (isOnline) {
         const data = await fetchProducts();
-        // Sync server data to local database
+        const localProducts = await ProductRepository.findAll();
         for (const product of data) {
-          const existing = await ProductRepository.findById(product.id);
+          const existing = localProducts.find(
+            (p) => String(p.id) === String(product.id) || p.name.toLowerCase() === String(product.name || "").toLowerCase()
+          );
           if (existing) {
-            await ProductRepository.update(product.id, product);
+            await ProductRepository.update(existing.id, product);
           } else {
             await ProductRepository.create({ ...product, synced: true });
           }
         }
       }
-      // Load from local database
+      // Load from local database and deduplicate
       const localData = await ProductRepository.findAll();
-      setProducts(localData);
+      const uniqueMap = new Map();
+      localData.forEach((p) => {
+        const key = String(p.id || p.name).toLowerCase();
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, p);
+        }
+      });
+      setProducts(Array.from(uniqueMap.values()));
     } catch (error) {
       // Fallback to local data if server fails
       try {
         const localData = await ProductRepository.findAll();
-        setProducts(localData);
+        const uniqueMap = new Map();
+        localData.forEach((p) => {
+          const key = String(p.id || p.name).toLowerCase();
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, p);
+          }
+        });
+        setProducts(Array.from(uniqueMap.values()));
       } catch (localError) {
         console.error("Failed to load products from local database:", localError);
       }

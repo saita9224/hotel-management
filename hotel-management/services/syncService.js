@@ -15,6 +15,33 @@ const PUSH_SYNC_MUTATION = `
   }
 `;
 
+const priorityMap = {
+  CREATE_RECEIPT: 1,
+  CREATE_ORDER: 2,
+  ADD_ORDER_ITEM: 3,
+  ADD_MENU_ORDER_ITEM: 3,
+  SUBMIT_ORDER: 4,
+  ACCEPT_PAYMENT: 5,
+  CREATE_EXPENSE: 1,
+  PAY_BALANCE: 2,
+  CREATE_PRODUCT: 1,
+  CREATE_CATEGORY: 1,
+  ADD_STOCK: 2,
+  REMOVE_STOCK: 2,
+  CREATE_EMPLOYEE: 1,
+  CHECK_IN_ATTENDANCE: 2,
+  CREATE_LEAVE_REQUEST: 2,
+};
+
+function sortQueueByDependency(items) {
+  return [...items].sort((a, b) => {
+    const pA = priorityMap[a.mutationType] || 99;
+    const pB = priorityMap[b.mutationType] || 99;
+    if (pA !== pB) return pA - pB;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+}
+
 /**
  * Process all pending offline mutations in sequence/batch via pushSync GraphQL mutation.
  */
@@ -24,16 +51,18 @@ export async function processOfflineQueue() {
     return { syncedCount: 0, failedCount: 0 };
   }
 
-  const clientIds = pendingItems.map((item) => item.clientId);
+  // Sort queue by topological dependency order before batching
+  const sortedItems = sortQueueByDependency(pendingItems);
+  const clientIds = sortedItems.map((item) => item.clientId);
 
   // 1. Mark items as SYNCING
   await SyncQueue.markSyncing(clientIds);
 
   // 2. Prepare payload for backend pushSync mutation
-  const pushPayload = pendingItems.map((item) => ({
+  const pushPayload = sortedItems.map((item) => ({
     clientId: item.clientId,
     mutationType: item.mutationType,
-    payload: JSON.parse(item.payload), // Parse JSON string back to object
+    payload: typeof item.payload === "string" ? JSON.parse(item.payload) : item.payload,
   }));
 
   try {
