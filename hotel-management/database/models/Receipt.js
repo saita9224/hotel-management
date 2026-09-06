@@ -4,6 +4,9 @@ import { field, date, children } from '@nozbe/watermelondb/decorators';
 
 export class ReceiptModel extends Model {
   static table = 'receipts';
+  static associations = {
+    orders: { type: 'has_many', foreignKey: 'receipt_id' },
+  };
 
   @field('session_id') sessionId;
   @field('receipt_number') receiptNumber;

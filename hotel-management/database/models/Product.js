@@ -4,6 +4,9 @@ import { field, date, children } from '@nozbe/watermelondb/decorators';
 
 export class ProductModel extends Model {
   static table = 'products';
+  static associations = {
+    order_items: { type: 'has_many', foreignKey: 'product_id' },
+  };
 
   @field('name') name;
   @field('category_id') categoryId;

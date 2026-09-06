@@ -4,6 +4,9 @@ import { field } from '@nozbe/watermelondb/decorators';
 
 export class OrderItemModel extends Model {
   static table = 'order_items';
+  static associations = {
+    orders: { type: 'belongs_to', key: 'order_id' },
+  };
 
   @field('order_id') orderId;
   @field('product_id') productId;
