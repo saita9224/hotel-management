@@ -10,6 +10,8 @@ import {
   verifyPin as verifyPinStorage,
   clearPin,
 } from "../lib/authSession";
+import database from "../database";
+import { SyncQueue } from "../database/syncQueue";
 
 const AuthContext = createContext();
 
@@ -228,9 +230,26 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    try {
+      const pendingCount = await SyncQueue.getCount();
+      if (pendingCount > 0) {
+        console.warn(`User logging out with ${pendingCount} unsynced mutations.`);
+      }
+    } catch (e) {
+      // Ignore count fetch errors during logout
+    }
+
     await clearStoredSession();
     clearSessionState();
     setPinVerified(false);
+
+    try {
+      await database.write(async () => {
+        await database.unsafeResetDatabase();
+      });
+    } catch (err) {
+      console.error("Failed to reset local database on logout:", err);
+    }
   };
 
   const setDevicePin = async (pin) => {
