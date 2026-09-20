@@ -21,8 +21,8 @@ import { useInventory } from "../../context/InventoryContext";
 import { useTheme }     from "../../hooks/useTheme";
 import { payBalanceService } from "../../services/expenseService";
 import {
-  addStockFromExpenseService,
-  createProductWithStockService,
+
+
   suggestCategoryService,
 } from "../../services/inventoryService";
 
@@ -30,7 +30,7 @@ const UNITS = ["kg", "g", "litres", "ml", "pcs", "bags", "boxes"];
 
 export default function ExpenseForm({ onClose }) {
   const { createExpense, loadExpenses, notifyMenuOfNewProduct } = useExpenses();
-  const { loadProducts, serverCategories, createCategory }      = useInventory();
+  const { loadProducts, serverCategories, createCategory, addStockFromExpense, createProductWithStock } = useInventory();
   const { colors } = useTheme();
 
   const [form, setForm] = useState({
@@ -41,6 +41,7 @@ export default function ExpenseForm({ onClose }) {
     amount_paid:   "",
     category_id:   null,   // now an FK id
     purchase_date: "",
+    is_overhead:   false,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -156,7 +157,7 @@ export default function ExpenseForm({ onClose }) {
     setInventoryModalVisible(false);
     const { matchedProduct, expenseId, quantity } = pendingInventoryData;
     try {
-      await addStockFromExpenseService({
+      await addStockFromExpense({
         product_id:      matchedProduct.id,
         quantity:        Number(quantity),
         expense_item_id: expenseId,
@@ -219,7 +220,7 @@ export default function ExpenseForm({ onClose }) {
     itemName, expenseId, quantity, unit, category_id, autoDeduct,
   ) => {
     try {
-      await createProductWithStockService({
+      await createProductWithStock({
         name:                itemName,
         unit,
         category_id,         // now an id
@@ -259,6 +260,7 @@ export default function ExpenseForm({ onClose }) {
         supplier_name: form.supplier_name.trim() || null,
         quantity:      Number(form.quantity),
         unit_price:    Number(form.unit_price),
+        is_overhead:   form.is_overhead,
       });
 
       const expenseId = expense?.id;
@@ -268,7 +270,9 @@ export default function ExpenseForm({ onClose }) {
         await loadExpenses();
       }
 
-      if (matchedProduct && expenseId) {
+      if (form.is_overhead) {
+        onClose?.();
+      } else if (matchedProduct && expenseId) {
         promptAddToExistingStock(matchedProduct, expenseId, form.quantity);
       } else if (expenseId) {
         promptCreateNewProduct(form.item_name.trim(), expenseId, form.quantity);
@@ -405,6 +409,43 @@ export default function ExpenseForm({ onClose }) {
         {/* ── Item details card ── */}
         <View style={[styles.detailsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.cardSectionLabel, { color: colors.accent }]}>ITEM DETAILS</Text>
+
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => set("is_overhead", false)}
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: !form.is_overhead ? colors.accent : colors.border,
+                backgroundColor: !form.is_overhead ? colors.accent + "15" : colors.background,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "600", color: !form.is_overhead ? colors.accent : colors.tabBarInactive }}>
+                Stock Purchase
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => set("is_overhead", true)}
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: form.is_overhead ? colors.accent : colors.border,
+                backgroundColor: form.is_overhead ? colors.accent + "15" : colors.background,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "600", color: form.is_overhead ? colors.accent : colors.tabBarInactive }}>
+                Overhead / Service
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
             Specific Good / Item Name

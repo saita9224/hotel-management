@@ -51,44 +51,89 @@ export const InventoryProvider = ({ children }) => {
       setLoading(true);
       // Try to load from server first if online
       if (isOnline) {
-        const data = await fetchProducts();
-        const localProducts = await ProductRepository.findAll();
-        for (const product of data) {
-          const existing = localProducts.find(
-            (p) => String(p.id) === String(product.id) || p.name.toLowerCase() === String(product.name || "").toLowerCase()
-          );
-          if (existing) {
-            await ProductRepository.update(existing.id, product);
-          } else {
-            await ProductRepository.create({ ...product, synced: true });
+        try {
+          const data = await fetchProducts();
+          const localProducts = await ProductRepository.findAll();
+          for (const product of data) {
+            const normName = String(product.name || "").trim().toLowerCase();
+            const prodIdStr = String(product.id);
+
+            const matches = localProducts.filter(
+              (p) =>
+                String(p.id) === prodIdStr ||
+                (p.name && p.name.trim().toLowerCase() === normName)
+            );
+
+            if (matches.length > 0) {
+              const primary =
+                matches.find((p) => String(p.id) === prodIdStr) || matches[0];
+              await ProductRepository.update(primary.id, {
+                ...product,
+                synced: true,
+              });
+
+              // Purge extra duplicate local records from WatermelonDB SQLite
+              for (const extra of matches) {
+                if (extra.id !== primary.id) {
+                  await ProductRepository.delete(extra.id);
+                }
+              }
+            } else {
+              await ProductRepository.create({ ...product, synced: true });
+            }
           }
+        } catch (serverError) {
+          console.warn("Failed to fetch products from server:", serverError);
         }
       }
+
       // Load from local database and deduplicate
       const localData = await ProductRepository.findAll();
-      const uniqueMap = new Map();
-      localData.forEach((p) => {
-        const key = String(p.id || p.name).toLowerCase();
-        if (!uniqueMap.has(key)) {
-          uniqueMap.set(key, p);
-        }
-      });
-      setProducts(Array.from(uniqueMap.values()));
-    } catch (error) {
-      // Fallback to local data if server fails
-      try {
-        const localData = await ProductRepository.findAll();
-        const uniqueMap = new Map();
-        localData.forEach((p) => {
-          const key = String(p.id || p.name).toLowerCase();
-          if (!uniqueMap.has(key)) {
-            uniqueMap.set(key, p);
+      const seenNames = new Map();
+      const seenIds = new Set();
+      const uniqueProductsList = [];
+      const duplicatesToDelete = [];
+
+      for (const p of localData) {
+        const normName = String(p.name || "").trim().toLowerCase();
+        const pIdStr = String(p.id).toLowerCase();
+
+        const duplicateByName = normName ? seenNames.get(normName) : null;
+        const duplicateById = seenIds.has(pIdStr);
+
+        if (!duplicateByName && !duplicateById) {
+          if (normName) seenNames.set(normName, p);
+          seenIds.add(pIdStr);
+          uniqueProductsList.push(p);
+        } else {
+          const existing = duplicateByName;
+          if (existing) {
+            if (p.synced && !existing.synced) {
+              duplicatesToDelete.push(existing.id);
+              const idx = uniqueProductsList.indexOf(existing);
+              if (idx !== -1) uniqueProductsList[idx] = p;
+              if (normName) seenNames.set(normName, p);
+              seenIds.add(pIdStr);
+            } else {
+              duplicatesToDelete.push(p.id);
+            }
+          } else {
+            duplicatesToDelete.push(p.id);
           }
-        });
-        setProducts(Array.from(uniqueMap.values()));
-      } catch (localError) {
-        console.error("Failed to load products from local database:", localError);
+        }
       }
+
+      for (const dupId of duplicatesToDelete) {
+        try {
+          await ProductRepository.delete(dupId);
+        } catch (e) {
+          console.warn("Error purging duplicate product record:", dupId, e);
+        }
+      }
+
+      setProducts(uniqueProductsList);
+    } catch (error) {
+      console.error("Failed to load products:", error);
     } finally {
       setLoading(false);
     }
@@ -377,6 +422,104 @@ export const InventoryProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
 
+  // =====================================================
+  // ADD STOCK FROM EXPENSE
+  // =====================================================
+
+  const addStockFromExpense = async ({ product_id, quantity, expense_item_id }) => {
+    if (!isOnline) {
+      await enqueueMutation("ADD_STOCK_FROM_EXPENSE", {
+        product_id,
+        quantity: Number(quantity),
+        expense_item_id,
+      });
+      await refreshQueueCount();
+
+      await ProductRepository.updateStock(product_id, Number(quantity));
+
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === product_id
+            ? { ...p, current_stock: p.current_stock + Number(quantity) }
+            : p
+        )
+      );
+      return;
+    }
+    try {
+      await addStockFromExpenseService({
+        product_id,
+        quantity,
+        expense_item_id,
+      });
+      await loadProducts();
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  // =====================================================
+  // CREATE PRODUCT WITH STOCK
+  // =====================================================
+
+  const createProductWithStock = async ({
+    name,
+    unit,
+    category_id,
+    quantity,
+    expense_item_id,
+    auto_deduct_on_sale,
+  }) => {
+    if (!isOnline) {
+      const { clientId } = await enqueueMutation("CREATE_PRODUCT_WITH_STOCK", {
+        name,
+        unit,
+        category_id,
+        quantity: Number(quantity),
+        expense_item_id,
+        auto_deduct_on_sale: auto_deduct_on_sale ?? false,
+      });
+      await refreshQueueCount();
+
+      const mockProduct = {
+        id: clientId,
+        name,
+        category: serverCategories.find((c) => c.id === category_id) || null,
+        unit,
+        current_stock: Number(quantity || 0),
+        auto_deduct_on_sale: auto_deduct_on_sale ?? false,
+        created_at: new Date().toISOString(),
+      };
+
+      await ProductRepository.create({
+        id: clientId,
+        name,
+        category_id,
+        unit,
+        current_stock: Number(quantity || 0),
+        auto_deduct_on_sale: auto_deduct_on_sale ?? false,
+        synced: false,
+      });
+
+      setProducts((prev) => [mockProduct, ...prev]);
+      return clientId;
+    }
+    try {
+      const result = await createProductWithStockService({
+        name,
+        unit,
+        category_id,
+        quantity,
+        expense_item_id,
+        auto_deduct_on_sale,
+      });
+      await loadProducts();
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const value = useMemo(
     () => ({
       products,
@@ -389,7 +532,9 @@ export const InventoryProvider = ({ children }) => {
       createCategory,
       loadPendingReconciliations,
       createProduct,
+      createProductWithStock,
       addStock,
+      addStockFromExpense,
       deductStock,
       getProductMovements,
       submitReconciliation,

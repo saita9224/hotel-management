@@ -12,6 +12,7 @@ import { useMenu } from "./MenuContext";
 import { useOffline } from "./OfflineContext";
 import { enqueueMutation } from "../database/syncQueue";
 import { ExpenseRepository } from "../database/repositories/expenseRepository";
+import { ProductRepository } from "../database/repositories/productRepository";
 
 import {
   fetchAllExpenses,
@@ -116,8 +117,22 @@ export const ExpensesProvider = ({ children }) => {
       const { clientId } = await enqueueMutation("CREATE_EXPENSE", input);
       await refreshQueueCount();
       
+      let matchedProduct = null;
+      if (!input.is_overhead) {
+        try {
+          const localProducts = await ProductRepository.findAll();
+          const normName = String(input.item_name || "").trim().toLowerCase();
+          matchedProduct = localProducts.find(
+            (p) => p.name && p.name.trim().toLowerCase() === normName
+          ) || null;
+        } catch (e) {
+          console.warn("Failed to match product locally:", e);
+        }
+      }
+
       const mockExpense = {
         id: clientId,
+        product_id: matchedProduct?.id || null,
         item_name: input.item_name,
         quantity: Number(input.quantity),
         unit_price: Number(input.unit_price),
@@ -132,6 +147,7 @@ export const ExpensesProvider = ({ children }) => {
       // Store in local database
       await ExpenseRepository.create({
         id: clientId,
+        product_id: matchedProduct?.id || null,
         item_name: input.item_name,
         quantity: Number(input.quantity),
         unit_price: Number(input.unit_price),
@@ -144,7 +160,7 @@ export const ExpensesProvider = ({ children }) => {
       });
       
       setExpenses((prev) => [mockExpense, ...prev]);
-      return { expense: mockExpense, matchedProduct: null };
+      return { expense: mockExpense, matchedProduct };
     }
     try {
       const result = await createExpenseService(input);

@@ -16,7 +16,7 @@ const normalizeWatermelonExpense = (e) => {
     id: e.id,
     supplier_id: null,
     supplier_name: e.supplierName || "",
-    product_id: null,
+    product_id: e.productId || null,
     product_name: e.itemName || "",
     item_name: e.itemName || "",
     quantity: Number(e.quantity ?? 0),
@@ -61,6 +61,7 @@ export const ExpenseRepository = {
     const record = await database.write(async () => {
       return await database.get('expenses').create(record => {
         if (expenseData.id) record._raw.id = String(expenseData.id);
+        record.productId = expenseData.product_id || expenseData.productId || null;
         record.itemName = expenseData.item_name || expenseData.itemName || '';
         record.quantity = Number(expenseData.quantity ?? 0);
         record.unitPrice = Number(expenseData.unit_price ?? expenseData.unitPrice ?? 0);
@@ -81,6 +82,9 @@ export const ExpenseRepository = {
     return await database.write(async () => {
       const record = await database.get('expenses').find(id);
       await record.update(r => {
+        if (updates.product_id !== undefined || updates.productId !== undefined) {
+          r.productId = updates.product_id || updates.productId || null;
+        }
         if (updates.item_name !== undefined || updates.itemName !== undefined) {
           r.itemName = updates.item_name || updates.itemName;
         }

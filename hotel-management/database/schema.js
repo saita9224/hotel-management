@@ -61,6 +61,7 @@ export default appSchema({
     tableSchema({
       name: 'expenses',
       columns: [
+        { name: 'product_id', type: 'string', isOptional: true, isIndexed: true },
         { name: 'item_name', type: 'string' },
         { name: 'quantity', type: 'number' },
         { name: 'unit_price', type: 'number' },

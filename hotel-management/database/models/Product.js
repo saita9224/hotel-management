@@ -6,6 +6,7 @@ export class ProductModel extends Model {
   static table = 'products';
   static associations = {
     order_items: { type: 'has_many', foreignKey: 'product_id' },
+    expenses: { type: 'has_many', foreignKey: 'product_id' },
   };
 
   @field('name') name;
@@ -19,4 +20,6 @@ export class ProductModel extends Model {
 
   // Relations
   @children('order_items') orderItems;
+  @children('expenses') expenses;
 }
+

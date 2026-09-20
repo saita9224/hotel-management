@@ -121,8 +121,14 @@ export const ProductRepository = {
 
   async delete(id) {
     return await database.write(async () => {
-      const record = await database.get('products').find(id);
-      await record.markAsDeleted();
+      try {
+        const record = await database.get('products').find(id);
+        if (record) {
+          await record.destroyPermanently();
+        }
+      } catch (error) {
+        // Record may already be deleted
+      }
     });
   },
 };

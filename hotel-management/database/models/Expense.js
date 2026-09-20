@@ -1,10 +1,14 @@
 // database/models/Expense.js
 import { Model } from '@nozbe/watermelondb';
-import { field, date } from '@nozbe/watermelondb/decorators';
+import { field, date, relation } from '@nozbe/watermelondb/decorators';
 
 export class ExpenseModel extends Model {
   static table = 'expenses';
+  static associations = {
+    products: { type: 'belongs_to', key: 'product_id' },
+  };
 
+  @field('product_id') productId;
   @field('item_name') itemName;
   @field('quantity') quantity;
   @field('unit_price') unitPrice;
@@ -16,4 +20,7 @@ export class ExpenseModel extends Model {
   @date('created_at') createdAt;
   @date('updated_at') updatedAt;
   @field('synced') synced;
+
+  @relation('products', 'product_id') product;
 }
+
