@@ -2,6 +2,8 @@
 
 import { graphqlRequest } from "../lib/graphql";
 import { SyncQueue } from "../database/syncQueue";
+import { uploadBusinessLogoGraphQL } from "./businessService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const PUSH_SYNC_MUTATION = `
   mutation PushSync($mutations: [SyncMutationInput!]!) {
@@ -16,6 +18,7 @@ const PUSH_SYNC_MUTATION = `
 `;
 
 const priorityMap = {
+  UPDATE_BUSINESS_LOGO: 0,
   CREATE_RECEIPT: 1,
   CREATE_ORDER: 2,
   ADD_ORDER_ITEM: 3,
@@ -35,8 +38,8 @@ const priorityMap = {
 
 function sortQueueByDependency(items) {
   return [...items].sort((a, b) => {
-    const pA = priorityMap[a.mutationType] || 99;
-    const pB = priorityMap[b.mutationType] || 99;
+    const pA = priorityMap[a.mutationType] ?? 99;
+    const pB = priorityMap[b.mutationType] ?? 99;
     if (pA !== pB) return pA - pB;
     return (a.createdAt || 0) - (b.createdAt || 0);
   });
@@ -51,8 +54,53 @@ export async function processOfflineQueue() {
     return { syncedCount: 0, failedCount: 0 };
   }
 
+  // Separate logo upload mutations from standard data pushSync mutations
+  const logoItems = pendingItems.filter((item) => item.mutationType === "UPDATE_BUSINESS_LOGO");
+  const standardItems = pendingItems.filter((item) => item.mutationType !== "UPDATE_BUSINESS_LOGO");
+
+  let syncedCount = 0;
+  let failedCount = 0;
+
+  // Process offline logo uploads
+  for (const item of logoItems) {
+    try {
+      await SyncQueue.markSyncing([item.clientId]);
+      const payload = typeof item.payload === "string" ? JSON.parse(item.payload) : item.payload;
+      const fileObj = {
+        uri: payload.uri,
+        name: payload.name || "logo.png",
+        type: payload.type || "image/png",
+      };
+
+      const updatedBusiness = await uploadBusinessLogoGraphQL(fileObj);
+      if (updatedBusiness?.logo) {
+        const schemaName = await AsyncStorage.getItem("schemaName");
+        const cacheKey = `@business_info_${schemaName}`;
+        const existingRaw = await AsyncStorage.getItem(cacheKey);
+        const existing = existingRaw ? JSON.parse(existingRaw) : {};
+        await AsyncStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            ...existing,
+            ...updatedBusiness,
+          })
+        );
+      }
+      await SyncQueue.removeSucceeded([item.clientId]);
+      syncedCount++;
+    } catch (err) {
+      console.error("Failed to sync offline business logo upload:", err);
+      failedCount++;
+      await SyncQueue.markFailed(item.clientId, err.message || "Logo upload sync failed");
+    }
+  }
+
+  if (standardItems.length === 0) {
+    return { syncedCount, failedCount };
+  }
+
   // Sort queue by topological dependency order before batching
-  const sortedItems = sortQueueByDependency(pendingItems);
+  const sortedItems = sortQueueByDependency(standardItems);
   const clientIds = sortedItems.map((item) => item.clientId);
 
   // 1. Mark items as SYNCING

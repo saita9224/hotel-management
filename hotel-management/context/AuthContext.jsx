@@ -12,6 +12,7 @@ import {
 } from "../lib/authSession";
 import database from "../database";
 import { SyncQueue } from "../database/syncQueue";
+import { fetchBusinessDetails } from "../services/businessService";
 
 const AuthContext = createContext();
 
@@ -79,6 +80,7 @@ export function AuthProvider({ children }) {
   const [permissions,     setPermissions]     = useState([]);
   const [isEmailVerified, setIsEmailVerified] = useState(true);
   const [loading,         setLoading]         = useState(true);
+  const [business,        setBusiness]        = useState(null);
 
   // --- PIN gate / local session state ---
   const [pinIsSet,    setPinIsSet]    = useState(null);
@@ -92,6 +94,44 @@ export function AuthProvider({ children }) {
     setRoles([]);
     setPermissions([]);
     setIsEmailVerified(true);
+    setBusiness(null);
+  };
+
+  const loadCachedBusiness = async (sName) => {
+    if (!sName) return;
+    try {
+      const cached = await AsyncStorage.getItem(`@business_info_${sName}`);
+      if (cached) {
+        setBusiness(JSON.parse(cached));
+      }
+    } catch (e) {
+      console.warn("Failed to load cached business details:", e);
+    }
+  };
+
+  const refreshBusiness = async (sName = schemaName) => {
+    if (!sName) return;
+    try {
+      const details = await fetchBusinessDetails();
+      if (details) {
+        setBusiness(details);
+        await AsyncStorage.setItem(`@business_info_${sName}`, JSON.stringify(details));
+      }
+    } catch (e) {
+      // If offline, fallback silently to cached info already in state/AsyncStorage
+    }
+  };
+
+  const updateBusinessLogoState = async (newLogoUrl, isOffline = false, fileObj = null) => {
+    const updated = { ...(business || {}), logo: newLogoUrl };
+    setBusiness(updated);
+    if (schemaName) {
+      await AsyncStorage.setItem(`@business_info_${schemaName}`, JSON.stringify(updated));
+    }
+
+    if (isOffline && fileObj) {
+      await SyncQueue.enqueue("UPDATE_BUSINESS_LOGO", fileObj);
+    }
   };
 
   const refreshPinStatus = async () => {
@@ -116,7 +156,9 @@ export function AuthProvider({ children }) {
               ? JSON.parse(stored.isEmailVerified)
               : true
           );
+          await loadCachedBusiness(stored.schemaName);
           await refreshPinStatus();
+          refreshBusiness(stored.schemaName);
         } else {
           await clearStoredSession();
           clearSessionState();
@@ -155,7 +197,9 @@ export function AuthProvider({ children }) {
     setPermissions(result.permissions ?? []);
     setIsEmailVerified(verified);
 
+    await loadCachedBusiness(result.schemaName);
     await refreshPinStatus();
+    refreshBusiness(result.schemaName);
   };
 
   const login = async (email, password) => {
@@ -282,6 +326,9 @@ export function AuthProvider({ children }) {
       isEmailVerified,
       loading,
       isAuthenticated: !!token,
+      business,
+      refreshBusiness,
+      updateBusinessLogoState,
 
       pinIsSet,
       pinVerified,

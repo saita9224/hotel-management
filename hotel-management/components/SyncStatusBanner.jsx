@@ -2,10 +2,12 @@
 
 import React from "react";
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useOffline } from "../context/OfflineContext";
 
 export default function SyncStatusBanner() {
   const { isOnline, pendingCount, isSyncing, syncNow } = useOffline();
+  const insets = useSafeAreaInsets();
 
   if (isOnline && pendingCount === 0 && !isSyncing) {
     return null;
@@ -24,7 +26,15 @@ export default function SyncStatusBanner() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: getBackgroundColor() }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: getBackgroundColor(),
+          paddingTop: Math.max(insets.top, 8),
+        },
+      ]}
+    >
       <View style={styles.content}>
         {isSyncing && <ActivityIndicator size="small" color={getTextColor()} style={{ marginRight: 8 }} />}
         <Text style={[styles.text, { color: getTextColor() }]}>
@@ -47,13 +57,15 @@ export default function SyncStatusBanner() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8,
+    paddingBottom: 8,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0,0,0,0.08)",
+    zIndex: 9999,
+    elevation: 10,
   },
   content: {
     flexDirection: "row",
@@ -77,3 +89,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+

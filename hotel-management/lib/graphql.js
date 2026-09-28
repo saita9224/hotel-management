@@ -134,3 +134,70 @@ export async function graphqlRequest(query, variables = {}) {
     throw error;
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// AUTHENTICATED GRAPHQL MULTIPART UPLOAD REQUEST
+// ─────────────────────────────────────────────────────────────
+
+export async function graphqlUploadRequest(query, variables = {}, fileMap = {}) {
+  try {
+    const pairs = await AsyncStorage.multiGet(["token", "schemaName"]);
+    const token = pairs[0][1];
+    const schemaName = pairs[1][1];
+
+    if (!token) {
+      throw new Error("No auth token found in storage.");
+    }
+
+    const formData = new FormData();
+
+    formData.append("operations", JSON.stringify({ query, variables }));
+
+    const map = {};
+    const fileKeys = Object.keys(fileMap);
+    fileKeys.forEach((key) => {
+      map[key] = [fileMap[key].path];
+    });
+    formData.append("map", JSON.stringify(map));
+
+    fileKeys.forEach((key) => {
+      const fileObj = fileMap[key].file;
+      formData.append(key, fileObj);
+    });
+
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    if (schemaName) {
+      headers["X-Tenant"] = schemaName;
+    }
+
+    const response = await fetch(GRAPHQL_URL, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Network error: ${response.status}`);
+    }
+
+    const json = await response.json();
+
+    if (json.errors?.length > 0) {
+      if (
+        json.errors.some((error) =>
+          String(error?.message ?? "").toLowerCase().includes("authentication required")
+        )
+      ) {
+        await handleAuthFailure();
+      }
+      throw new Error(json.errors[0]?.message || "GraphQL upload request failed.");
+    }
+
+    return json.data;
+  } catch (error) {
+    throw error;
+  }
+}

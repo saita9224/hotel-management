@@ -12,6 +12,7 @@ import { usePOS }       from "../../context/POSContext";
 import { useExpenses }  from "../../context/ExpensesContext";
 import { useRouter }    from "expo-router";
 import OfflineIndicator from "../../components/OfflineIndicator";
+import BusinessLogo     from "../../components/BusinessLogo";
 
 const formatKES = (v) =>
   Number(v || 0).toLocaleString("en-KE", {
@@ -21,7 +22,7 @@ const formatKES = (v) =>
 
 export default function HomeScreen() {
   const { colors }                  = useTheme();
-  const { permissions }             = useAuth();
+  const { permissions, business }   = useAuth();
   const { products }                = useInventory();
   const { receipts, unsettledCredits } = usePOS();
   const { expenses }                = useExpenses();
@@ -205,14 +206,12 @@ export default function HomeScreen() {
         contentContainerStyle={{ alignItems: "center", paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-      {/* ── Logo section — unchanged from original ── */}
+      {/* ── Dynamic Business Logo section ── */}
       <View style={styles.logoContainer}>
-        <Image
-          source={require("../../assets/images/Bizzman_logo.png")}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={[styles.title, { color: colors.accent }]}>BIZZMAN</Text>
+        <BusinessLogo size={160} />
+        <Text style={[styles.title, { color: colors.accent }]}>
+          {(business?.name || "BIZZMAN").toUpperCase()}
+        </Text>
         <Text style={[styles.subtitle, { color: colors.text }]}>
           BUSINESS MANAGEMENT
         </Text>
