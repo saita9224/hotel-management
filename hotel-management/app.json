@@ -4,23 +4,21 @@
     "slug": "hotel-management",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Bizzman_logo.png",
     "scheme": "hotelmanagement",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "icon": "./assets/images/icon.png"
+      "icon": "./assets/images/Bizzman_logo.png"
     },
     "android": {
       "package": "com.hoppers.businessmanagement",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/Bizzman_logo.png"
       },
-      "icon": "./assets/images/icon.png",
+      "icon": "./assets/images/Bizzman_logo.png",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
