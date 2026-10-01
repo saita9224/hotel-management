@@ -78,7 +78,7 @@ export default function BusinessLogo({ size = 160, style }) {
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
+          mediaTypes: ImagePicker.MediaTypeOptions ? ImagePicker.MediaTypeOptions.Images : ["images"],
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.8,
