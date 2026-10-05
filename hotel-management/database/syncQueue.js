@@ -1,11 +1,11 @@
 // database/syncQueue.js
 import { Q } from '@nozbe/watermelondb';
 import { database } from './index';
-import uuid from 'react-native-uuid';
+import * as Crypto from 'expo-crypto';
 
 export const SyncQueue = {
   async enqueue(mutationType, payload) {
-    const clientId = String(uuid.v4());
+    const clientId = Crypto.randomUUID();
     await database.write(async () => {
       await database.get('mutation_queue').create(record => {
         record.clientId = clientId;

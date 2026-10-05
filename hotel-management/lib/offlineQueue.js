@@ -1,7 +1,7 @@
 // lib/offlineQueue.js
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import uuid from "react-native-uuid";
+import * as Crypto from "expo-crypto";
 
 const QUEUE_STORAGE_KEY = "@pos_offline_queue_v1";
 
@@ -34,7 +34,7 @@ async function saveQueue(queue) {
  */
 export async function enqueueMutation(mutationType, payload) {
   const queue = await getQueue();
-  const clientId = String(uuid.v4());
+  const clientId = Crypto.randomUUID();
   const newItem = {
     id: clientId,
     clientId,
