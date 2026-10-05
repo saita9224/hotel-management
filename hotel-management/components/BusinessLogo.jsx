@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import {
   View,
+  Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -16,7 +17,38 @@ import { useOffline } from "../context/OfflineContext";
 import { useTheme } from "../hooks/useTheme";
 import { uploadBusinessLogoGraphQL } from "../services/businessService";
 
-const DEFAULT_LOGO = require("../assets/images/Bizzman_logo.png");
+const AVATAR_PALETTE = [
+  "#1E3A8A", // Deep Blue
+  "#0F766E", // Teal
+  "#4338CA", // Indigo
+  "#047857", // Emerald
+  "#6D28D9", // Violet
+  "#BE123C", // Rose
+  "#C2410C", // Amber / Orange
+  "#0369A1", // Cyan
+];
+
+function getBusinessInitials(name) {
+  if (!name || typeof name !== "string") return "BM";
+  const trimmed = name.trim();
+  if (!trimmed) return "BM";
+
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return trimmed.substring(0, 2).toUpperCase();
+}
+
+function getAvatarColor(name) {
+  if (!name || typeof name !== "string") return AVATAR_PALETTE[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_PALETTE.length;
+  return AVATAR_PALETTE[index];
+}
 
 export default function BusinessLogo({ size = 160, style }) {
   const { colors } = useTheme();
@@ -29,9 +61,10 @@ export default function BusinessLogo({ size = 160, style }) {
     roles?.includes("Admin") ||
     roles?.includes("SUPER_ADMIN");
 
-  const logoSource = business?.logo
-    ? { uri: business.logo }
-    : DEFAULT_LOGO;
+  const hasCustomLogo = Boolean(business?.logo);
+  const businessName = business?.name || "BIZZMAN";
+  const initials = getBusinessInitials(businessName);
+  const avatarBgColor = getAvatarColor(businessName);
 
   const handlePickImage = async () => {
     if (!canManageLogo) return;
@@ -145,13 +178,29 @@ export default function BusinessLogo({ size = 160, style }) {
         disabled={uploading}
         style={styles.touchable}
       >
-        <Image
-          source={logoSource}
-          style={[styles.image, { borderRadius: size / 8 }]}
-          contentFit="contain"
-          transition={300}
-          cachePolicy="disk"
-        />
+        {hasCustomLogo ? (
+          <Image
+            source={{ uri: business.logo }}
+            style={[styles.image, { borderRadius: size / 4 }]}
+            contentFit="contain"
+            transition={300}
+            cachePolicy="disk"
+          />
+        ) : (
+          <View
+            style={[
+              styles.avatarContainer,
+              {
+                borderRadius: size / 4,
+                backgroundColor: avatarBgColor,
+              },
+            ]}
+          >
+            <Text style={[styles.avatarText, { fontSize: size * 0.38 }]}>
+              {initials}
+            </Text>
+          </View>
+        )}
 
         {uploading && (
           <View style={styles.loadingOverlay}>
@@ -185,10 +234,26 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  avatarContainer: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  avatarText: {
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    letterSpacing: 1,
+  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
