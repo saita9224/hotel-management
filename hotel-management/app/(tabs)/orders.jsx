@@ -440,6 +440,7 @@ export default function OrdersScreen() {
   const [showReceipt, setShowReceipt]             = useState(false);
   const [showCashierPayment, setShowCashierPayment] = useState(false);
   const [showOpenSession, setShowOpenSession]     = useState(false);
+  const [pendingOpenPOS, setPendingOpenPOS]       = useState(false);
   const [showCloseSession, setShowCloseSession]   = useState(false);
   const [showMenu, setShowMenu]                   = useState(false);
   const [selectedReceipt, setSelectedReceipt]     = useState(null);
@@ -511,15 +512,19 @@ export default function OrdersScreen() {
   }, [navigation, activeView, colors]);
 
   // ── POS sheet open/close ──────────────────────────────
-  const openPOS = useCallback((receipt = null) => {
-    if (!session) { setShowOpenSession(true); return; }
+  const openPOS = useCallback((receipt = null, activeSession = session) => {
+    if (!activeSession) {
+      setPendingOpenPOS(true);
+      setShowOpenSession(true);
+      return;
+    }
     setEditReceipt(receipt);
     setShowPOS(true);
     Animated.parallel([
       Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, bounciness: 4 }),
       Animated.timing(backdropAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
     ]).start();
-  }, [session]);
+  }, [session, backdropAnim, slideAnim]);
 
   const closePOS = useCallback(() => {
     Animated.parallel([
@@ -633,7 +638,11 @@ export default function OrdersScreen() {
             style={[styles.eyeButton, { backgroundColor: colors.card }]}
             onPress={() => session ? setShowCloseSession(true) : setShowOpenSession(true)}
           >
-            <Ionicons name="eye-outline" size={26} color={colors.accent} />
+            <Ionicons
+              name={session ? "lock-open-outline" : "eye-outline"}
+              size={24}
+              color={session ? "#30D158" : colors.accent}
+            />
           </TouchableOpacity>
         </View>
       )}
@@ -672,7 +681,17 @@ export default function OrdersScreen() {
       />
       <OpenSessionModal
         visible={showOpenSession}
-        onClose={() => setShowOpenSession(false)}
+        onClose={() => {
+          setShowOpenSession(false);
+          setPendingOpenPOS(false);
+        }}
+        onSuccess={(newSession) => {
+          setShowOpenSession(false);
+          if (pendingOpenPOS) {
+            setPendingOpenPOS(false);
+            openPOS(null, newSession);
+          }
+        }}
       />
       <CloseSessionModal
         visible={showCloseSession}

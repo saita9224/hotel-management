@@ -13,6 +13,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -568,52 +569,65 @@ export default function ExpenseForm({ onClose }) {
         visible={newCatModalVisible}
         transparent
         animationType="slide"
+        statusBarTranslucent
         onRequestClose={() => { setNewCatModalVisible(false); setNewCatName(""); }}
       >
-        <TouchableWithoutFeedback onPress={() => { setNewCatModalVisible(false); setNewCatName(""); }}>
-          <View style={catModal.backdrop} />
-        </TouchableWithoutFeedback>
-        <View style={[catModal.sheet, { backgroundColor: colors.card }]}>
-          <View style={catModal.handleRow}>
-            <View style={[catModal.handle, { backgroundColor: colors.border }]} />
-          </View>
-          <View style={[catModal.iconCircle, { backgroundColor: colors.accent + "20" }]}>
-            <Ionicons name="folder-open-outline" size={26} color={colors.accent} />
-          </View>
-          <Text style={[catModal.title, { color: colors.text }]}>New Category</Text>
-          <Text style={[catModal.subtitle, { color: colors.tabBarInactive }]}>
-            Give your new category a name. It will be available across all products.
-          </Text>
-          <View style={[styles.fieldRow, { borderColor: colors.accent, backgroundColor: colors.background, marginBottom: 20 }]}>
-            <Ionicons name="folder-outline" size={15} color={colors.accent} style={styles.fieldIcon} />
-            <TextInput
-              autoFocus
-              placeholder="e.g. Cleaning Supplies, Snacks..."
-              placeholderTextColor={colors.tabBarInactive}
-              value={newCatName}
-              onChangeText={setNewCatName}
-              style={[styles.fieldInput, { color: colors.text }]}
-              returnKeyType="done"
-              onSubmitEditing={saveNewCategory}
-            />
-          </View>
-          <TouchableOpacity
-            style={[catModal.primaryBtn, { backgroundColor: newCatSaving || !newCatName.trim() ? colors.border : colors.accent }]}
-            onPress={saveNewCategory}
-            disabled={newCatSaving || !newCatName.trim()}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={catModal.overlay}
+        >
+          <ScrollView
+            contentContainerStyle={catModal.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+            showsVerticalScrollIndicator={false}
           >
-            {newCatSaving
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={catModal.primaryBtnText}>Create Category</Text>
-            }
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[catModal.secondaryBtn, { borderColor: colors.border }]}
-            onPress={() => { setNewCatModalVisible(false); setNewCatName(""); }}
-          >
-            <Text style={[catModal.secondaryBtnText, { color: colors.tabBarInactive }]}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableWithoutFeedback onPress={() => { setNewCatModalVisible(false); setNewCatName(""); }}>
+              <View style={catModal.backdropTouchArea} />
+            </TouchableWithoutFeedback>
+            <View style={[catModal.sheet, { backgroundColor: colors.card }]}>
+              <View style={catModal.handleRow}>
+                <View style={[catModal.handle, { backgroundColor: colors.border }]} />
+              </View>
+              <View style={[catModal.iconCircle, { backgroundColor: colors.accent + "20" }]}>
+                <Ionicons name="folder-open-outline" size={26} color={colors.accent} />
+              </View>
+              <Text style={[catModal.title, { color: colors.text }]}>New Category</Text>
+              <Text style={[catModal.subtitle, { color: colors.tabBarInactive }]}>
+                Give your new category a name. It will be available across all products.
+              </Text>
+              <View style={[styles.fieldRow, { borderColor: colors.accent, backgroundColor: colors.background, marginBottom: 20 }]}>
+                <Ionicons name="folder-outline" size={15} color={colors.accent} style={styles.fieldIcon} />
+                <TextInput
+                  autoFocus
+                  placeholder="e.g. Cleaning Supplies, Snacks..."
+                  placeholderTextColor={colors.tabBarInactive}
+                  value={newCatName}
+                  onChangeText={setNewCatName}
+                  style={[styles.fieldInput, { color: colors.text }]}
+                  returnKeyType="done"
+                  onSubmitEditing={saveNewCategory}
+                />
+              </View>
+              <TouchableOpacity
+                style={[catModal.primaryBtn, { backgroundColor: newCatSaving || !newCatName.trim() ? colors.border : colors.accent }]}
+                onPress={saveNewCategory}
+                disabled={newCatSaving || !newCatName.trim()}
+              >
+                {newCatSaving
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={catModal.primaryBtnText}>Create Category</Text>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[catModal.secondaryBtn, { borderColor: colors.border }]}
+                onPress={() => { setNewCatModalVisible(false); setNewCatName(""); }}
+              >
+                <Text style={[catModal.secondaryBtnText, { color: colors.tabBarInactive }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ══════════════════════════════════════════════════
@@ -699,61 +713,73 @@ export default function ExpenseForm({ onClose }) {
       {/* ══════════════════════════════════════════════════
           MODAL 4 — Unit picker
       ══════════════════════════════════════════════════ */}
-      <Modal visible={unitModalVisible} transparent animationType="slide" onRequestClose={closeUnitModal}>
-        <TouchableWithoutFeedback onPress={closeUnitModal}>
-          <View style={modal.backdrop} />
-        </TouchableWithoutFeedback>
-        <View style={[modal.sheet, { backgroundColor: colors.card }]}>
-          <View style={modal.handleRow}><View style={[modal.handle, { backgroundColor: colors.border }]} /></View>
-          <Text style={[modal.title, { color: colors.text }]}>Select Unit of Measure</Text>
-          <Text style={[modal.body, { color: colors.tabBarInactive }]}>
-            {`What unit is "${pendingUnitData?.itemName}" measured in?`}
-          </Text>
-          <View style={unitPicker.grid}>
-            {UNITS.map((unit) => (
-              <TouchableOpacity key={unit} onPress={() => selectUnit(unit)}
-                style={[unitPicker.btn, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                <Text style={[unitPicker.btnText, { color: colors.text }]}>{unit}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              onPress={() => setShowCustomInput(true)}
-              style={[unitPicker.btn, {
-                backgroundColor: showCustomInput ? colors.accent + "15" : colors.background,
-                borderColor:     showCustomInput ? colors.accent : colors.border,
-              }]}>
-              <Text style={[unitPicker.btnText, { color: showCustomInput ? colors.accent : colors.tabBarInactive }]}>
-                Other
+      <Modal visible={unitModalVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={closeUnitModal}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={modal.overlay}
+        >
+          <ScrollView
+            contentContainerStyle={modal.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+          >
+            <TouchableWithoutFeedback onPress={closeUnitModal}>
+              <View style={modal.backdropTouchArea} />
+            </TouchableWithoutFeedback>
+            <View style={[modal.sheet, { backgroundColor: colors.card }]}>
+              <View style={modal.handleRow}><View style={[modal.handle, { backgroundColor: colors.border }]} /></View>
+              <Text style={[modal.title, { color: colors.text }]}>Select Unit of Measure</Text>
+              <Text style={[modal.body, { color: colors.tabBarInactive }]}>
+                {`What unit is "${pendingUnitData?.itemName}" measured in?`}
               </Text>
-            </TouchableOpacity>
-          </View>
-          {showCustomInput && (
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 12, marginBottom: 6, color: colors.tabBarInactive }}>Enter unit name</Text>
-              <View style={[styles.fieldRow, { borderColor: colors.accent, backgroundColor: colors.background }]}>
-                <Ionicons name="create-outline" size={16} color={colors.accent} style={styles.fieldIcon} />
-                <TextInput
-                  autoFocus
-                  placeholder="e.g. crates, packets, rolls..."
-                  placeholderTextColor={colors.tabBarInactive}
-                  value={customUnit}
-                  onChangeText={setCustomUnit}
-                  style={[styles.fieldInput, { color: colors.text }]}
-                  returnKeyType="done"
-                  onSubmitEditing={submitCustomUnit}
-                />
-                {customUnit.trim().length > 0 && (
-                  <TouchableOpacity onPress={submitCustomUnit} style={{ padding: 6 }}>
-                    <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
+              <View style={unitPicker.grid}>
+                {UNITS.map((unit) => (
+                  <TouchableOpacity key={unit} onPress={() => selectUnit(unit)}
+                    style={[unitPicker.btn, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <Text style={[unitPicker.btnText, { color: colors.text }]}>{unit}</Text>
                   </TouchableOpacity>
-                )}
+                ))}
+                <TouchableOpacity
+                  onPress={() => setShowCustomInput(true)}
+                  style={[unitPicker.btn, {
+                    backgroundColor: showCustomInput ? colors.accent + "15" : colors.background,
+                    borderColor:     showCustomInput ? colors.accent : colors.border,
+                  }]}>
+                  <Text style={[unitPicker.btnText, { color: showCustomInput ? colors.accent : colors.tabBarInactive }]}>
+                    Other
+                  </Text>
+                </TouchableOpacity>
               </View>
+              {showCustomInput && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={{ fontSize: 12, marginBottom: 6, color: colors.tabBarInactive }}>Enter unit name</Text>
+                  <View style={[styles.fieldRow, { borderColor: colors.accent, backgroundColor: colors.background }]}>
+                    <Ionicons name="create-outline" size={16} color={colors.accent} style={styles.fieldIcon} />
+                    <TextInput
+                      autoFocus
+                      placeholder="e.g. crates, packets, rolls..."
+                      placeholderTextColor={colors.tabBarInactive}
+                      value={customUnit}
+                      onChangeText={setCustomUnit}
+                      style={[styles.fieldInput, { color: colors.text }]}
+                      returnKeyType="done"
+                      onSubmitEditing={submitCustomUnit}
+                    />
+                    {customUnit.trim().length > 0 && (
+                      <TouchableOpacity onPress={submitCustomUnit} style={{ padding: 6 }}>
+                        <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              )}
+              <TouchableOpacity style={[modal.secondaryBtn, { borderColor: colors.border }]} onPress={closeUnitModal}>
+                <Text style={[modal.secondaryBtnText, { color: colors.tabBarInactive }]}>Cancel</Text>
+              </TouchableOpacity>
             </View>
-          )}
-          <TouchableOpacity style={[modal.secondaryBtn, { borderColor: colors.border }]} onPress={closeUnitModal}>
-            <Text style={[modal.secondaryBtnText, { color: colors.tabBarInactive }]}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -808,31 +834,37 @@ const styles = StyleSheet.create({
 });
 
 const modal = StyleSheet.create({
-  backdrop:        { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
-  sheet:           { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingBottom: 40 },
-  handleRow:       { alignItems: "center", paddingVertical: 12 },
-  handle:          { width: 40, height: 4, borderRadius: 2 },
-  iconCircle:      { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 16 },
-  title:           { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 10 },
-  body:            { fontSize: 14, textAlign: "center", lineHeight: 22, marginBottom: 24 },
-  primaryBtn:      { padding: 15, borderRadius: 12, alignItems: "center", marginBottom: 10 },
-  primaryBtnText:  { color: "#fff", fontWeight: "700", fontSize: 15 },
-  secondaryBtn:    { padding: 15, borderRadius: 12, alignItems: "center", borderWidth: 1 },
-  secondaryBtnText:{ fontWeight: "600", fontSize: 15 },
+  overlay:           { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  scrollContainer:   { flexGrow: 1, justifyContent: "flex-end" },
+  backdropTouchArea: { flex: 1, minHeight: 60 },
+  backdrop:          { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  sheet:             { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingBottom: Platform.OS === "ios" ? 34 : 24 },
+  handleRow:         { alignItems: "center", paddingVertical: 12 },
+  handle:            { width: 40, height: 4, borderRadius: 2 },
+  iconCircle:        { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 16 },
+  title:             { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 10 },
+  body:              { fontSize: 14, textAlign: "center", lineHeight: 22, marginBottom: 24 },
+  primaryBtn:        { padding: 15, borderRadius: 12, alignItems: "center", marginBottom: 10 },
+  primaryBtnText:    { color: "#fff", fontWeight: "700", fontSize: 15 },
+  secondaryBtn:      { padding: 15, borderRadius: 12, alignItems: "center", borderWidth: 1 },
+  secondaryBtnText:  { fontWeight: "600", fontSize: 15 },
 });
 
 const catModal = StyleSheet.create({
-  backdrop:        { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
-  sheet:           { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingBottom: 40 },
-  handleRow:       { alignItems: "center", paddingVertical: 12 },
-  handle:          { width: 40, height: 4, borderRadius: 2 },
-  iconCircle:      { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 14 },
-  title:           { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 6 },
-  subtitle:        { fontSize: 13, textAlign: "center", lineHeight: 20, marginBottom: 20 },
-  primaryBtn:      { padding: 15, borderRadius: 12, alignItems: "center", marginBottom: 10 },
-  primaryBtnText:  { color: "#fff", fontWeight: "700", fontSize: 15 },
-  secondaryBtn:    { padding: 15, borderRadius: 12, alignItems: "center", borderWidth: 1 },
-  secondaryBtnText:{ fontWeight: "600", fontSize: 15 },
+  overlay:           { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  scrollContainer:   { flexGrow: 1, justifyContent: "flex-end" },
+  backdropTouchArea: { flex: 1, minHeight: 60 },
+  backdrop:          { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  sheet:             { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingBottom: Platform.OS === "ios" ? 34 : 24 },
+  handleRow:         { alignItems: "center", paddingVertical: 12 },
+  handle:            { width: 40, height: 4, borderRadius: 2 },
+  iconCircle:        { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 14 },
+  title:             { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 6 },
+  subtitle:          { fontSize: 13, textAlign: "center", lineHeight: 20, marginBottom: 18 },
+  primaryBtn:        { padding: 14, borderRadius: 12, alignItems: "center", marginBottom: 10 },
+  primaryBtnText:    { color: "#fff", fontWeight: "700", fontSize: 15 },
+  secondaryBtn:      { padding: 14, borderRadius: 12, alignItems: "center", borderWidth: 1 },
+  secondaryBtnText:  { fontWeight: "600", fontSize: 15 },
 });
 
 const unitPicker = StyleSheet.create({

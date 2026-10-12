@@ -136,6 +136,7 @@ export const POSProvider = ({ children }) => {
       setReceipts([]);
       setCashierQueue([]);
       setOpenReceipts([]);
+      return s;
     } catch (err) {
       // Error handling
       throw err;

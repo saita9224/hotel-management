@@ -592,59 +592,72 @@ export default function AddItemSheet({ onClose }) {
         visible={newCatModalVisible}
         transparent
         animationType="slide"
+        statusBarTranslucent
         onRequestClose={() => { setNewCatModalVisible(false); setNewCatName(""); }}
       >
-        <TouchableWithoutFeedback onPress={() => { setNewCatModalVisible(false); setNewCatName(""); }}>
-          <View style={catModal.backdrop} />
-        </TouchableWithoutFeedback>
-        <View style={[catModal.sheet, { backgroundColor: colors.card }]}>
-          <View style={catModal.handleRow}>
-            <View style={[catModal.handle, { backgroundColor: colors.border }]} />
-          </View>
-          <View style={[catModal.iconCircle, { backgroundColor: colors.accent + "20" }]}>
-            <Ionicons name="folder-open-outline" size={26} color={colors.accent} />
-          </View>
-          <Text style={[catModal.title, { color: colors.text }]}>New Category</Text>
-          <Text style={[catModal.subtitle, { color: colors.tabBarInactive }]}>
-            Give your new category a name. It will be available across all products.
-          </Text>
-
-          <View style={[styles.fieldRow, { borderColor: colors.accent, backgroundColor: colors.background, marginBottom: 20 }]}>
-            <Ionicons name="folder-outline" size={15} color={colors.accent} style={styles.fieldIcon} />
-            <TextInput
-              autoFocus
-              placeholder="e.g. Cleaning Supplies, Snacks..."
-              placeholderTextColor={colors.tabBarInactive}
-              value={newCatName}
-              onChangeText={setNewCatName}
-              style={[styles.fieldInput, { color: colors.text }]}
-              returnKeyType="done"
-              onSubmitEditing={saveNewCategory}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[catModal.primaryBtn, {
-              backgroundColor: newCatSaving || !newCatName.trim()
-                ? colors.border
-                : colors.accent,
-            }]}
-            onPress={saveNewCategory}
-            disabled={newCatSaving || !newCatName.trim()}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={catModal.overlay}
+        >
+          <ScrollView
+            contentContainerStyle={catModal.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+            showsVerticalScrollIndicator={false}
           >
-            {newCatSaving
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={catModal.primaryBtnText}>Create Category</Text>
-            }
-          </TouchableOpacity>
+            <TouchableWithoutFeedback onPress={() => { setNewCatModalVisible(false); setNewCatName(""); }}>
+              <View style={catModal.backdropTouchArea} />
+            </TouchableWithoutFeedback>
+            <View style={[catModal.sheet, { backgroundColor: colors.card }]}>
+              <View style={catModal.handleRow}>
+                <View style={[catModal.handle, { backgroundColor: colors.border }]} />
+              </View>
+              <View style={[catModal.iconCircle, { backgroundColor: colors.accent + "20" }]}>
+                <Ionicons name="folder-open-outline" size={26} color={colors.accent} />
+              </View>
+              <Text style={[catModal.title, { color: colors.text }]}>New Category</Text>
+              <Text style={[catModal.subtitle, { color: colors.tabBarInactive }]}>
+                Give your new category a name. It will be available across all products.
+              </Text>
 
-          <TouchableOpacity
-            style={[catModal.secondaryBtn, { borderColor: colors.border }]}
-            onPress={() => { setNewCatModalVisible(false); setNewCatName(""); }}
-          >
-            <Text style={[catModal.secondaryBtnText, { color: colors.tabBarInactive }]}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+              <View style={[styles.fieldRow, { borderColor: colors.accent, backgroundColor: colors.background, marginBottom: 20 }]}>
+                <Ionicons name="folder-outline" size={15} color={colors.accent} style={styles.fieldIcon} />
+                <TextInput
+                  autoFocus
+                  placeholder="e.g. Cleaning Supplies, Snacks..."
+                  placeholderTextColor={colors.tabBarInactive}
+                  value={newCatName}
+                  onChangeText={setNewCatName}
+                  style={[styles.fieldInput, { color: colors.text }]}
+                  returnKeyType="done"
+                  onSubmitEditing={saveNewCategory}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[catModal.primaryBtn, {
+                  backgroundColor: newCatSaving || !newCatName.trim()
+                    ? colors.border
+                    : colors.accent,
+                }]}
+                onPress={saveNewCategory}
+                disabled={newCatSaving || !newCatName.trim()}
+              >
+                {newCatSaving
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={catModal.primaryBtnText}>Create Category</Text>
+                }
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[catModal.secondaryBtn, { borderColor: colors.border }]}
+                onPress={() => { setNewCatModalVisible(false); setNewCatName(""); }}
+              >
+                <Text style={[catModal.secondaryBtnText, { color: colors.tabBarInactive }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -735,15 +748,18 @@ const styles = StyleSheet.create({
 });
 
 const catModal = StyleSheet.create({
-  backdrop:        { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
-  sheet:           { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingBottom: 40 },
-  handleRow:       { alignItems: "center", paddingVertical: 12 },
-  handle:          { width: 40, height: 4, borderRadius: 2 },
-  iconCircle:      { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 14 },
-  title:           { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 6 },
-  subtitle:        { fontSize: 13, textAlign: "center", lineHeight: 20, marginBottom: 20 },
-  primaryBtn:      { padding: 15, borderRadius: 12, alignItems: "center", marginBottom: 10 },
-  primaryBtnText:  { color: "#fff", fontWeight: "700", fontSize: 15 },
-  secondaryBtn:    { padding: 15, borderRadius: 12, alignItems: "center", borderWidth: 1 },
-  secondaryBtnText:{ fontWeight: "600", fontSize: 15 },
+  overlay:           { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  scrollContainer:   { flexGrow: 1, justifyContent: "flex-end" },
+  backdropTouchArea: { flex: 1, minHeight: 60 },
+  backdrop:          { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  sheet:             { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingBottom: Platform.OS === "ios" ? 34 : 24 },
+  handleRow:         { alignItems: "center", paddingVertical: 12 },
+  handle:            { width: 40, height: 4, borderRadius: 2 },
+  iconCircle:        { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 14 },
+  title:             { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 6 },
+  subtitle:          { fontSize: 13, textAlign: "center", lineHeight: 20, marginBottom: 18 },
+  primaryBtn:        { padding: 14, borderRadius: 12, alignItems: "center", marginBottom: 10 },
+  primaryBtnText:    { color: "#fff", fontWeight: "700", fontSize: 15 },
+  secondaryBtn:      { padding: 14, borderRadius: 12, alignItems: "center", borderWidth: 1 },
+  secondaryBtnText:  { fontWeight: "600", fontSize: 15 },
 });
