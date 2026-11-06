@@ -114,7 +114,17 @@ export const ExpensesProvider = ({ children }) => {
 
   const createExpense = async (input) => {
     if (!isOnline) {
-      const { clientId } = await enqueueMutation("CREATE_EXPENSE", input);
+      const total = Number(input.quantity) * Number(input.unit_price);
+      const paid = input.amount_paid !== undefined ? Number(input.amount_paid) : total;
+      const balance = Math.max(0, total - paid);
+      const isFullyPaid = balance <= 0;
+
+      const payload = {
+        ...input,
+        amount_paid: paid,
+      };
+
+      const { clientId } = await enqueueMutation("CREATE_EXPENSE", payload);
       await refreshQueueCount();
       
       let matchedProduct = null;
@@ -136,10 +146,10 @@ export const ExpensesProvider = ({ children }) => {
         item_name: input.item_name,
         quantity: Number(input.quantity),
         unit_price: Number(input.unit_price),
-        total_price: Number(input.quantity) * Number(input.unit_price),
-        amount_paid: Number(input.quantity) * Number(input.unit_price),
-        balance: 0,
-        is_fully_paid: true,
+        total_price: total,
+        amount_paid: paid,
+        balance: balance,
+        is_fully_paid: isFullyPaid,
         created_at: new Date().toISOString(),
         supplier_name: input.supplier_name || "",
       };
@@ -151,10 +161,10 @@ export const ExpensesProvider = ({ children }) => {
         item_name: input.item_name,
         quantity: Number(input.quantity),
         unit_price: Number(input.unit_price),
-        total_price: Number(input.quantity) * Number(input.unit_price),
-        amount_paid: Number(input.quantity) * Number(input.unit_price),
-        balance: 0,
-        is_fully_paid: true,
+        total_price: total,
+        amount_paid: paid,
+        balance: balance,
+        is_fully_paid: isFullyPaid,
         supplier_name: input.supplier_name || "",
         synced: false,
       });

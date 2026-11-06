@@ -3,6 +3,9 @@
 import { graphqlRequest } from "../lib/graphql";
 import { SyncQueue } from "../database/syncQueue";
 import { uploadBusinessLogoGraphQL } from "./businessService";
+import { ProductRepository } from "../database/repositories/productRepository";
+import { ExpenseRepository } from "../database/repositories/expenseRepository";
+import { ReceiptRepository } from "../database/repositories/receiptRepository";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const PUSH_SYNC_MUTATION = `
@@ -145,3 +148,111 @@ export async function processOfflineQueue() {
     throw error;
   }
 }
+
+const PULL_CHANGES_QUERY = `
+  query PullChanges($lastPulledAt: Float, $schemaVersion: Int) {
+    pullChanges(lastPulledAt: $lastPulledAt, schemaVersion: $schemaVersion) {
+      changes
+      timestamp
+    }
+  }
+`;
+
+const LAST_SYNC_KEY = "@last_pulled_at";
+
+export async function fetchServerChanges(lastPulledAt = null) {
+  try {
+    const ts = lastPulledAt ?? (await AsyncStorage.getItem(LAST_SYNC_KEY));
+    const variables = {
+      lastPulledAt: ts ? Number(ts) : null,
+      schemaVersion: 1,
+    };
+    const data = await graphqlRequest(PULL_CHANGES_QUERY, variables);
+    const result = data?.pullChanges;
+    if (result?.timestamp) {
+      await AsyncStorage.setItem(LAST_SYNC_KEY, String(result.timestamp));
+    }
+    return result;
+  } catch (err) {
+    console.warn("fetchServerChanges failed:", err);
+    return null;
+  }
+}
+
+export async function applyServerChanges(changes) {
+  if (!changes) return;
+
+  // 1. Sync products
+  if (changes.products) {
+    const { created = [], updated = [] } = changes.products;
+    for (const p of [...created, ...updated]) {
+      try {
+        const existing = await ProductRepository.findById(p.id);
+        if (existing) {
+          await ProductRepository.update(p.id, {
+            name: p.name,
+            category_id: p.category_id,
+            unit: p.unit,
+            auto_deduct_on_sale: p.auto_deduct_on_sale,
+            synced: true,
+          });
+        } else {
+          await ProductRepository.create({
+            id: p.id,
+            name: p.name,
+            category_id: p.category_id,
+            unit: p.unit,
+            current_stock: 0,
+            auto_deduct_on_sale: p.auto_deduct_on_sale,
+            synced: true,
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to apply product delta:", p.id, e);
+      }
+    }
+  }
+
+  // 2. Sync expenses
+  if (changes.expenses) {
+    const { created = [], updated = [] } = changes.expenses;
+    for (const e of [...created, ...updated]) {
+      try {
+        const existing = await ExpenseRepository.findById(e.id);
+        if (existing) {
+          await ExpenseRepository.update(e.id, { ...e, synced: true });
+        } else {
+          await ExpenseRepository.create({ ...e, synced: true });
+        }
+      } catch (err) {
+        console.warn("Failed to apply expense delta:", e.id, err);
+      }
+    }
+  }
+
+  // 3. Sync receipts
+  if (changes.receipts) {
+    const { created = [], updated = [] } = changes.receipts;
+    for (const r of [...created, ...updated]) {
+      try {
+        const existing = await ReceiptRepository.findById(r.id);
+        if (existing) {
+          await ReceiptRepository.update(r.id, { ...r, synced: true });
+        } else {
+          await ReceiptRepository.create({ ...r, synced: true });
+        }
+      } catch (err) {
+        console.warn("Failed to apply receipt delta:", r.id, err);
+      }
+    }
+  }
+}
+
+export async function pullAndApplyServerChanges() {
+  const result = await fetchServerChanges();
+  if (result?.changes) {
+    await applyServerChanges(result.changes);
+  }
+  return result;
+}
+

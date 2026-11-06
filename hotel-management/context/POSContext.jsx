@@ -35,6 +35,7 @@ import { useMenu } from "./MenuContext";
 import { useOffline } from "./OfflineContext";
 import { enqueueMutation } from "../database/syncQueue";
 import { ReceiptRepository } from "../database/repositories/receiptRepository";
+import { ProductRepository } from "../database/repositories/productRepository";
 
 const POSContext = createContext();
 export const usePOS = () => useContext(POSContext);
@@ -342,10 +343,25 @@ export const POSProvider = ({ children }) => {
 
   // ── Submit / Recall ───────────────────────────────────
 
-  const submitOrder = async (receiptId) => {
+  const submitOrder = async (receiptId, cartItems = []) => {
     if (!isOnline) {
       await enqueueMutation("SUBMIT_ORDER", { receiptId });
       await refreshQueueCount();
+
+      // Deduct local stock for inventory-tracked products while offline
+      if (cartItems && cartItems.length > 0) {
+        for (const item of cartItems) {
+          if (item.product_id && item.product_id !== "0") {
+            try {
+              await ProductRepository.updateStock(String(item.product_id), -Number(item.quantity || 1));
+            } catch (err) {
+              console.warn("Could not update local product stock offline:", err);
+            }
+          }
+        }
+        await loadProducts();
+      }
+
       setReceipts((prev) =>
         prev.map((r) => (r.id === receiptId ? { ...r, status: "PENDING" } : r))
       );

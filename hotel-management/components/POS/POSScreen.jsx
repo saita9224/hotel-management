@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../hooks/useTheme";
 import { usePOS } from "../../context/POSContext";
 import { useMenu } from "../../context/MenuContext";
+import { useInventory } from "../../context/InventoryContext";
 
 const formatKES = (v) =>
   Number(v || 0).toLocaleString("en-KE", {
@@ -85,14 +86,19 @@ function CartItem({ item, onIncrement, onDecrement, onRemove, colors }) {
 }
 
 // ─── MenuTile ────────────────────────────────────────────────────────────────
-function MenuTile({ item, quantity, onPress, colors, tileWidth }) {
+function MenuTile({ item, quantity, onPress, colors, tileWidth, stock }) {
+  const isOutOfStock = stock !== null && stock !== undefined && stock <= 0;
+  const isLowStock = stock !== null && stock !== undefined && stock > 0 && stock <= 5;
+
   return (
     <TouchableOpacity
       style={[
         styles.menuTile,
         { backgroundColor: colors.background, borderColor: colors.border, width: tileWidth },
+        isOutOfStock && { opacity: 0.5 },
       ]}
       onPress={() => onPress(item)}
+      disabled={isOutOfStock}
       activeOpacity={0.7}
     >
       {quantity > 0 && (
@@ -102,8 +108,8 @@ function MenuTile({ item, quantity, onPress, colors, tileWidth }) {
       )}
       <View style={styles.tileTopRow}>
         <Text style={styles.menuEmoji}>{item.emoji || "•"}</Text>
-        <View style={[styles.quickAddCircle, { backgroundColor: colors.accent }]}>
-          <Ionicons name="add" size={16} color="#fff" />
+        <View style={[styles.quickAddCircle, { backgroundColor: isOutOfStock ? "#8E8E93" : colors.accent }]}>
+          <Ionicons name={isOutOfStock ? "close" : "add"} size={16} color="#fff" />
         </View>
       </View>
       <Text
@@ -112,11 +118,18 @@ function MenuTile({ item, quantity, onPress, colors, tileWidth }) {
       >
         {item.name}
       </Text>
-      {item.price > 0 && (
-        <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 5, fontWeight: "600" }}>
-          KES {formatKES(item.price)}
-        </Text>
-      )}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 5 }}>
+        {item.price > 0 && (
+          <Text style={{ color: colors.tabBarInactive, fontSize: 12, fontWeight: "600" }}>
+            KES {formatKES(item.price)}
+          </Text>
+        )}
+        {isOutOfStock ? (
+          <Text style={{ color: "#FF453A", fontSize: 10, fontWeight: "700" }}>Sold Out</Text>
+        ) : isLowStock ? (
+          <Text style={{ color: "#FF9F0A", fontSize: 10, fontWeight: "600" }}>{stock} left</Text>
+        ) : null}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -288,6 +301,15 @@ export default function POSScreen({ onClose, editReceipt = null }) {
     recallOrder,
   } = usePOS();
   const { frequentItems, menuItems, menuCategories } = useMenu();
+  const { products } = useInventory();
+
+  const productStockMap = useMemo(() => {
+    const map = new Map();
+    for (const p of products || []) {
+      map.set(String(p.id), Number(p.current_stock ?? 0));
+    }
+    return map;
+  }, [products]);
 
   const isEditMode = editReceipt !== null;
 
@@ -376,6 +398,22 @@ export default function POSScreen({ onClose, editReceipt = null }) {
 
   const addToCart = useCallback((menuItem) => {
     const key = makeKey(menuItem);
+
+    if (menuItem.has_inventory && menuItem.product_id) {
+      const stock = productStockMap.get(String(menuItem.product_id));
+      if (stock !== undefined && stock !== null) {
+        if (stock <= 0) {
+          Alert.alert("Out of Stock", `"${menuItem.name}" is currently out of stock.`);
+          return;
+        }
+        const currentQty = cartQuantities[key] ?? 0;
+        if (currentQty + 1 > stock) {
+          Alert.alert("Stock Limit", `Only ${stock} unit(s) of "${menuItem.name}" available in stock.`);
+          return;
+        }
+      }
+    }
+
     setCart((prev) => {
       const existing = prev.find((i) => i.key === key);
       if (existing) {
@@ -397,16 +435,24 @@ export default function POSScreen({ onClose, editReceipt = null }) {
       }];
     });
     setSearch("");
-  }, []);
+  }, [cartQuantities, productStockMap]);
 
   const increment = useCallback((key) =>
-    setCart((prev) =>
-      prev.map((i) =>
+    setCart((prev) => {
+      const item = prev.find((i) => i.key === key);
+      if (item && item.product_id && item.product_id !== "0") {
+        const stock = productStockMap.get(String(item.product_id));
+        if (stock !== undefined && stock !== null && item.quantity + 1 > stock) {
+          Alert.alert("Stock Limit", `Only ${stock} unit(s) of "${item.product_name}" available in stock.`);
+          return prev;
+        }
+      }
+      return prev.map((i) =>
         i.key === key
           ? { ...i, quantity: i.quantity + 1, line_total: (i.quantity + 1) * i.final_price }
           : i
-      )
-    ), []);
+      );
+    }), [productStockMap]);
 
   const decrement = useCallback((key) =>
     setCart((prev) =>
@@ -473,7 +519,7 @@ export default function POSScreen({ onClose, editReceipt = null }) {
         }
       }
 
-      const submitted = await submitOrder(receiptId);
+      const submitted = await submitOrder(receiptId, cart);
       setSentReceiptNumber(submitted.receipt_number);
       setPhase("sent");
 
@@ -825,6 +871,7 @@ export default function POSScreen({ onClose, editReceipt = null }) {
                     onPress={addToCart}
                     colors={colors}
                     tileWidth={tileWidth}
+                    stock={item.has_inventory && item.product_id ? productStockMap.get(String(item.product_id)) : null}
                   />
                 ))}
               </View>

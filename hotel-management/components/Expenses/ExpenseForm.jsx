@@ -20,17 +20,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useExpenses }  from "../../context/ExpensesContext";
 import { useInventory } from "../../context/InventoryContext";
 import { useTheme }     from "../../hooks/useTheme";
-import { payBalanceService } from "../../services/expenseService";
 import {
-
-
   suggestCategoryService,
 } from "../../services/inventoryService";
 
 const UNITS = ["kg", "g", "litres", "ml", "pcs", "bags", "boxes"];
 
 export default function ExpenseForm({ onClose }) {
-  const { createExpense, loadExpenses, notifyMenuOfNewProduct } = useExpenses();
+  const { createExpense, loadExpenses, notifyMenuOfNewProduct, payBalance } = useExpenses();
   const { loadProducts, serverCategories, createCategory, addStockFromExpense, createProductWithStock } = useInventory();
   const { colors } = useTheme();
 
@@ -262,13 +259,14 @@ export default function ExpenseForm({ onClose }) {
         quantity:      Number(form.quantity),
         unit_price:    Number(form.unit_price),
         is_overhead:   form.is_overhead,
+        amount_paid:   paid,
       });
 
       const expenseId = expense?.id;
 
+      // When online, record initial payment against the newly created backend expense
       if (expenseId && paid > 0) {
-        await payBalanceService(Number(expenseId), paid);
-        await loadExpenses();
+        await payBalance(Number(expenseId), paid);
       }
 
       if (form.is_overhead) {

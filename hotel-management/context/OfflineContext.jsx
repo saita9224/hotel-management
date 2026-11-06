@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
-import { processOfflineQueue } from "../services/syncService";
+import { processOfflineQueue, pullAndApplyServerChanges } from "../services/syncService";
 import { SyncQueue } from "../database/syncQueue";
 
 const OfflineContext = createContext({
@@ -28,6 +28,7 @@ export function OfflineProvider({ children }) {
     try {
       setIsSyncing(true);
       await processOfflineQueue();
+      await pullAndApplyServerChanges();
     } catch (err) {
       console.warn("Manual sync error:", err);
     } finally {
