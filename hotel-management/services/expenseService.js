@@ -242,6 +242,14 @@ export const createExpenseService = async (input) => {
     supplierId: input.supplier_id ? parseInt(input.supplier_id, 10) : null,
     supplierName: input.supplier_name?.trim() || null,
     productId: input.product_id ? parseInt(input.product_id, 10) : null,
+    inventoryAction: input.inventory_action || "NONE",
+    inventoryProductId: input.inventory_product_id ? String(input.inventory_product_id) : null,
+    productName: input.product_name || null,
+    productUnit: input.product_unit || null,
+    categoryId: input.category_id ? String(input.category_id) : null,
+    autoDeductOnSale: Boolean(input.auto_deduct_on_sale),
+    amountPaid: Number(input.amount_paid || 0),
+    productClientId: input.product_client_id || null,
   };
 
   const data = await graphqlRequest(
@@ -258,6 +266,7 @@ export const createExpenseService = async (input) => {
           isFullyPaid
           createdAt
           supplier { id name }
+          product { id name }
         }
         matchedProduct {
           id

@@ -40,7 +40,7 @@ export const InventoryProvider = ({ children }) => {
 
   const { isAuthenticated } = useAuth();
   const { refreshMenu }     = useMenu();
-  const { isOnline, refreshQueueCount } = useOffline();
+  const { isOnline, isSyncing, refreshQueueCount } = useOffline();
 
   // =====================================================
   // LOAD PRODUCTS
@@ -421,6 +421,13 @@ export const InventoryProvider = ({ children }) => {
       loadPendingReconciliations();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated && isOnline && !isSyncing) {
+      loadProducts();
+      loadCategories();
+    }
+  }, [isAuthenticated, isOnline, isSyncing]);
 
   // =====================================================
   // ADD STOCK FROM EXPENSE

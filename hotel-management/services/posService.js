@@ -476,7 +476,7 @@ export const fetchUnsettledCredits = async (overdueOnly = false) => {
 // REFUND
 // ======================================================
 
-export const refundReceiptService = async ({ receipt_id, reason }) => {
+export const refundReceiptService = async ({ receipt_id, reason, restock_inventory = false }) => {
   await graphqlRequest(
     `mutation($input: RefundReceiptInput!) {
       refundReceipt(input: $input) {
@@ -487,6 +487,7 @@ export const refundReceiptService = async ({ receipt_id, reason }) => {
       input: {
         receiptId: String(receipt_id),
         reason,
+        restockInventory: Boolean(restock_inventory),
       },
     }
   );

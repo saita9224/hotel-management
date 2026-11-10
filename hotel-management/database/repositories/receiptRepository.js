@@ -33,6 +33,7 @@ export const ReceiptRepository = {
   async create(receiptData) {
     return await database.write(async () => {
       return await database.get('receipts').create(record => {
+        if (receiptData.id) record._raw.id = String(receiptData.id);
         record.sessionId = receiptData.session_id;
         record.receiptNumber = receiptData.receipt_number || `R-${Date.now()}`;
         record.subtotal = receiptData.subtotal || 0;
@@ -43,7 +44,7 @@ export const ReceiptRepository = {
         record.tableNote = receiptData.table_note || '';
         record.createdAt = Date.now();
         record.updatedAt = Date.now();
-        record.synced = false;
+        record.synced = Boolean(receiptData.synced ?? false);
       });
     });
   },
@@ -59,7 +60,7 @@ export const ReceiptRepository = {
         if (updates.balance !== undefined) record.balance = updates.balance;
         if (updates.table_note !== undefined) record.tableNote = updates.table_note;
         record.updatedAt = Date.now();
-        record.synced = false;
+        record.synced = updates.synced !== undefined ? Boolean(updates.synced) : false;
       });
       return record;
     });

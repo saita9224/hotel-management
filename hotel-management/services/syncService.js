@@ -31,9 +31,12 @@ const priorityMap = {
   CREATE_EXPENSE: 1,
   PAY_BALANCE: 2,
   CREATE_PRODUCT: 1,
+  CREATE_PRODUCT_WITH_STOCK: 2,
   CREATE_CATEGORY: 1,
+  ADD_STOCK_FROM_EXPENSE: 2,
   ADD_STOCK: 2,
   REMOVE_STOCK: 2,
+  REFUND_RECEIPT: 6,
   CREATE_EMPLOYEE: 1,
   CHECK_IN_ATTENDANCE: 2,
   CREATE_LEAVE_REQUEST: 2,
@@ -188,11 +191,15 @@ export async function applyServerChanges(changes) {
     for (const p of [...created, ...updated]) {
       try {
         const existing = await ProductRepository.findById(p.id);
+        const pendingLocal = !existing && p.client_id
+          ? await ProductRepository.findById(p.client_id)
+          : null;
         if (existing) {
           await ProductRepository.update(p.id, {
             name: p.name,
             category_id: p.category_id,
             unit: p.unit,
+            current_stock: Number(p.current_stock ?? existing.current_stock),
             auto_deduct_on_sale: p.auto_deduct_on_sale,
             synced: true,
           });
@@ -202,10 +209,19 @@ export async function applyServerChanges(changes) {
             name: p.name,
             category_id: p.category_id,
             unit: p.unit,
-            current_stock: 0,
+            current_stock: Number(p.current_stock ?? pendingLocal?.current_stock ?? 0),
             auto_deduct_on_sale: p.auto_deduct_on_sale,
             synced: true,
           });
+        }
+        if (pendingLocal) {
+          const localExpenses = await ExpenseRepository.findAll();
+          for (const expense of localExpenses) {
+            if (String(expense.product_id) === String(pendingLocal.id)) {
+              await ExpenseRepository.update(expense.id, { product_id: p.id });
+            }
+          }
+          await ProductRepository.delete(pendingLocal.id);
         }
       } catch (e) {
         console.warn("Failed to apply product delta:", p.id, e);
@@ -219,11 +235,15 @@ export async function applyServerChanges(changes) {
     for (const e of [...created, ...updated]) {
       try {
         const existing = await ExpenseRepository.findById(e.id);
+        const pendingLocal = !existing && e.client_id
+          ? await ExpenseRepository.findById(e.client_id)
+          : null;
         if (existing) {
           await ExpenseRepository.update(e.id, { ...e, synced: true });
         } else {
           await ExpenseRepository.create({ ...e, synced: true });
         }
+        if (pendingLocal) await ExpenseRepository.delete(pendingLocal.id);
       } catch (err) {
         console.warn("Failed to apply expense delta:", e.id, err);
       }
@@ -236,11 +256,15 @@ export async function applyServerChanges(changes) {
     for (const r of [...created, ...updated]) {
       try {
         const existing = await ReceiptRepository.findById(r.id);
+        const pendingLocal = !existing && r.client_id
+          ? await ReceiptRepository.findById(r.client_id)
+          : null;
         if (existing) {
           await ReceiptRepository.update(r.id, { ...r, synced: true });
         } else {
           await ReceiptRepository.create({ ...r, synced: true });
         }
+        if (pendingLocal) await ReceiptRepository.delete(pendingLocal.id);
       } catch (err) {
         console.warn("Failed to apply receipt delta:", r.id, err);
       }

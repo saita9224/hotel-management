@@ -37,7 +37,7 @@ export const ExpensesProvider = ({ children }) => {
   const [loading, setLoading]     = useState(false);
 
   const { refreshMenu } = useMenu();
-  const { isOnline, refreshQueueCount } = useOffline();
+  const { isOnline, isSyncing, refreshQueueCount } = useOffline();
 
   // =====================================================
   // LOAD ALL EXPENSES + PAYMENTS
@@ -92,6 +92,10 @@ export const ExpensesProvider = ({ children }) => {
     }
   };
 
+  useEffect(() => {
+    if (isOnline && !isSyncing) loadExpenses();
+  }, [isOnline, isSyncing]);
+
   // =====================================================
   // SEARCH FUNCTIONS
   // =====================================================
@@ -128,7 +132,7 @@ export const ExpensesProvider = ({ children }) => {
       await refreshQueueCount();
       
       let matchedProduct = null;
-      if (!input.is_overhead) {
+      if (!input.is_overhead && input.inventory_action === "ADD_EXISTING") {
         try {
           const localProducts = await ProductRepository.findAll();
           const normName = String(input.item_name || "").trim().toLowerCase();
@@ -138,6 +142,21 @@ export const ExpensesProvider = ({ children }) => {
         } catch (e) {
           console.warn("Failed to match product locally:", e);
         }
+      }
+
+      if (input.inventory_action === "ADD_EXISTING" && input.inventory_product_id) {
+        await ProductRepository.updateStock(input.inventory_product_id, Number(input.quantity));
+      } else if (input.inventory_action === "CREATE_PRODUCT") {
+        const createdProduct = await ProductRepository.create({
+          id: clientId,
+          name: input.product_name || input.item_name,
+          category_id: input.category_id || null,
+          unit: input.product_unit || "pcs",
+          current_stock: Number(input.quantity),
+          auto_deduct_on_sale: Boolean(input.auto_deduct_on_sale),
+          synced: false,
+        });
+        matchedProduct = createdProduct;
       }
 
       const mockExpense = {

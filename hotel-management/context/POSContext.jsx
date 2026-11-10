@@ -56,7 +56,7 @@ const isToday = (value) => {
 export const POSProvider = ({ children }) => {
   const { loadProducts } = useInventory();
   const { refreshMenu }  = useMenu();
-  const { isOnline, refreshQueueCount } = useOffline();
+  const { isOnline, isSyncing, refreshQueueCount } = useOffline();
 
   const [session, setSession]                   = useState(null);
   const [receipts, setReceipts]                 = useState([]);
@@ -279,7 +279,7 @@ export const POSProvider = ({ children }) => {
 
   const createOrder = async (receiptId) => {
     if (!isOnline) {
-      const item = await enqueueMutation("CREATE_ORDER", { receiptId });
+      const item = await enqueueMutation("CREATE_ORDER", { receipt_id: receiptId });
       await refreshQueueCount();
       return {
         id: item.clientId,
@@ -345,7 +345,7 @@ export const POSProvider = ({ children }) => {
 
   const submitOrder = async (receiptId, cartItems = []) => {
     if (!isOnline) {
-      await enqueueMutation("SUBMIT_ORDER", { receiptId });
+      await enqueueMutation("SUBMIT_ORDER", { receipt_id: receiptId });
       await refreshQueueCount();
 
       // Deduct local stock for inventory-tracked products while offline
@@ -353,7 +353,10 @@ export const POSProvider = ({ children }) => {
         for (const item of cartItems) {
           if (item.product_id && item.product_id !== "0") {
             try {
-              await ProductRepository.updateStock(String(item.product_id), -Number(item.quantity || 1));
+              const localProduct = await ProductRepository.findById(String(item.product_id));
+              if (localProduct?.auto_deduct_on_sale) {
+                await ProductRepository.updateStock(String(item.product_id), -Number(item.quantity || 1));
+              }
             } catch (err) {
               console.warn("Could not update local product stock offline:", err);
             }
@@ -441,6 +444,27 @@ export const POSProvider = ({ children }) => {
   };
 
   const refundReceipt = async (input) => {
+    if (!isOnline) {
+      await enqueueMutation("REFUND_RECEIPT", {
+        receipt_id: input.receipt_id,
+        reason: input.reason,
+        restock_inventory: Boolean(input.restock_inventory),
+      });
+      await refreshQueueCount();
+      if (input.restock_inventory) {
+        const receipt = receipts.find((r) => String(r.id) === String(input.receipt_id));
+        for (const item of receipt?.orders?.flatMap((order) => order.items || []) || []) {
+          const product = item.product_id && await ProductRepository.findById(String(item.product_id));
+          if (product?.auto_deduct_on_sale) {
+            await ProductRepository.updateStock(String(item.product_id), Number(item.quantity || 0));
+          }
+        }
+      }
+      const localReceipt = receipts.find((r) => String(r.id) === String(input.receipt_id));
+      if (localReceipt) replaceReceipt({ ...localReceipt, status: "REFUNDED" });
+      await loadProducts();
+      return;
+    }
     try {
       const updated = await refundReceiptService(input);
       replaceReceipt(updated);
@@ -479,6 +503,14 @@ export const POSProvider = ({ children }) => {
   }, [cashierQueue, openReceipts, receipts]);
 
   useEffect(() => { loadSession(); }, []);
+
+  useEffect(() => {
+    if (isOnline && !isSyncing) {
+      loadSession();
+      loadCashierData();
+      loadUnsettledCredits();
+    }
+  }, [isOnline, isSyncing]);
 
   const value = useMemo(
     () => ({

@@ -6,11 +6,15 @@ import * as Crypto from 'expo-crypto';
 export const SyncQueue = {
   async enqueue(mutationType, payload) {
     const clientId = Crypto.randomUUID();
+    const queuedPayload = { ...payload };
+    if (mutationType === "CREATE_EXPENSE" && queuedPayload.inventory_action === "CREATE_PRODUCT") {
+      queuedPayload.product_client_id = clientId;
+    }
     await database.write(async () => {
       await database.get('mutation_queue').create(record => {
         record.clientId = clientId;
         record.mutationType = mutationType;
-        record.payload = JSON.stringify(payload);
+        record.payload = JSON.stringify(queuedPayload);
         record.status = 'PENDING';
         record.createdAt = Date.now();
         record.error = null;
@@ -97,3 +101,8 @@ export const SyncQueue = {
     });
   },
 };
+
+// Context providers use this small helper; keep all offline writes on the
+// WatermelonDB queue consumed by services/syncService.js.
+export const enqueueMutation = (mutationType, payload) =>
+  SyncQueue.enqueue(mutationType, payload);

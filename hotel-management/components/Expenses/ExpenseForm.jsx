@@ -27,8 +27,8 @@ import {
 const UNITS = ["kg", "g", "litres", "ml", "pcs", "bags", "boxes"];
 
 export default function ExpenseForm({ onClose }) {
-  const { createExpense, loadExpenses, notifyMenuOfNewProduct, payBalance } = useExpenses();
-  const { loadProducts, serverCategories, createCategory, addStockFromExpense, createProductWithStock } = useInventory();
+  const { createExpense, notifyMenuOfNewProduct } = useExpenses();
+  const { products, loadProducts, serverCategories, createCategory } = useInventory();
   const { colors } = useTheme();
 
   const [form, setForm] = useState({
@@ -146,48 +146,58 @@ export default function ExpenseForm({ onClose }) {
   // PROMPT CHAIN
   // ─────────────────────────────────────────────────────
 
-  const promptAddToExistingStock = (matchedProduct, expenseId, quantity) => {
-    setPendingInventoryData({ matchedProduct, expenseId, quantity });
+  const commitPurchase = async (input) => {
+    setSubmitting(true);
+    try {
+      await createExpense(input);
+      if (input.inventory_action && input.inventory_action !== "NONE") {
+        await loadProducts();
+        await notifyMenuOfNewProduct(Boolean(input.auto_deduct_on_sale));
+      }
+      onClose?.();
+    } catch (err) {
+      Alert.alert("Error", err?.message || "Failed to save purchase.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const skipInventory = (purchase) => {
+    if (purchase) commitPurchase({ ...purchase, inventory_action: "NONE" });
+    else onClose?.();
+  };
+
+  const promptAddToExistingStock = (matchedProduct, purchase) => {
+    setPendingInventoryData({ matchedProduct, purchase });
     setInventoryModalVisible(true);
   };
 
   const confirmAddToExistingStock = async () => {
     setInventoryModalVisible(false);
-    const { matchedProduct, expenseId, quantity } = pendingInventoryData;
-    try {
-      await addStockFromExpense({
-        product_id:      matchedProduct.id,
-        quantity:        Number(quantity),
-        expense_item_id: expenseId,
-      });
-      await loadProducts();
-    } catch (err) {
-      Alert.alert("Stock Error", err?.message || "Failed to add stock.");
-    } finally {
-      onClose?.();
-    }
+    const { matchedProduct, purchase } = pendingInventoryData;
+    await commitPurchase({ ...purchase, inventory_action: "ADD_EXISTING", inventory_product_id: matchedProduct.id });
   };
 
-  const promptCreateNewProduct = (itemName, expenseId, quantity) => {
-    setPendingNewProductData({ itemName, expenseId, quantity });
+  const promptCreateNewProduct = (itemName, purchase) => {
+    setPendingNewProductData({ itemName, purchase });
     setNewProductModalVisible(true);
   };
 
   const confirmCreateNewProduct = () => {
     setNewProductModalVisible(false);
-    const { itemName, expenseId, quantity } = pendingNewProductData;
-    promptPOSDeductible(itemName, expenseId, quantity);
+    const { itemName, purchase } = pendingNewProductData;
+    promptPOSDeductible(itemName, purchase);
   };
 
-  const promptPOSDeductible = (itemName, expenseId, quantity) => {
-    setPendingPosData({ itemName, expenseId, quantity });
+  const promptPOSDeductible = (itemName, purchase) => {
+    setPendingPosData({ itemName, purchase });
     setPosModalVisible(true);
   };
 
   const confirmPOS = (autoDeduct) => {
     setPosModalVisible(false);
-    const { itemName, expenseId, quantity } = pendingPosData;
-    setPendingUnitData({ itemName, expenseId, quantity, autoDeduct });
+    const { itemName, purchase } = pendingPosData;
+    setPendingUnitData({ itemName, purchase, autoDeduct });
     setUnitModalVisible(true);
   };
 
@@ -196,8 +206,8 @@ export default function ExpenseForm({ onClose }) {
     setShowCustomInput(false);
     setCustomUnit("");
     if (!pendingUnitData) return;
-    const { itemName, expenseId, quantity, autoDeduct } = pendingUnitData;
-    createAtomically(itemName, expenseId, quantity, unit, form.category_id, autoDeduct);
+    const { itemName, purchase, autoDeduct } = pendingUnitData;
+    commitPurchase({ ...purchase, inventory_action: "CREATE_PRODUCT", product_name: itemName, product_unit: unit, category_id: form.category_id, auto_deduct_on_sale: autoDeduct });
     setPendingUnitData(null);
   };
 
@@ -208,31 +218,11 @@ export default function ExpenseForm({ onClose }) {
   };
 
   const closeUnitModal = () => {
+    const purchase = pendingUnitData?.purchase;
     setUnitModalVisible(false);
     setShowCustomInput(false);
     setCustomUnit("");
-    onClose?.();
-  };
-
-  const createAtomically = async (
-    itemName, expenseId, quantity, unit, category_id, autoDeduct,
-  ) => {
-    try {
-      await createProductWithStock({
-        name:                itemName,
-        unit,
-        category_id,         // now an id
-        quantity:            Number(quantity),
-        expense_item_id:     expenseId,
-        auto_deduct_on_sale: autoDeduct,
-      });
-      await loadProducts();
-      await notifyMenuOfNewProduct(autoDeduct);
-    } catch (err) {
-      Alert.alert("Error", err?.message || "Failed to create product.");
-    } finally {
-      onClose?.();
-    }
+    skipInventory(purchase);
   };
 
   // ─────────────────────────────────────────────────────
@@ -252,37 +242,18 @@ export default function ExpenseForm({ onClose }) {
       return Alert.alert("Validation", "Amount paid cannot exceed total price.");
 
     setSubmitting(true);
-    try {
-      const { expense, matchedProduct } = await createExpense({
+    const purchase = {
         item_name:     form.item_name.trim(),
         supplier_name: form.supplier_name.trim() || null,
         quantity:      Number(form.quantity),
         unit_price:    Number(form.unit_price),
         is_overhead:   form.is_overhead,
         amount_paid:   paid,
-      });
-
-      const expenseId = expense?.id;
-
-      // When online, record initial payment against the newly created backend expense
-      if (expenseId && paid > 0) {
-        await payBalance(Number(expenseId), paid);
-      }
-
-      if (form.is_overhead) {
-        onClose?.();
-      } else if (matchedProduct && expenseId) {
-        promptAddToExistingStock(matchedProduct, expenseId, form.quantity);
-      } else if (expenseId) {
-        promptCreateNewProduct(form.item_name.trim(), expenseId, form.quantity);
-      } else {
-        onClose?.();
-      }
-    } catch (err) {
-      Alert.alert("Error", err?.message || "Failed to create expense.");
-    } finally {
-      setSubmitting(false);
-    }
+      };
+    if (form.is_overhead) return commitPurchase({ ...purchase, inventory_action: "NONE" });
+    const matched = products.find((p) => p.name?.trim().toLowerCase() === form.item_name.trim().toLowerCase());
+    if (matched) promptAddToExistingStock(matched, purchase);
+    else promptCreateNewProduct(form.item_name.trim(), purchase);
   };
 
   // ─────────────────────────────────────────────────────
@@ -632,8 +603,8 @@ export default function ExpenseForm({ onClose }) {
           MODAL 1 — Add to existing inventory?
       ══════════════════════════════════════════════════ */}
       <Modal visible={inventoryModalVisible} transparent animationType="slide"
-        onRequestClose={() => { setInventoryModalVisible(false); onClose?.(); }}>
-        <TouchableWithoutFeedback onPress={() => { setInventoryModalVisible(false); onClose?.(); }}>
+        onRequestClose={() => { setInventoryModalVisible(false); skipInventory(pendingInventoryData?.purchase); }}>
+        <TouchableWithoutFeedback onPress={() => { setInventoryModalVisible(false); skipInventory(pendingInventoryData?.purchase); }}>
           <View style={modal.backdrop} />
         </TouchableWithoutFeedback>
         <View style={[modal.sheet, { backgroundColor: colors.card }]}>
@@ -649,7 +620,7 @@ export default function ExpenseForm({ onClose }) {
             <Text style={modal.primaryBtnText}>Yes, Add Stock</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[modal.secondaryBtn, { borderColor: colors.border }]}
-            onPress={() => { setInventoryModalVisible(false); onClose?.(); }}>
+          onPress={() => { setInventoryModalVisible(false); commitPurchase({ ...pendingInventoryData.purchase, inventory_action: "NONE" }); }}>
             <Text style={[modal.secondaryBtnText, { color: colors.tabBarInactive }]}>No, Skip</Text>
           </TouchableOpacity>
         </View>
@@ -659,8 +630,8 @@ export default function ExpenseForm({ onClose }) {
           MODAL 2 — Create new product?
       ══════════════════════════════════════════════════ */}
       <Modal visible={newProductModalVisible} transparent animationType="slide"
-        onRequestClose={() => { setNewProductModalVisible(false); onClose?.(); }}>
-        <TouchableWithoutFeedback onPress={() => { setNewProductModalVisible(false); onClose?.(); }}>
+        onRequestClose={() => { setNewProductModalVisible(false); skipInventory(pendingNewProductData?.purchase); }}>
+        <TouchableWithoutFeedback onPress={() => { setNewProductModalVisible(false); skipInventory(pendingNewProductData?.purchase); }}>
           <View style={modal.backdrop} />
         </TouchableWithoutFeedback>
         <View style={[modal.sheet, { backgroundColor: colors.card }]}>
@@ -676,7 +647,7 @@ export default function ExpenseForm({ onClose }) {
             <Text style={modal.primaryBtnText}>Yes, Create Product</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[modal.secondaryBtn, { borderColor: colors.border }]}
-            onPress={() => { setNewProductModalVisible(false); onClose?.(); }}>
+            onPress={() => { setNewProductModalVisible(false); commitPurchase({ ...pendingNewProductData.purchase, inventory_action: "NONE" }); }}>
             <Text style={[modal.secondaryBtnText, { color: colors.tabBarInactive }]}>No, Skip</Text>
           </TouchableOpacity>
         </View>
@@ -686,8 +657,8 @@ export default function ExpenseForm({ onClose }) {
           MODAL 3 — POS item or ingredient?
       ══════════════════════════════════════════════════ */}
       <Modal visible={posModalVisible} transparent animationType="slide"
-        onRequestClose={() => { setPosModalVisible(false); onClose?.(); }}>
-        <TouchableWithoutFeedback onPress={() => { setPosModalVisible(false); onClose?.(); }}>
+        onRequestClose={() => { setPosModalVisible(false); skipInventory(pendingPosData?.purchase); }}>
+        <TouchableWithoutFeedback onPress={() => { setPosModalVisible(false); skipInventory(pendingPosData?.purchase); }}>
           <View style={modal.backdrop} />
         </TouchableWithoutFeedback>
         <View style={[modal.sheet, { backgroundColor: colors.card }]}>
