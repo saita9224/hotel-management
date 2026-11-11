@@ -16,6 +16,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../hooks/useTheme";
 import { useHR } from "../../context/HRContext";
+import { useAuth } from "../../context/AuthContext";
 
 const STATUS_COLORS = {
   DRAFT:    "#8E8E93",
@@ -38,8 +39,12 @@ const formatKES = (v) =>
 
 export default function HRPayrollTab() {
   const { colors } = useTheme();
+  const { permissions = [] } = useAuth();
+  const canManage = permissions.includes("hr.manage_salary");
   const {
     salaryRecords,
+    myPayslips,
+    loadMyPayslips,
     loadSalaryRecords,
     employees,
     loadEmployees,
@@ -50,6 +55,7 @@ export default function HRPayrollTab() {
     loadSalaryPayments,
     loading,
     payrollLoading,
+    loadErrors,
   } = useHR();
 
   const now = new Date();
@@ -72,9 +78,17 @@ export default function HRPayrollTab() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadEmployees();
-    loadSalaryRecords({ year: selectedYear, month: selectedMonth });
-  }, [selectedYear, selectedMonth]);
+    if (canManage) {
+      loadEmployees();
+      loadSalaryRecords({ year: selectedYear, month: selectedMonth });
+    } else {
+      loadMyPayslips(selectedYear);
+    }
+  }, [selectedYear, selectedMonth, canManage]);
+
+  const visibleRecords = canManage
+    ? salaryRecords
+    : myPayslips.filter((record) => record.period_year === selectedYear && record.period_month === selectedMonth);
 
   const handleGeneratePayslip = async () => {
     if (!generateForm.employee_id)
@@ -211,7 +225,7 @@ export default function HRPayrollTab() {
 
         {/* Actions */}
         <View style={styles.actions}>
-          {item.status === "DRAFT" && (
+          {canManage && item.status === "DRAFT" && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: "#0A84FF20", borderColor: "#0A84FF" }]}
               onPress={() => handleApprovePayslip(item)}
@@ -220,7 +234,7 @@ export default function HRPayrollTab() {
             </TouchableOpacity>
           )}
 
-          {(item.status === "APPROVED" || item.status === "PARTIAL") && (
+          {canManage && (item.status === "APPROVED" || item.status === "PARTIAL") && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: "#30D15820", borderColor: "#30D158" }]}
               onPress={() => {
@@ -233,14 +247,14 @@ export default function HRPayrollTab() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
+          {canManage && <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
             onPress={() => openPayments(item)}
           >
             <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 12 }}>
               Payments ({item.payments?.length ?? 0})
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity>}
         </View>
       </View>
     );
@@ -248,6 +262,7 @@ export default function HRPayrollTab() {
 
   return (
     <View style={{ flex: 1 }}>
+      {loadErrors.payroll ? <Text style={{ color: "#FF453A", padding: 12 }}>{loadErrors.payroll}</Text> : null}
 
       {/* ── Month/Year selector ── */}
       <View style={[styles.periodRow, { borderBottomColor: colors.border }]}>
@@ -271,7 +286,7 @@ export default function HRPayrollTab() {
           ))}
         </ScrollView>
 
-        <TouchableOpacity
+        {canManage && <TouchableOpacity
           style={[styles.generateBtn, { backgroundColor: colors.accent }]}
           onPress={() => {
             setGenerateForm({ employee_id: "", deductions: "0" });
@@ -282,14 +297,14 @@ export default function HRPayrollTab() {
           <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12, marginLeft: 4 }}>
             Generate
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity>}
       </View>
 
       {payrollLoading ? (
         <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
-          data={salaryRecords}
+          data={visibleRecords}
           keyExtractor={(item) => item.id?.toString()}
           renderItem={renderRecord}
           contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
@@ -302,7 +317,7 @@ export default function HRPayrollTab() {
       )}
 
       {/* ── Generate Payslip Modal ── */}
-      <Modal
+      {canManage && <Modal
         visible={showGenerateModal}
         animationType="slide"
         transparent
@@ -365,10 +380,10 @@ export default function HRPayrollTab() {
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      </Modal>}
 
       {/* ── Add Payment Modal ── */}
-      <Modal
+      {canManage && <Modal
         visible={showPaymentModal}
         animationType="slide"
         transparent
@@ -460,10 +475,10 @@ export default function HRPayrollTab() {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </Modal>}
 
       {/* ── View Payments Modal ── */}
-      <Modal
+      {canManage && <Modal
         visible={showPaymentsModal}
         animationType="slide"
         transparent
@@ -524,7 +539,7 @@ export default function HRPayrollTab() {
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      </Modal>}
     </View>
   );
 }

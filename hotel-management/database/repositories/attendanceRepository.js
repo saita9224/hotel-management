@@ -39,6 +39,12 @@ export const AttendanceRepository = {
       .fetch();
   },
 
+  async updateByEmployeeAndDate(employeeId, date, updates) {
+    const records = await this.findByEmployeeAndDate(employeeId, date);
+    if (records.length === 0) throw new Error('No local check-in found for today.');
+    return this.update(records[0].id, updates);
+  },
+
   async create(attendanceData) {
     return await database.write(async () => {
       return await database.get('attendance').create(record => {

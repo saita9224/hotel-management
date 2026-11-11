@@ -16,6 +16,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../hooks/useTheme";
 import { useHR } from "../../context/HRContext";
+import { useAuth } from "../../context/AuthContext";
 
 const STATUS_COLORS = {
   PRESENT:  "#30D158",
@@ -31,6 +32,10 @@ const MONTHS = [
 
 export default function HRAttendanceTab() {
   const { colors } = useTheme();
+  const { permissions = [] } = useAuth();
+  const canSelfCheckIn = permissions.includes("hr.self_checkin");
+  const canViewAll = permissions.includes("hr.view_attendance");
+  const canManage = permissions.includes("hr.manage_attendance");
   const {
     todayAttendance,
     loadTodayAttendance,
@@ -41,6 +46,7 @@ export default function HRAttendanceTab() {
     selfCheckIn,
     selfCheckOut,
     recordAttendance,
+    loadErrors,
     loading,
     attendanceLoading,
   } = useHR();
@@ -141,9 +147,10 @@ export default function HRAttendanceTab() {
 
   return (
     <View style={{ flex: 1 }}>
+      {loadErrors.attendance ? <Text style={{ color: "#FF453A", padding: 12 }}>{loadErrors.attendance}</Text> : null}
 
       {/* ── Self check-in/out buttons ── */}
-      <View style={[styles.selfRow, { borderBottomColor: colors.border }]}>
+      {canSelfCheckIn && <View style={[styles.selfRow, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.selfBtn, { backgroundColor: "#30D15820", borderColor: "#30D158" }]}
           onPress={handleSelfCheckIn}
@@ -158,11 +165,11 @@ export default function HRAttendanceTab() {
           <Ionicons name="log-out-outline" size={18} color="#FF453A" />
           <Text style={{ color: "#FF453A", fontWeight: "700", marginLeft: 6 }}>Check Out</Text>
         </TouchableOpacity>
-      </View>
+      </View>}
 
       {/* ── View mode toggle ── */}
       <View style={[styles.toggleRow, { borderBottomColor: colors.border }]}>
-        {["today", "monthly"].map((mode) => (
+        {["today", ...(canViewAll ? ["monthly"] : [])].map((mode) => (
           <TouchableOpacity
             key={mode}
             style={[
@@ -181,7 +188,7 @@ export default function HRAttendanceTab() {
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity
+        {canManage && <TouchableOpacity
           style={[styles.recordBtn, { backgroundColor: colors.accent }]}
           onPress={() => setShowRecordModal(true)}
         >
@@ -189,7 +196,7 @@ export default function HRAttendanceTab() {
           <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12, marginLeft: 4 }}>
             Record
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity>}
       </View>
 
       {/* ── Monthly controls ── */}

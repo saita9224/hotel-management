@@ -40,6 +40,9 @@ const priorityMap = {
   CREATE_EMPLOYEE: 1,
   CHECK_IN_ATTENDANCE: 2,
   CREATE_LEAVE_REQUEST: 2,
+  SELF_CHECK_IN: 2,
+  SELF_CHECK_OUT: 2,
+  REQUEST_LEAVE: 2,
 };
 
 function sortQueueByDependency(items) {

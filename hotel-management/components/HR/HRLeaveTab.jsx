@@ -16,6 +16,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../hooks/useTheme";
 import { useHR } from "../../context/HRContext";
+import { useAuth } from "../../context/AuthContext";
 
 const STATUS_COLORS = {
   PENDING:  "#FF9F0A",
@@ -27,6 +28,10 @@ const LEAVE_TYPES = ["SICK", "ANNUAL", "UNPAID", "MATERNITY", "PATERNITY"];
 
 export default function HRLeaveTab() {
   const { colors } = useTheme();
+  const { permissions = [] } = useAuth();
+  const canReview = permissions.includes("hr.manage_leave");
+  const canViewAll = permissions.includes("hr.view_leave");
+  const canRequest = permissions.includes("hr.request_leave");
   const {
     leaveRequests,
     myLeaveRequests,
@@ -35,9 +40,10 @@ export default function HRLeaveTab() {
     requestLeave,
     reviewLeave,
     loading,
+    loadErrors,
   } = useHR();
 
-  const [viewMode, setViewMode]             = useState("all");
+  const [viewMode, setViewMode]             = useState(canViewAll ? "all" : "mine");
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showReviewModal, setShowReviewModal]   = useState(false);
   const [selectedLeave, setSelectedLeave]       = useState(null);
@@ -130,7 +136,7 @@ export default function HRLeaveTab() {
           </Text>
         ) : null}
 
-        {item.status === "PENDING" && viewMode === "all" && (
+        {item.status === "PENDING" && viewMode === "all" && canReview && (
           <TouchableOpacity
             style={[styles.reviewBtn, { borderColor: colors.accent }]}
             onPress={() => openReview(item)}
@@ -152,10 +158,11 @@ export default function HRLeaveTab() {
 
   return (
     <View style={{ flex: 1 }}>
+      {loadErrors.leave ? <Text style={{ color: "#FF453A", padding: 12 }}>{loadErrors.leave}</Text> : null}
 
       {/* ── Toggle + Request button ── */}
       <View style={[styles.topRow, { borderBottomColor: colors.border }]}>
-        {["all", "mine"].map((mode) => (
+        {[...(canViewAll ? ["all"] : []), ...(canRequest ? ["mine"] : [])].map((mode) => (
           <TouchableOpacity
             key={mode}
             style={[
@@ -174,7 +181,7 @@ export default function HRLeaveTab() {
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity
+        {canRequest && <TouchableOpacity
           style={[styles.requestBtn, { backgroundColor: colors.accent }]}
           onPress={() => setShowRequestModal(true)}
         >
@@ -182,7 +189,7 @@ export default function HRLeaveTab() {
           <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12, marginLeft: 4 }}>
             Request
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity>}
       </View>
 
       {loading ? (

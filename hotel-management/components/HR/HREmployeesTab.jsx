@@ -17,15 +17,19 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../hooks/useTheme";
 import { useHR } from "../../context/HRContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function HREmployeesTab() {
   const { colors } = useTheme();
+  const { permissions = [] } = useAuth();
+  const canManageContracts = permissions.includes("hr.manage_contracts");
   const {
     employees,
     loadEmployees,
     loading,
     createContract,
     updateContract,
+    loadErrors,
   } = useHR();
 
   const [showContractModal, setShowContractModal] = useState(false);
@@ -148,7 +152,7 @@ export default function HREmployeesTab() {
             </Text>
           )}
         </View>
-        <TouchableOpacity
+          {canManageContracts && <TouchableOpacity
           style={[styles.contractBtn, { borderColor: colors.accent }]}
           onPress={() => openContractModal(item)}
         >
@@ -156,7 +160,7 @@ export default function HREmployeesTab() {
           <Text style={{ color: colors.accent, fontSize: 12, marginLeft: 4, fontWeight: "600" }}>
             {item.contract ? "Edit" : "Add"} Contract
           </Text>
-        </TouchableOpacity>
+          </TouchableOpacity>}
       </View>
 
       {item.contract && (
@@ -175,6 +179,7 @@ export default function HREmployeesTab() {
 
   return (
     <View style={{ flex: 1 }}>
+      {loadErrors.employees ? <Text style={{ color: "#FF453A", padding: 12 }}>{loadErrors.employees}</Text> : null}
       {loading ? (
         <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
       ) : (

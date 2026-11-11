@@ -14,6 +14,7 @@ import {
 import { useTheme } from "../hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useAuth } from "../context/AuthContext";
 import OfflineIndicator from "../components/OfflineIndicator";
 
 import HREmployeesTab  from "../components/HR/HREmployeesTab";
@@ -33,6 +34,7 @@ const TABS = [
 
 export default function HRScreen() {
   const { colors } = useTheme();
+  const { permissions = [] } = useAuth();
   const [activeTab, setActiveTab] = useState("employees");
   const [showAddSheet, setShowAddSheet] = useState(false);
 
@@ -61,6 +63,20 @@ export default function HRScreen() {
       }),
     ]).start(() => setShowAddSheet(false));
   };
+
+  const allowedTabs = React.useMemo(() => TABS.filter((tab) => {
+    if (tab.key === "employees") return permissions.includes("employee.view") && permissions.includes("hr.view_contracts");
+    if (tab.key === "attendance") return permissions.includes("hr.view_attendance") || permissions.includes("hr.self_checkin");
+    if (tab.key === "leave") return permissions.includes("hr.view_leave") || permissions.includes("hr.request_leave");
+    if (tab.key === "payroll") return permissions.includes("hr.view_salary");
+    return false;
+  }), [permissions]);
+
+  React.useEffect(() => {
+    if (!allowedTabs.some((tab) => tab.key === activeTab)) {
+      setActiveTab(allowedTabs[0]?.key ?? "employees");
+    }
+  }, [activeTab, allowedTabs]);
 
   const renderTab = () => {
     switch (activeTab) {
@@ -92,7 +108,7 @@ export default function HRScreen() {
         styles.tabBar,
         { backgroundColor: colors.card, borderBottomColor: colors.border },
       ]}>
-        {TABS.map((t) => {
+        {allowedTabs.map((t) => {
           const active = activeTab === t.key;
           return (
             <TouchableOpacity
@@ -127,7 +143,7 @@ export default function HRScreen() {
       </View>
 
       {/* ── FAB — employees tab only ── */}
-      {activeTab === "employees" && (
+      {activeTab === "employees" && permissions.includes("employee.create") && (
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: colors.accent }]}
           onPress={openSheet}
