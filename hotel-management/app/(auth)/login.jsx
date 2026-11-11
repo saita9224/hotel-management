@@ -44,6 +44,7 @@ export default function LoginScreen() {
 
   const logoProgress = useRef(new Animated.Value(0)).current;
   const formProgress = useRef(new Animated.Value(0)).current;
+  const passwordRef  = useRef(null);
 
   useEffect(() => {
     Animated.sequence([
@@ -230,6 +231,8 @@ export default function LoginScreen() {
             textContentType="emailAddress"
             value={email}
             onChangeText={setEmail}
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            blurOnSubmit={false}
             style={[
               styles.input,
               {
@@ -256,6 +259,9 @@ export default function LoginScreen() {
               textContentType="password"
               value={password}
               onChangeText={setPassword}
+              ref={passwordRef}
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
               style={[styles.passwordInput, { color: colors.text }]}
             />
             <TouchableOpacity

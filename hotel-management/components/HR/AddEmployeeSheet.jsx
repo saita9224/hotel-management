@@ -1,6 +1,6 @@
 // components/HR/AddEmployeeSheet.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -120,6 +120,11 @@ export default function AddEmployeeSheet({ onClose }) {
   const [selectedPerms, setSelectedPerms]       = useState(new Set());
   const [saving, setSaving]                     = useState(false);
   const [permLoading, setPermLoading]           = useState(false);
+
+  const nameRef     = useRef(null);
+  const emailRef    = useRef(null);
+  const phoneRef    = useRef(null);
+  const passwordRef = useRef(null);
 
   useEffect(() => {
     if (groupedPermissions.length === 0) {
@@ -259,7 +264,10 @@ export default function AddEmployeeSheet({ onClose }) {
         placeholderTextColor={colors.tabBarInactive}
         value={form.name}
         onChangeText={(v) => updateField("name", v)}
+        ref={nameRef}
         returnKeyType="next"
+        onSubmitEditing={() => emailRef.current?.focus()}
+        blurOnSubmit={false}
       />
 
       <Text style={[styles.label, { color: colors.tabBarInactive }]}>Email</Text>
@@ -272,6 +280,8 @@ export default function AddEmployeeSheet({ onClose }) {
         keyboardType="email-address"
         autoCapitalize="none"
         returnKeyType="next"
+        onSubmitEditing={() => phoneRef.current?.focus()}
+        blurOnSubmit={false}
       />
 
       <Text style={[styles.label, { color: colors.tabBarInactive }]}>
@@ -285,6 +295,8 @@ export default function AddEmployeeSheet({ onClose }) {
         onChangeText={(v) => updateField("phone", v)}
         keyboardType="phone-pad"
         returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+        blurOnSubmit={false}
       />
 
       <Text style={[styles.label, { color: colors.tabBarInactive }]}>Password</Text>
@@ -603,7 +615,7 @@ export default function AddEmployeeSheet({ onClose }) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : "padding"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 80}
     >
       <View style={{ flex: 1, paddingHorizontal: 16 }}>

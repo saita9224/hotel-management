@@ -61,9 +61,10 @@ export default function DeductStockModal({ visible, product, onClose }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.overlay}
       >
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}>
         <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
 
           {/* Handle */}
@@ -98,6 +99,8 @@ export default function DeductStockModal({ visible, product, onClose }) {
             placeholderTextColor={colors.tabBarInactive}
             value={quantity}
             onChangeText={setQuantity}
+            returnKeyType="next"
+            blurOnSubmit={false}
           />
 
           {/* Reason */}
@@ -132,6 +135,8 @@ export default function DeductStockModal({ visible, product, onClose }) {
             placeholderTextColor={colors.tabBarInactive}
             value={notes}
             onChangeText={setNotes}
+            returnKeyType="done"
+            onSubmitEditing={submit}
           />
 
           {/* Submit */}
@@ -146,6 +151,7 @@ export default function DeductStockModal({ visible, product, onClose }) {
           </TouchableOpacity>
 
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );

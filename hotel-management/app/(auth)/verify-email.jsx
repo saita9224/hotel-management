@@ -1,9 +1,10 @@
 // app/(auth)/verify-email.jsx
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator,
+  KeyboardAvoidingView, ScrollView, Platform,
 } from "react-native";
 import { useRouter }  from "expo-router";
 import { useAuth }    from "../../context/AuthContext";
@@ -36,6 +37,7 @@ export default function VerifyEmailScreen() {
   const [pin,        setPin]        = useState("");
   const [loading,    setLoading]    = useState(false);
   const [resending,  setResending]  = useState(false);
+  const pinRef = useRef(null);
 
   // ── Verify PIN ─────────────────────────────────────────
   const handleVerify = async () => {
@@ -80,7 +82,8 @@ export default function VerifyEmailScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <Text style={[styles.title, { color: colors.text }]}>
         Verify your email
       </Text>
@@ -90,12 +93,15 @@ export default function VerifyEmailScreen() {
       </Text>
 
       <TextInput
+        ref={pinRef}
         placeholder="6-digit PIN"
         placeholderTextColor={colors.tabBarInactive}
         keyboardType="number-pad"
         maxLength={6}
         value={pin}
         onChangeText={setPin}
+        returnKeyType="done"
+        onSubmitEditing={handleVerify}
         style={[styles.input, {
           backgroundColor: colors.card,
           color:           colors.text,
@@ -141,7 +147,8 @@ export default function VerifyEmailScreen() {
           Back to login
         </Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

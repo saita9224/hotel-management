@@ -89,6 +89,8 @@ export default function SupplierPaymentModal({ visible, onClose, supplierName, u
             onChangeText={setAmount}
             style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
             editable={!submitting}
+            returnKeyType="done"
+            onSubmitEditing={handleSubmit}
           />
 
           {splitPreview.length > 0 && (

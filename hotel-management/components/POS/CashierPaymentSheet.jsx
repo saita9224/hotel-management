@@ -1,6 +1,6 @@
 // components/POS/CashierPaymentSheet.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Modal,
   View,
@@ -11,6 +11,8 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -142,6 +144,8 @@ function PaymentTab({ receipt, onDone, colors }) {
         keyboardType="numeric"
         value={amount}
         onChangeText={setAmount}
+        returnKeyType="done"
+        onSubmitEditing={handlePay}
       />
 
       {/* Quick-fill full amount */}
@@ -379,6 +383,8 @@ function SettleCreditTab({ credit, onDone, colors }) {
         keyboardType="numeric"
         value={amount}
         onChangeText={setAmount}
+        returnKeyType="done"
+        onSubmitEditing={handleSettle}
       />
       <TouchableOpacity
         style={styles.quickFill}
@@ -480,7 +486,7 @@ export default function CashierPaymentSheet({ visible, receipt, onClose }) {
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
 
           {/* Handle */}
@@ -525,6 +531,7 @@ export default function CashierPaymentSheet({ visible, receipt, onClose }) {
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 48 }}
+                keyboardShouldPersistTaps="handled"
               >
                 {/* ── Items list (only for normal receipts) ── */}
                 {!isCreditSettlement && allItems.length > 0 && (
@@ -695,7 +702,7 @@ export default function CashierPaymentSheet({ visible, receipt, onClose }) {
             </>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,6 +16,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../hooks/useTheme";
 
 export default function ForgotPasswordScreen() {
+  const passwordRef = useRef(null);
+  const confirmationRef = useRef(null);
   const { requestPasswordReset, resetPassword } = useAuth();
   const { colors } = useTheme();
   const router = useRouter();
@@ -77,11 +79,11 @@ export default function ForgotPasswordScreen() {
         </> : <>
           {!!message && <Text style={[styles.notice, { color: colors.accent }]}>{message}</Text>}
           <Text style={[styles.label, { color: colors.text }]}>Six-digit PIN</Text>
-          <TextInput style={fieldStyle} value={pin} onChangeText={v => setPin(v.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6} placeholder="123456" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} />
+          <TextInput style={fieldStyle} value={pin} onChangeText={v => setPin(v.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6} placeholder="123456" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} returnKeyType="next" onSubmitEditing={() => passwordRef.current?.focus()} blurOnSubmit={false} />
           <Text style={[styles.label, { color: colors.text }]}>New password</Text>
-          <TextInput style={fieldStyle} value={password} onChangeText={setPassword} secureTextEntry textContentType="newPassword" placeholder="At least 8 characters" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} />
+          <TextInput ref={passwordRef} style={fieldStyle} value={password} onChangeText={setPassword} secureTextEntry textContentType="newPassword" placeholder="At least 8 characters" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} returnKeyType="next" onSubmitEditing={() => confirmationRef.current?.focus()} blurOnSubmit={false} />
           <Text style={[styles.label, { color: colors.text }]}>Confirm password</Text>
-          <TextInput style={fieldStyle} value={confirmation} onChangeText={setConfirmation} secureTextEntry textContentType="newPassword" placeholder="Re-enter new password" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} onSubmitEditing={submitReset} />
+          <TextInput ref={confirmationRef} style={fieldStyle} value={confirmation} onChangeText={setConfirmation} secureTextEntry textContentType="newPassword" placeholder="Re-enter new password" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} returnKeyType="done" onSubmitEditing={submitReset} />
         </>}
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
         <TouchableOpacity disabled={busy} onPress={stage === "email" ? requestPin : submitReset} style={[styles.button, { backgroundColor: colors.accent, opacity: busy ? 0.7 : 1 }]}>

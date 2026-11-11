@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   Alert,
   ActivityIndicator,
   Switch,
@@ -606,7 +608,7 @@ export default function MenuManagerSheet({ visible, onClose }) {
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
 
           {/* Handle */}
@@ -633,6 +635,7 @@ export default function MenuManagerSheet({ visible, onClose }) {
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 60 }}
+              keyboardShouldPersistTaps="handled"
             >
 
               {/* ── NEEDS PRICING ── */}
@@ -724,7 +727,7 @@ export default function MenuManagerSheet({ visible, onClose }) {
             </ScrollView>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

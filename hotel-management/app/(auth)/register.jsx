@@ -1,6 +1,6 @@
 // app/(auth)/register.jsx
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator,
@@ -43,6 +43,10 @@ const VERIFY_MUTATION = `
 `;
 
 export default function RegisterScreen() {
+  const businessNameRef = useRef(null);
+  const emailRef = useRef(null);
+  const nameRef = useRef(null);
+  const passwordRef = useRef(null);
   // applySession is the shared session writer from AuthContext.
   // It writes token, schemaName, roles, permissions to AsyncStorage
   // and updates all context state in one call — same function used
@@ -199,10 +203,14 @@ export default function RegisterScreen() {
             </Text>
 
             <TextInput
+              ref={businessNameRef}
               placeholder="Business name"
               placeholderTextColor={colors.tabBarInactive}
               value={businessName}
               onChangeText={setBusinessName}
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
+              blurOnSubmit={false}
               style={[styles.input, {
                 backgroundColor: colors.card,
                 color:           colors.text,
@@ -211,12 +219,15 @@ export default function RegisterScreen() {
             />
 
             <TextInput
+              ref={emailRef}
               placeholder="Your email"
               placeholderTextColor={colors.tabBarInactive}
               autoCapitalize="none"
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}
+              returnKeyType="done"
+              onSubmitEditing={handleRequestPin}
               style={[styles.input, {
                 backgroundColor: colors.card,
                 color:           colors.text,
@@ -257,6 +268,9 @@ export default function RegisterScreen() {
               maxLength={6}
               value={pin}
               onChangeText={setPin}
+              returnKeyType="next"
+              onSubmitEditing={() => nameRef.current?.focus()}
+              blurOnSubmit={false}
               style={[styles.input, {
                 backgroundColor: colors.card,
                 color:           colors.text,
@@ -269,11 +283,15 @@ export default function RegisterScreen() {
 
             {/* Your name */}
             <TextInput
+              ref={nameRef}
               placeholder="Your name"
               placeholderTextColor={colors.tabBarInactive}
               autoCapitalize="words"
               value={adminName}
               onChangeText={setAdminName}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              blurOnSubmit={false}
               style={[styles.input, {
                 backgroundColor: colors.card,
                 color:           colors.text,
@@ -287,11 +305,14 @@ export default function RegisterScreen() {
               borderColor:     colors.border,
             }]}>
               <TextInput
+                ref={passwordRef}
                 placeholder="Create password (min 8 chars)"
                 placeholderTextColor={colors.tabBarInactive}
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
+                returnKeyType="done"
+                onSubmitEditing={handleVerify}
                 style={[styles.passwordInput, { color: colors.text }]}
               />
               <TouchableOpacity

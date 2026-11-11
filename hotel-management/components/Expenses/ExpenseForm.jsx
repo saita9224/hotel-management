@@ -47,6 +47,10 @@ export default function ExpenseForm({ onClose }) {
   const [suggestionBanner, setSuggestionBanner] = useState(null);
   const [suggestLoading,   setSuggestLoading]   = useState(false);
   const suggestTimer = useRef(null);
+  const supplierRef = useRef(null);
+  const quantityRef = useRef(null);
+  const unitPriceRef = useRef(null);
+  const amountPaidRef = useRef(null);
 
   // ── New category modal ───────────────────────────────
   const [newCatModalVisible, setNewCatModalVisible] = useState(false);
@@ -427,6 +431,8 @@ export default function ExpenseForm({ onClose }) {
               placeholderTextColor={colors.tabBarInactive}
               value={form.item_name}
               onChangeText={v => set("item_name", v)}
+              onSubmitEditing={() => supplierRef.current?.focus()}
+              blurOnSubmit={false}
               style={[styles.fieldInput, { color: colors.text }]}
               returnKeyType="next"
             />
@@ -441,10 +447,13 @@ export default function ExpenseForm({ onClose }) {
           <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <Ionicons name="business-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
             <TextInput
+              ref={supplierRef}
               placeholder="Supplier name"
               placeholderTextColor={colors.tabBarInactive}
               value={form.supplier_name}
               onChangeText={v => set("supplier_name", v)}
+              onSubmitEditing={() => quantityRef.current?.focus()}
+              blurOnSubmit={false}
               style={[styles.fieldInput, { color: colors.text }]}
               returnKeyType="next"
             />
@@ -456,11 +465,14 @@ export default function ExpenseForm({ onClose }) {
               <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <Ionicons name="layers-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
                 <TextInput
+                  ref={quantityRef}
                   placeholder="0"
                   placeholderTextColor={colors.tabBarInactive}
                   keyboardType="numeric"
                   value={form.quantity}
                   onChangeText={v => set("quantity", v)}
+                  onSubmitEditing={() => unitPriceRef.current?.focus()}
+                  blurOnSubmit={false}
                   style={[styles.fieldInput, { color: colors.text }]}
                   returnKeyType="next"
                 />
@@ -472,11 +484,14 @@ export default function ExpenseForm({ onClose }) {
               <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <Ionicons name="cash-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
                 <TextInput
+                  ref={unitPriceRef}
                   placeholder="0.00"
                   placeholderTextColor={colors.tabBarInactive}
                   keyboardType="numeric"
                   value={form.unit_price}
                   onChangeText={v => set("unit_price", v)}
+                  onSubmitEditing={() => amountPaidRef.current?.focus()}
+                  blurOnSubmit={false}
                   style={[styles.fieldInput, { color: colors.text }]}
                   returnKeyType="next"
                 />
@@ -490,6 +505,7 @@ export default function ExpenseForm({ onClose }) {
           <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <Ionicons name="wallet-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
             <TextInput
+              ref={amountPaidRef}
               placeholder="0.00"
               placeholderTextColor={colors.tabBarInactive}
               keyboardType="numeric"
