@@ -6,6 +6,7 @@ import { View, ActivityIndicator } from "react-native";
 
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { OfflineProvider } from "../context/OfflineContext";
+import { HRProvider } from "../context/HRContext";
 import { DatabaseProvider } from "../database/DatabaseProvider";
 import { database } from "../database";
 import SyncStatusBanner from "../components/SyncStatusBanner";
@@ -78,18 +79,20 @@ export default function RootLayout() {
     <AuthProvider>
       <DatabaseProvider database={database}>
         <OfflineProvider>
-          <RouteGuard>
-            <View style={{ flex: 1 }}>
-              <SyncStatusBanner />
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen name="(security)" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="hr" options={{ headerShown: false }} />
-                <Stack.Screen name="menu-modal" options={{ headerShown: false, presentation: 'modal' }} />
-              </Stack>
-            </View>
-          </RouteGuard>
+          <HRProvider>
+            <RouteGuard>
+              <View style={{ flex: 1 }}>
+                <SyncStatusBanner />
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                  <Stack.Screen name="(security)" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="hr" options={{ headerShown: false }} />
+                  <Stack.Screen name="menu-modal" options={{ headerShown: false, presentation: 'modal' }} />
+                </Stack>
+              </View>
+            </RouteGuard>
+          </HRProvider>
         </OfflineProvider>
       </DatabaseProvider>
     </AuthProvider>

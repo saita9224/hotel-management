@@ -10,7 +10,6 @@ import { MenuProvider } from "../../context/MenuContext";
 import { InventoryProvider } from "../../context/InventoryContext";
 import { POSProvider } from "../../context/POSContext";
 import { ExpensesProvider } from "../../context/ExpensesContext";
-import { HRProvider } from "../../context/HRContext";
 import { ReportsProvider } from "../../context/ReportsContext";
 import { useTheme } from "../../hooks/useTheme";
 
@@ -82,11 +81,9 @@ export default function TabsLayout() {
       <InventoryProvider>
         <POSProvider>
           <ExpensesProvider>
-            <HRProvider>
-              <ReportsProvider>
-                <TabsContent />
-              </ReportsProvider>
-            </HRProvider>
+          <ReportsProvider>
+            <TabsContent />
+          </ReportsProvider>
           </ExpensesProvider>
         </POSProvider>
       </InventoryProvider>
