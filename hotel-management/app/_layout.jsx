@@ -3,6 +3,7 @@
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
+import { SafeAreaInsetsContext, initialWindowMetrics } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { OfflineProvider } from "../context/OfflineContext";
@@ -74,6 +75,12 @@ function RouteGuard({ children }) {
   return children;
 }
 
+const FALLBACK_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
+const NAV_INSETS = {
+  ...(initialWindowMetrics?.insets ?? FALLBACK_INSETS),
+  top: 0,
+};
+
 export default function RootLayout() {
   return (
     <AuthProvider>
@@ -83,6 +90,7 @@ export default function RootLayout() {
             <RouteGuard>
               <View style={{ flex: 1 }}>
                 <SyncStatusBanner />
+                <SafeAreaInsetsContext.Provider value={NAV_INSETS}>
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                   <Stack.Screen name="(security)" options={{ headerShown: false }} />
@@ -90,6 +98,7 @@ export default function RootLayout() {
                   <Stack.Screen name="hr" options={{ headerShown: false }} />
                   <Stack.Screen name="menu-modal" options={{ headerShown: false, presentation: 'modal' }} />
                 </Stack>
+                </SafeAreaInsetsContext.Provider>
               </View>
             </RouteGuard>
           </HRProvider>
