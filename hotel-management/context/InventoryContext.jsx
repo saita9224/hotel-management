@@ -34,6 +34,9 @@ const InventoryContext = createContext();
 
 export const useInventory = () => useContext(InventoryContext);
 
+const isNetworkError = (error) =>
+  /network|failed to fetch|timed?\s*out|unreachable/i.test(String(error?.message || ""));
+
 export const InventoryProvider = ({ children }) => {
   const [products,               setProducts]               = useState([]);
   const [serverCategories,       setServerCategories]       = useState([]);
@@ -159,18 +162,29 @@ export const InventoryProvider = ({ children }) => {
   // =====================================================
 
   const createCategory = async (name) => {
-    if (!isOnline) {
+    const enqueueOffline = async () => {
       const item = await enqueueMutation("CREATE_CATEGORY", { name });
       await refreshQueueCount();
       const mockCategory = { id: item.clientId, name: name.trim() };
       setServerCategories((prev) => [...prev, mockCategory].sort((a, b) => a.name.localeCompare(b.name)));
       return mockCategory;
+    };
+
+    if (!isOnline) {
+      return enqueueOffline();
     }
     try {
       const cat = await createCategoryService(name);
       setServerCategories((prev) => [...prev, cat].sort((a, b) => a.name.localeCompare(b.name)));
       return cat;
     } catch (error) {
+      const msg = String(error?.message || "");
+      const isNetworkError =
+        !isOnline ||
+        /network|failed to fetch|timed?\s*out|unreachable/i.test(msg);
+      if (isNetworkError) {
+        return enqueueOffline();
+      }
       throw error;
     }
   };
@@ -192,17 +206,18 @@ export const InventoryProvider = ({ children }) => {
   // CREATE PRODUCT + INITIAL STOCK
   // =====================================================
 
-  const createProduct = async ({
-    name,
-    category_id,
-    unit,
-    quantity,
-    reason,
-    funded_by_business,
-    notes,
-    auto_deduct_on_sale,
-  }) => {
-    if (!isOnline) {
+  const createProduct = async (args, forceOffline = false) => {
+    const {
+      name,
+      category_id,
+      unit,
+      quantity,
+      reason,
+      funded_by_business,
+      notes,
+      auto_deduct_on_sale,
+    } = args;
+    if (forceOffline || !isOnline) {
       const { clientId } = await enqueueMutation("CREATE_PRODUCT", {
         name,
         category_id,
@@ -268,6 +283,7 @@ export const InventoryProvider = ({ children }) => {
 
       return productId;
     } catch (error) {
+      if (isNetworkError(error)) return createProduct(args, true);
       throw error;
     }
   };
@@ -276,8 +292,8 @@ export const InventoryProvider = ({ children }) => {
   // ADD STOCK
   // =====================================================
 
-  const addStock = async (productId, quantity, reason, funded_by_business, notes) => {
-    if (!isOnline) {
+  const addStock = async (productId, quantity, reason, funded_by_business, notes, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       await enqueueMutation("ADD_STOCK", {
         product_id: productId,
         quantity: Number(quantity),
@@ -309,6 +325,7 @@ export const InventoryProvider = ({ children }) => {
       });
       await loadProducts();
     } catch (error) {
+      if (isNetworkError(error)) return addStock(productId, quantity, reason, funded_by_business, notes, true);
       throw error;
     }
   };
@@ -317,8 +334,8 @@ export const InventoryProvider = ({ children }) => {
   // DEDUCT STOCK
   // =====================================================
 
-  const deductStock = async (productId, quantity, reason, notes) => {
-    if (!isOnline) {
+  const deductStock = async (productId, quantity, reason, notes, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       await enqueueMutation("REMOVE_STOCK", {
         product_id: productId,
         quantity: Number(quantity),
@@ -343,6 +360,7 @@ export const InventoryProvider = ({ children }) => {
       await removeStockService({ product_id: productId, quantity, reason, notes });
       await loadProducts();
     } catch (error) {
+      if (isNetworkError(error)) return deductStock(productId, quantity, reason, notes, true);
       throw error;
     }
   };
@@ -453,8 +471,8 @@ export const InventoryProvider = ({ children }) => {
   // ADD STOCK FROM EXPENSE
   // =====================================================
 
-  const addStockFromExpense = async ({ product_id, quantity, expense_item_id }) => {
-    if (!isOnline) {
+  const addStockFromExpense = async ({ product_id, quantity, expense_item_id }, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       await enqueueMutation("ADD_STOCK_FROM_EXPENSE", {
         product_id,
         quantity: Number(quantity),
@@ -481,6 +499,7 @@ export const InventoryProvider = ({ children }) => {
       });
       await loadProducts();
     } catch (error) {
+      if (isNetworkError(error)) return addStockFromExpense({ product_id, quantity, expense_item_id }, true);
       throw error;
     }
   };
@@ -489,15 +508,16 @@ export const InventoryProvider = ({ children }) => {
   // CREATE PRODUCT WITH STOCK
   // =====================================================
 
-  const createProductWithStock = async ({
-    name,
-    unit,
-    category_id,
-    quantity,
-    expense_item_id,
-    auto_deduct_on_sale,
-  }) => {
-    if (!isOnline) {
+  const createProductWithStock = async (args, forceOffline = false) => {
+    const {
+      name,
+      unit,
+      category_id,
+      quantity,
+      expense_item_id,
+      auto_deduct_on_sale,
+    } = args;
+    if (forceOffline || !isOnline) {
       const { clientId } = await enqueueMutation("CREATE_PRODUCT_WITH_STOCK", {
         name,
         unit,
@@ -543,6 +563,7 @@ export const InventoryProvider = ({ children }) => {
       await loadProducts();
       return result;
     } catch (error) {
+      if (isNetworkError(error)) return createProductWithStock(args, true);
       throw error;
     }
   };

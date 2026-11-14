@@ -30,6 +30,9 @@ const ExpensesContext = createContext();
 
 export const useExpenses = () => useContext(ExpensesContext);
 
+const isNetworkError = (error) =>
+  /network|failed to fetch|timed?\s*out|unreachable/i.test(String(error?.message || ""));
+
 export const ExpensesProvider = ({ children }) => {
   const [expenses, setExpenses]   = useState([]);
   const [payments, setPayments]   = useState([]);
@@ -116,8 +119,8 @@ export const ExpensesProvider = ({ children }) => {
   // CREATE EXPENSE
   // =====================================================
 
-  const createExpense = async (input) => {
-    if (!isOnline) {
+  const createExpense = async (input, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       const total = Number(input.quantity) * Number(input.unit_price);
       const paid = input.amount_paid !== undefined ? Number(input.amount_paid) : total;
       const balance = Math.max(0, total - paid);
@@ -203,6 +206,7 @@ export const ExpensesProvider = ({ children }) => {
       await loadExpenses();
       return result;
     } catch (error) {
+      if (isNetworkError(error)) return createExpense(input, true);
       throw error;
     }
   };
@@ -211,8 +215,8 @@ export const ExpensesProvider = ({ children }) => {
   // PAY BALANCE
   // =====================================================
 
-  const payBalance = async (expenseId, amount) => {
-    if (!isOnline) {
+  const payBalance = async (expenseId, amount, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       await enqueueMutation("PAY_BALANCE", { expenseId, amount });
       await refreshQueueCount();
       
@@ -232,6 +236,7 @@ export const ExpensesProvider = ({ children }) => {
       await payBalanceService(expenseId, amount);
       await loadExpenses();
     } catch (error) {
+      if (isNetworkError(error)) return payBalance(expenseId, amount, true);
       throw error;
     }
   };

@@ -40,6 +40,9 @@ import { ProductRepository } from "../database/repositories/productRepository";
 const POSContext = createContext();
 export const usePOS = () => useContext(POSContext);
 
+const isNetworkError = (error) =>
+  /network|failed to fetch|timed?\s*out|unreachable/i.test(String(error?.message || ""));
+
 const isToday = (value) => {
   if (!value) return false;
   const date = new Date(value);
@@ -211,7 +214,7 @@ export const POSProvider = ({ children }) => {
       setReceipts((prev) => [receipt, ...prev]);
       return receipt;
     } catch (err) {
-      if (err?.message?.includes("Network")) {
+      if (isNetworkError(err)) {
         const { clientId } = await enqueueMutation("CREATE_RECEIPT", { session_id, discount, table_note });
         await refreshQueueCount();
         
@@ -277,8 +280,8 @@ export const POSProvider = ({ children }) => {
 
   // ── Orders ────────────────────────────────────────────
 
-  const createOrder = async (receiptId) => {
-    if (!isOnline) {
+  const createOrder = async (receiptId, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       const item = await enqueueMutation("CREATE_ORDER", { receipt_id: receiptId });
       await refreshQueueCount();
       return {
@@ -292,12 +295,13 @@ export const POSProvider = ({ children }) => {
     try {
       return await createOrderService(receiptId);
     } catch (err) {
+      if (isNetworkError(err)) return createOrder(receiptId, true);
       throw err;
     }
   };
 
-  const addOrderItem = async (input) => {
-    if (!isOnline) {
+  const addOrderItem = async (input, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       await enqueueMutation("ADD_ORDER_ITEM", input);
       await refreshQueueCount();
       return {
@@ -315,12 +319,13 @@ export const POSProvider = ({ children }) => {
     try {
       return await addOrderItemService(input);
     } catch (err) {
+      if (isNetworkError(err)) return addOrderItem(input, true);
       throw err;
     }
   };
 
-  const addMenuOrderItem = async (input) => {
-    if (!isOnline) {
+  const addMenuOrderItem = async (input, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       await enqueueMutation("ADD_MENU_ORDER_ITEM", input);
       await refreshQueueCount();
       return {
@@ -337,14 +342,15 @@ export const POSProvider = ({ children }) => {
     try {
       return await addMenuOrderItemService(input);
     } catch (err) {
+      if (isNetworkError(err)) return addMenuOrderItem(input, true);
       throw err;
     }
   };
 
   // ── Submit / Recall ───────────────────────────────────
 
-  const submitOrder = async (receiptId, cartItems = []) => {
-    if (!isOnline) {
+  const submitOrder = async (receiptId, cartItems = [], forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       await enqueueMutation("SUBMIT_ORDER", { receipt_id: receiptId });
       await refreshQueueCount();
 
@@ -380,6 +386,7 @@ export const POSProvider = ({ children }) => {
       await Promise.all([loadProducts(), refreshMenu()]);
       return updated;
     } catch (err) {
+      if (isNetworkError(err)) return submitOrder(receiptId, cartItems, true);
       throw err;
     }
   };
@@ -397,8 +404,8 @@ export const POSProvider = ({ children }) => {
 
   // ── Payment ───────────────────────────────────────────
 
-  const acceptPayment = async (input) => {
-    if (!isOnline) {
+  const acceptPayment = async (input, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       await enqueueMutation("ACCEPT_PAYMENT", input);
       await refreshQueueCount();
       const offlinePayment = {
@@ -417,6 +424,7 @@ export const POSProvider = ({ children }) => {
       await Promise.all([loadCashierData(), loadReceipts(), loadProducts(), refreshMenu()]);
       return payment;
     } catch (err) {
+      if (isNetworkError(err)) return acceptPayment(input, true);
       throw err;
     }
   };
@@ -443,8 +451,8 @@ export const POSProvider = ({ children }) => {
     }
   };
 
-  const refundReceipt = async (input) => {
-    if (!isOnline) {
+  const refundReceipt = async (input, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       await enqueueMutation("REFUND_RECEIPT", {
         receipt_id: input.receipt_id,
         reason: input.reason,
@@ -473,7 +481,7 @@ export const POSProvider = ({ children }) => {
       await Promise.all([loadProducts(), refreshMenu()]);
       return updated;
     } catch (err) {
-      // Error handling
+      if (isNetworkError(err)) return refundReceipt(input, true);
       throw err;
     }
   };

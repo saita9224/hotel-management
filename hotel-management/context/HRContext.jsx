@@ -71,6 +71,9 @@ const fromLocalLeaveRequest = (row) => ({
 const HRContext = createContext();
 export const useHR = () => useContext(HRContext);
 
+const isNetworkError = (error) =>
+  /network|failed to fetch|timed?\s*out|unreachable/i.test(String(error?.message || ""));
+
 export const HRProvider = ({ children }) => {
   const { isAuthenticated, permissions = [] } = useAuth();
   const { isOnline, refreshQueueCount } = useOffline();
@@ -310,8 +313,8 @@ export const HRProvider = ({ children }) => {
     }
   };
 
-  const selfCheckIn = async () => {
-    if (!isOnline) {
+  const selfCheckIn = async (forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       const { clientId } = await enqueueMutation("SELF_CHECK_IN", {});
       await refreshQueueCount();
       
@@ -341,13 +344,18 @@ export const HRProvider = ({ children }) => {
       return mockAttendance;
     }
     
-    const result = await selfCheckInService();
-    await loadTodayAttendance();
-    return result;
+    try {
+      const result = await selfCheckInService();
+      await loadTodayAttendance();
+      return result;
+    } catch (err) {
+      if (isNetworkError(err)) return selfCheckIn(true);
+      throw err;
+    }
   };
 
-  const selfCheckOut = async () => {
-    if (!isOnline) {
+  const selfCheckOut = async (forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       const { clientId } = await enqueueMutation("SELF_CHECK_OUT", {});
       await refreshQueueCount();
       const today = new Date().toISOString().split('T')[0];
@@ -362,6 +370,7 @@ export const HRProvider = ({ children }) => {
       await loadTodayAttendance();
       return result;
     } catch (err) {
+      if (isNetworkError(err)) return selfCheckOut(true);
       console.error("Self Check-out Error:", err);
       throw err;
     }
@@ -437,8 +446,8 @@ export const HRProvider = ({ children }) => {
     }
   };
 
-  const requestLeave = async (input) => {
-    if (!isOnline) {
+  const requestLeave = async (input, forceOffline = false) => {
+    if (forceOffline || !isOnline) {
       const { clientId } = await enqueueMutation("REQUEST_LEAVE", input);
       await refreshQueueCount();
       
@@ -471,9 +480,14 @@ export const HRProvider = ({ children }) => {
       return mockLeaveRequest;
     }
     
-    const result = await requestLeaveService(input);
-    await loadMyLeaveRequests();
-    return result;
+    try {
+      const result = await requestLeaveService(input);
+      await loadMyLeaveRequests();
+      return result;
+    } catch (err) {
+      if (isNetworkError(err)) return requestLeave(input, true);
+      throw err;
+    }
   };
 
   const reviewLeave = async (input) => {
