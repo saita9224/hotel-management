@@ -23,7 +23,6 @@ import { useNavigation } from "expo-router";
 
 import { useInventory } from "../../context/InventoryContext";
 import { useTheme } from "../../hooks/useTheme";
-import OfflineIndicator from "../../components/OfflineIndicator";
 
 import AddItemSheet      from "../../components/Inventory/AddItemSheet";
 import DeductStockModal  from "../../components/Inventory/DeductStockModal";
@@ -58,7 +57,7 @@ function HeaderToggle({ activeTab, onPress, colors }) {
             <Text style={{
               color:      active ? "#fff" : colors.tabBarInactive,
               fontWeight: "600",
-              fontSize:   13,
+              fontSize:   14,
             }}>
               {t.label}
             </Text>
@@ -71,7 +70,7 @@ function HeaderToggle({ activeTab, onPress, colors }) {
 
 const toggle = StyleSheet.create({
   wrapper: { flexDirection: "row", borderRadius: 8, borderWidth: 1, padding: 3, gap: 3 },
-  btn:     { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, alignItems: "center", justifyContent: "center" },
+  btn:     { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, alignItems: "center", justifyContent: "center" },
 });
 
 export default function InventoryScreen() {
@@ -119,14 +118,9 @@ export default function InventoryScreen() {
   useEffect(() => {
     navigation.setOptions({
       headerTitle: () => (
-        <View style={{ alignItems: "center", gap: 6 }}>
-          <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 17 }}>
-            Inventory
-          </Text>
-          <HeaderToggle activeTab={activeTab} onPress={setActiveTab} colors={colors} />
-        </View>
+        <HeaderToggle activeTab={activeTab} onPress={setActiveTab} colors={colors} />
       ),
-      headerStyle: { backgroundColor: colors.background, height: 90 },
+      headerStyle: { backgroundColor: colors.background, height: 58 },
     });
   }, [activeTab, colors]);
 
@@ -253,7 +247,6 @@ export default function InventoryScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <OfflineIndicator position="top" />
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         {activeTab === "inventory" && (
           <>

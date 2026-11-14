@@ -24,7 +24,6 @@ import { useTheme } from "../../hooks/useTheme";
 import { usePOS } from "../../context/POSContext";
 import { useInventory } from "../../context/InventoryContext";
 import { useMenu } from "../../context/MenuContext";
-import OfflineIndicator from "../../components/OfflineIndicator";
 
 import POSScreen from "../../components/POS/POSScreen";
 import ReceiptDetailSheet from "../../components/POS/ReceiptDetailSheet";
@@ -492,7 +491,7 @@ export default function OrdersScreen() {
               <Text style={{
                 color: activeView === v ? "#fff" : colors.tabBarInactive,
                 fontWeight: "600",
-                fontSize: 13,
+                fontSize: 14,
               }}>
                 {v === "waiter" ? "Orders" : "Cashier"}
               </Text>
@@ -605,7 +604,6 @@ export default function OrdersScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <OfflineIndicator position="top" />
       <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
 
         {activeView === "waiter" ? (
@@ -723,8 +721,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   headerToggleBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
     borderRadius: 8,
   },
 

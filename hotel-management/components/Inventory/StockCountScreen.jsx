@@ -547,7 +547,7 @@ export default function StockCountScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16 },
 
-  phaseHeader: { paddingVertical: 16 },
+  phaseHeader: { paddingTop: 4, paddingBottom: 12 },
   stepBadge:   { alignSelf: "flex-start", paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, marginBottom: 8 },
   phaseTitle:  { fontSize: 20, fontWeight: "700" },
 
