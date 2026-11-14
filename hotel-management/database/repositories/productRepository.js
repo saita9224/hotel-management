@@ -56,7 +56,7 @@ export const ProductRepository = {
       return await database.get('products').create(record => {
         if (productData.id) record._raw.id = String(productData.id);
         record.name = productData.name;
-        record.categoryId = productData.category_id || productData.categoryId || null;
+        record.categoryId = productData.category_id ?? productData.categoryId ?? productData.category?.id ?? null;
         record.unit = productData.unit || '';
         record.currentStock = Number(productData.current_stock ?? productData.currentStock ?? 0);
         record.autoDeductOnSale = Boolean(productData.auto_deduct_on_sale ?? productData.autoDeductOnSale ?? false);
@@ -73,8 +73,8 @@ export const ProductRepository = {
       const record = await database.get('products').find(id);
       await record.update(r => {
         if (updates.name !== undefined) r.name = updates.name;
-        if (updates.category_id !== undefined || updates.categoryId !== undefined) {
-          r.categoryId = updates.category_id || updates.categoryId;
+        if (updates.category_id !== undefined || updates.categoryId !== undefined || updates.category !== undefined) {
+          r.categoryId = updates.category_id ?? updates.categoryId ?? updates.category?.id ?? null;
         }
         if (updates.unit !== undefined) r.unit = updates.unit;
         if (updates.current_stock !== undefined || updates.currentStock !== undefined) {

@@ -23,6 +23,8 @@ import {
   createCategoryService,
   addStockService,
   removeStockService,
+  addStockFromExpenseService,
+  createProductWithStockService,
   submitReconciliationService,
   approveReconciliationService,
   rejectReconciliationService,
@@ -396,6 +398,24 @@ export const InventoryProvider = ({ children }) => {
   };
 
   // =====================================================
+  // ENRICH PRODUCTS — WatermelonDB only stores
+  // category_id, so resolve the display name from
+  // serverCategories here.
+  // =====================================================
+
+  const enrichedProducts = useMemo(() => {
+    return products.map((p) => {
+      if (!p.category?.id || p.category.name) return p;
+      const match = serverCategories.find(
+        (c) => String(c.id) === String(p.category.id)
+      );
+      return match
+        ? { ...p, category: { ...p.category, name: match.name } }
+        : p;
+    });
+  }, [products, serverCategories]);
+
+  // =====================================================
   // FILTER CATEGORIES — derived from products for the
   // inventory list pill filter ("All", "Beverages", ...)
   // Separate from serverCategories which is used in forms.
@@ -403,12 +423,12 @@ export const InventoryProvider = ({ children }) => {
 
   const categories = useMemo(() => {
     const unique = new Set(
-      products
+      enrichedProducts
         .map((p) => p.category?.name)
         .filter(Boolean)
     );
     return ["All", ...Array.from(unique).sort()];
-  }, [products]);
+  }, [enrichedProducts]);
 
   // =====================================================
   // INIT
@@ -529,7 +549,7 @@ export const InventoryProvider = ({ children }) => {
 
   const value = useMemo(
     () => ({
-      products,
+      products: enrichedProducts,
       categories,
       serverCategories,   // full { id, name } objects for forms
       loading,
@@ -548,7 +568,7 @@ export const InventoryProvider = ({ children }) => {
       approveReconciliation,
       rejectReconciliation,
     }),
-    [products, categories, serverCategories, loading, pendingReconciliations]
+    [enrichedProducts, categories, serverCategories, loading, pendingReconciliations]
   );
 
   return (
