@@ -259,7 +259,7 @@ export default function BusinessLogo({ size = 160, style }) {
         {hasCustomLogo ? (
           <Image
             source={{ uri: business.logo }}
-            style={[styles.image, { borderRadius: size / 4 }]}
+            style={[styles.image, { borderRadius: size / 5 }]}
             contentFit="contain"
             transition={300}
             cachePolicy="disk"
@@ -309,8 +309,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   image: {
-    width: "100%",
-    height: "100%",
+    width: "80%",
+    height: "80%",
   },
   avatarContainer: {
     width: "100%",
