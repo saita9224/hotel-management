@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, StyleSheet, TouchableOpacity, FlatList, Text,
   BackHandler, Animated, Dimensions, TouchableWithoutFeedback,
-  KeyboardAvoidingView, Platform, ScrollView,
+  KeyboardAvoidingView, Platform, ScrollView, StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,7 +12,6 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { useTheme } from "../../hooks/useTheme";  // 👈 replaced useColorScheme + Colors
 import { useExpenses } from "../../context/ExpensesContext";
-import OfflineIndicator from "../../components/OfflineIndicator";
 
 import ExpenseTable from "../../components/Expenses/ExpenseTable";
 import ExpenseForm from "../../components/Expenses/ExpenseForm";
@@ -22,6 +21,7 @@ import SupplierExpenses from "../../components/Expenses/SupplierExpenses";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.82;
+const STATUS_BAR_HEIGHT = Platform.OS === "android" ? StatusBar.currentHeight || 24 : 0;
 
 export default function ExpensesScreen() {
   const { colors } = useTheme();  // 👈 single source of truth
@@ -97,11 +97,13 @@ export default function ExpensesScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <OfflineIndicator position="top" />
-      <View style={styles.tabsRow}>
-        <Tab id="table" label="Expenses" />
-        <Tab id="summary" label="Supplier Debts" />
-        <Tab id="supplier" label="Supplier Ledger" />
+      <View style={{ height: STATUS_BAR_HEIGHT }} />
+      <View style={[styles.tabsWrap, { backgroundColor: colors.background }]}>
+        <View style={styles.tabsRow}>
+          <Tab id="table" label="Expenses" />
+          <Tab id="summary" label="Supplier Debts" />
+          <Tab id="supplier" label="Supplier Ledger" />
+        </View>
       </View>
 
       <FlatList
@@ -147,7 +149,8 @@ export default function ExpensesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16 },
-  tabsRow: { flexDirection: "row", marginBottom: 12, gap: 8 },
+  tabsWrap: { height: 48, justifyContent: "center", marginBottom: 12 },
+  tabsRow: { flexDirection: "row", gap: 8 },
   tab: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8 },
   fab: { position: "absolute", bottom: 10, right: 10, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },

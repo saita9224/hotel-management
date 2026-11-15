@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, ScrollView, TextInput, Modal,
+  Platform, StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../hooks/useTheme";
-import OfflineIndicator from "../../components/OfflineIndicator";
 
 import SalesReportTab      from "../../components/Reports/SalesReportTab";
 import ProductsReportTab   from "../../components/Reports/ProductsReportTab";
@@ -33,6 +33,8 @@ const MONTHS = [
   "Jan","Feb","Mar","Apr","May","Jun",
   "Jul","Aug","Sep","Oct","Nov","Dec",
 ];
+
+const STATUS_BAR_HEIGHT = Platform.OS === "android" ? StatusBar.currentHeight || 24 : 0;
 
 const toDateStr = (d) => d.toISOString().split("T")[0];
 
@@ -135,15 +137,16 @@ export default function ReportsScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
-      <OfflineIndicator position="top" />
+
+      <View style={{ height: STATUS_BAR_HEIGHT }} />
 
       {/* ── Tab bar ── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[styles.tabBar, { borderBottomColor: colors.border }]}
-        contentContainerStyle={{ paddingHorizontal: 8 }}
-      >
+      <View style={[styles.tabBarWrap, { backgroundColor: colors.background }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabBarContent}
+        >
         {TABS.map((t) => {
           const active = activeTab === t.key;
           return (
@@ -151,27 +154,25 @@ export default function ReportsScreen() {
               key={t.key}
               style={[
                 styles.tabBtn,
-                active && { borderBottomWidth: 2, borderBottomColor: colors.accent },
+                {
+                  backgroundColor: active ? colors.accent : colors.card,
+                  borderColor:     active ? colors.accent : colors.border,
+                },
               ]}
               onPress={() => setActiveTab(t.key)}
             >
-              <Ionicons
-                name={t.icon}
-                size={16}
-                color={active ? colors.accent : colors.tabBarInactive}
-              />
               <Text style={{
-                color:      active ? colors.accent : colors.tabBarInactive,
-                fontWeight: active ? "700" : "400",
-                fontSize:   11,
-                marginTop:  3,
+                color:      active ? "#fff" : colors.tabBarInactive,
+                fontWeight: active ? "700" : "500",
+                fontSize:   13,
               }}>
                 {t.label}
               </Text>
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* ── Date controls ── */}
       {isMonthTab ? (
@@ -298,8 +299,16 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
   root:        { flex: 1 },
-  tabBar:      { borderBottomWidth: 1, maxHeight: 60 },
-  tabBtn:      { alignItems: "center", paddingVertical: 10, paddingHorizontal: 12 },
+  tabBarWrap:   { height: 48, justifyContent: "center" },
+  tabBarContent:{ paddingHorizontal: 8, gap: 8, alignItems: "center" },
+  tabBtn:      {
+    alignItems:       "center",
+    justifyContent:   "center",
+    paddingVertical:  8,
+    paddingHorizontal: 14,
+    borderRadius:     8,
+    borderWidth:      1,
+  },
   rangeBar:    { borderBottomWidth: 1, maxHeight: 48 },
   rangePill:   { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1 },
   monthPicker: {

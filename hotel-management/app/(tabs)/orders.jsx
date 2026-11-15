@@ -478,7 +478,7 @@ export default function OrdersScreen() {
   useEffect(() => {
     navigation.setOptions({
       headerTitle: () => (
-        <View style={styles.headerToggle}>
+        <View style={[styles.headerToggle, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {["waiter", "cashier"].map((v) => (
             <TouchableOpacity
               key={v}
@@ -717,13 +717,17 @@ const styles = StyleSheet.create({
   headerToggle: {
     flexDirection: "row",
     borderRadius: 8,
+    borderWidth: 1,
+    padding: 3,
+    gap: 3,
     overflow: "hidden",
-    gap: 2,
   },
   headerToggleBtn: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   summaryContainer: {

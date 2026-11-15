@@ -69,8 +69,8 @@ function TabsContent() {
       />
       <Tabs.Screen name="inventory" options={{ title: "Inventory" }} />
       <Tabs.Screen name="orders" options={{ title: "Orders" }} />
-      <Tabs.Screen name="expenses" options={{ title: "Expenses" }} />
-      <Tabs.Screen name="reports" options={{ title: "Reports" }} />
+      <Tabs.Screen name="expenses" options={{ title: "Expenses", headerShown: false }} />
+      <Tabs.Screen name="reports" options={{ title: "Reports", headerShown: false }} />
     </Tabs>
   );
 }
