@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import { useOffline } from "../context/OfflineContext";
@@ -38,6 +40,64 @@ function getBusinessInitials(name) {
     return (words[0][0] + words[1][0]).toUpperCase();
   }
   return trimmed.substring(0, 2).toUpperCase();
+}
+
+const MAX_UPLOAD_BYTES = 1.5 * 1024 * 1024; // 1.5MB upload target
+const MAX_DIMENSION = 1024;
+
+async function getFileSize(uri) {
+  try {
+    const info = await FileSystem.getInfoAsync(uri, { size: true });
+    return info.exists ? info.size || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function persistFile(sourceUri, fileName) {
+  const dest = `${FileSystem.documentDirectory}${fileName}`;
+  await FileSystem.copyAsync({ from: sourceUri, to: dest });
+  return dest;
+}
+
+function extFromMime(mime, fallbackName) {
+  if (mime === "image/jpeg" || mime === "image/jpg") return ".jpg";
+  if (mime === "image/png") return ".png";
+  if (mime === "image/webp") return ".webp";
+  const match = /\.([a-zA-Z0-9]+)$/.exec(fallbackName || "");
+  return match ? `.${match[1].toLowerCase()}` : ".jpg";
+}
+
+async function compressLogoAsset(asset) {
+  const actions = [];
+  const longest = Math.max(asset.width || 0, asset.height || 0);
+  if (longest > MAX_DIMENSION) {
+    const scale = MAX_DIMENSION / longest;
+    actions.push({
+      resize: {
+        width: Math.max(1, Math.round((asset.width || MAX_DIMENSION) * scale)),
+        height: Math.max(1, Math.round((asset.height || MAX_DIMENSION) * scale)),
+      },
+    });
+  }
+
+  let compress = 0.8;
+  let result = await ImageManipulator.manipulateAsync(asset.uri, actions, {
+    compress,
+    format: ImageManipulator.SaveFormat.JPEG,
+  });
+
+  // Step quality down until under the upload limit (max 3 retries)
+  for (let i = 0; i < 3; i++) {
+    const size = await getFileSize(result.uri);
+    if (size === 0 || size <= MAX_UPLOAD_BYTES) break;
+    compress = Math.max(0.3, compress - 0.2);
+    result = await ImageManipulator.manipulateAsync(asset.uri, actions, {
+      compress,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+  }
+  return result;
 }
 
 function getAvatarColor(name) {
@@ -124,21 +184,39 @@ export default function BusinessLogo({ size = 160, style }) {
 
       const selectedAsset = result.assets[0];
 
-      // File size check (default limit: 2MB = 2 * 1024 * 1024 bytes)
-      if (selectedAsset.fileSize && selectedAsset.fileSize > 2 * 1024 * 1024) {
-        Alert.alert("File Too Large", "Please select an image smaller than 2MB.");
-        return;
-      }
+      const stamp = Date.now();
+      const originalExt = extFromMime(selectedAsset.mimeType, selectedAsset.fileName);
 
-      const fileObj = {
-        uri: selectedAsset.uri,
-        name: selectedAsset.fileName || `logo_${Date.now()}.png`,
-        type: selectedAsset.mimeType || "image/png",
-      };
+      // Persist the ORIGINAL image to document storage so it survives
+      // cache cleanup and remains available for local display + re-upload.
+      let localOriginalUri = selectedAsset.uri;
+      let uploadFile = null;
+      try {
+        localOriginalUri = await persistFile(
+          selectedAsset.uri,
+          `logo_original_${stamp}${originalExt}`
+        );
+
+        // Compress a copy for upload (max 1024px, JPEG, <= ~1.5MB)
+        const compressed = await compressLogoAsset(selectedAsset);
+        const compressedUri = await persistFile(compressed.uri, `logo_upload_${stamp}.jpg`);
+        uploadFile = {
+          uri: compressedUri,
+          name: `logo_${stamp}.jpg`,
+          type: "image/jpeg",
+        };
+      } catch (compressErr) {
+        console.error("Logo compression failed, falling back to original:", compressErr);
+        uploadFile = {
+          uri: localOriginalUri,
+          name: selectedAsset.fileName || `logo_${stamp}${originalExt}`,
+          type: selectedAsset.mimeType || "image/png",
+        };
+      }
 
       if (!isOnline) {
         // Enqueue offline and update local state persistently via AsyncStorage
-        await updateBusinessLogoState(selectedAsset.uri, true, fileObj);
+        await updateBusinessLogoState(localOriginalUri, true, uploadFile);
         Alert.alert(
           "Saved Offline",
           "Logo updated locally. It will sync automatically when your internet connection is restored."
@@ -149,14 +227,14 @@ export default function BusinessLogo({ size = 160, style }) {
       // Online upload via GraphQL
       setUploading(true);
       try {
-        const updatedBusiness = await uploadBusinessLogoGraphQL(fileObj);
-        const newLogoUrl = updatedBusiness?.logo || selectedAsset.uri;
+        const updatedBusiness = await uploadBusinessLogoGraphQL(uploadFile);
+        const newLogoUrl = updatedBusiness?.logo || localOriginalUri;
         await updateBusinessLogoState(newLogoUrl, false);
         Alert.alert("Success", "Business logo updated successfully!");
       } catch (err) {
         console.error("Logo upload failed:", err);
         // Fallback to saving locally and queueing if network error occurred mid-upload
-        await updateBusinessLogoState(selectedAsset.uri, true, fileObj);
+        await updateBusinessLogoState(localOriginalUri, true, uploadFile);
         Alert.alert(
           "Network Error",
           "Upload failed. Saved locally and queued for background synchronization."

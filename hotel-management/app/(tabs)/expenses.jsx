@@ -4,9 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, StyleSheet, TouchableOpacity, FlatList, Text,
   BackHandler, Animated, Dimensions, TouchableWithoutFeedback,
-  KeyboardAvoidingView, Platform, ScrollView, StatusBar,
+  KeyboardAvoidingView, Platform, ScrollView, StatusBar, SafeAreaView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -149,7 +148,7 @@ export default function ExpensesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16 },
-  tabsWrap: { height: 48, justifyContent: "center", marginBottom: 12 },
+  tabsWrap: { height: 38, justifyContent: "center", marginBottom: 8 },
   tabsRow: { flexDirection: "row", gap: 8 },
   tab: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8 },
   fab: { position: "absolute", bottom: 10, right: 10, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5 },
