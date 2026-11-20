@@ -1,9 +1,8 @@
 // app/(tabs)/_layout.jsx
 
 import React from "react";
-import { Tabs, useRouter } from "expo-router";
+import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MenuProvider } from "../../context/MenuContext";
@@ -23,7 +22,6 @@ const icons = {
 
 function TabsContent() {
   const { colors } = useTheme();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   return (
@@ -57,14 +55,8 @@ function TabsContent() {
         name="index"
         options={{
           title: "Dashboard",
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => router.push("/menu-modal")}
-              style={{ marginRight: 16 }}
-            >
-              <Ionicons name="menu-outline" size={24} color={colors.text} />
-            </TouchableOpacity>
-          ),
+          tabBarLabel: "Dashboard",
+          headerShown: false,
         }}
       />
       <Tabs.Screen name="inventory" options={{ title: "Inventory" }} />

@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, ScrollView, TextInput, Modal,
-  Platform, StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../hooks/useTheme";
@@ -33,8 +32,6 @@ const MONTHS = [
   "Jan","Feb","Mar","Apr","May","Jun",
   "Jul","Aug","Sep","Oct","Nov","Dec",
 ];
-
-const STATUS_BAR_HEIGHT = Platform.OS === "android" ? StatusBar.currentHeight || 24 : 0;
 
 const toDateStr = (d) => d.toISOString().split("T")[0];
 
@@ -137,8 +134,6 @@ export default function ReportsScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
-
-      <View style={{ height: STATUS_BAR_HEIGHT }} />
 
       {/* ── Tab bar ── */}
       <View style={[styles.tabBarWrap, { backgroundColor: colors.background }]}>

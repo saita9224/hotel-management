@@ -5,13 +5,13 @@ import {
   View, Text, Image, StyleSheet,
   ScrollView, TouchableOpacity,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme }     from "../../hooks/useTheme";
 import { useAuth }      from "../../context/AuthContext";
 import { useInventory } from "../../context/InventoryContext";
 import { usePOS }       from "../../context/POSContext";
 import { useExpenses }  from "../../context/ExpensesContext";
 import { useRouter }    from "expo-router";
-import OfflineIndicator from "../../components/OfflineIndicator";
 import BusinessLogo     from "../../components/BusinessLogo";
 
 const formatKES = (v) =>
@@ -200,10 +200,18 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <OfflineIndicator position="top" />
+      <TouchableOpacity
+        onPress={() => router.push("/menu-modal")}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel="Open menu"
+        style={[styles.menuBtn, { top: 4 }]}
+      >
+        <Ionicons name="menu-outline" size={26} color={colors.text} />
+      </TouchableOpacity>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ alignItems: "center", paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40 }}
+        contentContainerStyle={{ alignItems: "center", paddingTop: 8, paddingHorizontal: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
       {/* ── Dynamic Business Logo section ── */}
@@ -275,6 +283,16 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  menuBtn: {
+    position: "absolute",
+    left: 8,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+    elevation: 10,
   },
   logoContainer: {
     alignItems: "center",

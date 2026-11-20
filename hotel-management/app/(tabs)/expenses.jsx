@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, StyleSheet, TouchableOpacity, FlatList, Text,
   BackHandler, Animated, Dimensions, TouchableWithoutFeedback,
-  KeyboardAvoidingView, Platform, ScrollView, StatusBar, SafeAreaView,
+  KeyboardAvoidingView, Platform, ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -20,7 +21,6 @@ import SupplierExpenses from "../../components/Expenses/SupplierExpenses";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.82;
-const STATUS_BAR_HEIGHT = Platform.OS === "android" ? StatusBar.currentHeight || 24 : 0;
 
 export default function ExpensesScreen() {
   const { colors } = useTheme();  // 👈 single source of truth
@@ -95,8 +95,7 @@ export default function ExpensesScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={{ height: STATUS_BAR_HEIGHT }} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["bottom"]}>
       <View style={[styles.tabsWrap, { backgroundColor: colors.background }]}>
         <View style={styles.tabsRow}>
           <Tab id="table" label="Expenses" />
