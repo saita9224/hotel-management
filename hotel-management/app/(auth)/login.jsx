@@ -1,6 +1,7 @@
 // app/(auth)/login.jsx
 
 import React, { useEffect, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   Alert,
@@ -62,6 +63,22 @@ export default function LoginScreen() {
       }),
     ]).start();
   }, [formProgress, logoProgress]);
+
+  // If a password reset was in progress (e.g. app reloaded while the user
+  // was checking their email for the PIN), return them to that screen.
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem("@forgot_password_state");
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved?.email) {
+            router.replace("/(auth)/forgot-password");
+          }
+        }
+      } catch {}
+    })();
+  }, [router]);
 
   const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
 

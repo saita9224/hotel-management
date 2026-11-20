@@ -1,4 +1,5 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,6 +16,8 @@ import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../hooks/useTheme";
 
+const RESET_STATE_KEY = "@forgot_password_state";
+
 export default function ForgotPasswordScreen() {
   const passwordRef = useRef(null);
   const confirmationRef = useRef(null);
@@ -25,10 +28,45 @@ export default function ForgotPasswordScreen() {
   const [pin, setPin] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [stage, setStage] = useState("email");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [restored, setRestored] = useState(false);
+
+  // Restore in-progress reset state so leaving the app (e.g. to check
+  // email for the PIN) doesn't lose the form.
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(RESET_STATE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved?.email) setEmail(saved.email);
+          if (saved?.stage === "reset" || saved?.stage === "email") setStage(saved.stage);
+        }
+      } catch (e) {
+        console.error("Failed to restore password reset state:", e);
+      } finally {
+        setRestored(true);
+      }
+    })();
+  }, []);
+
+  // Persist state whenever it changes
+  useEffect(() => {
+    if (!restored) return;
+    AsyncStorage.setItem(
+      RESET_STATE_KEY,
+      JSON.stringify({ email, stage })
+    ).catch(() => {});
+  }, [email, stage, restored]);
+
+  const clearResetState = async () => {
+    try { await AsyncStorage.removeItem(RESET_STATE_KEY); } catch {}
+  };
 
   const requestPin = async () => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -55,6 +93,7 @@ export default function ForgotPasswordScreen() {
     setBusy(true); setError("");
     try {
       await resetPassword(email, normalizedPin, password);
+      await clearResetState();
       // RouteGuard observes the session and takes the user through the normal PIN setup/unlock flow.
     } catch (err) {
       setError(err?.message || "Could not reset your password. Check the PIN or request a new one.");
@@ -63,9 +102,12 @@ export default function ForgotPasswordScreen() {
 
   const fieldStyle = [styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }];
   return (
-    <KeyboardAvoidingView style={[styles.root, { backgroundColor: colors.background }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView style={[styles.root, { backgroundColor: colors.background }]} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <TouchableOpacity style={styles.back} onPress={() => stage === "reset" ? (setStage("email"), setError("")) : router.back()}>
+        <TouchableOpacity style={styles.back} onPress={async () => {
+          if (stage === "reset") { setStage("email"); setError(""); }
+          else { await clearResetState(); router.back(); }
+        }}>
           <Ionicons name="arrow-back" size={20} color={colors.text} />
           <Text style={[styles.backText, { color: colors.text }]}>{stage === "reset" ? "Change email" : "Back to sign in"}</Text>
         </TouchableOpacity>
@@ -81,9 +123,19 @@ export default function ForgotPasswordScreen() {
           <Text style={[styles.label, { color: colors.text }]}>Six-digit PIN</Text>
           <TextInput style={fieldStyle} value={pin} onChangeText={v => setPin(v.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6} placeholder="123456" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} returnKeyType="next" onSubmitEditing={() => passwordRef.current?.focus()} blurOnSubmit={false} />
           <Text style={[styles.label, { color: colors.text }]}>New password</Text>
-          <TextInput ref={passwordRef} style={fieldStyle} value={password} onChangeText={setPassword} secureTextEntry textContentType="newPassword" placeholder="At least 8 characters" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} returnKeyType="next" onSubmitEditing={() => confirmationRef.current?.focus()} blurOnSubmit={false} />
+          <View style={[styles.passwordRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <TextInput ref={passwordRef} style={[fieldStyle, styles.passwordInput, { borderWidth: 0, backgroundColor: "transparent" }]} value={password} onChangeText={setPassword} secureTextEntry={!showPassword} textContentType="newPassword" placeholder="At least 8 characters" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} returnKeyType="next" onSubmitEditing={() => confirmationRef.current?.focus()} blurOnSubmit={false} />
+            <TouchableOpacity onPress={() => setShowPassword((p) => !p)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textSecondary || "#888"} />
+            </TouchableOpacity>
+          </View>
           <Text style={[styles.label, { color: colors.text }]}>Confirm password</Text>
-          <TextInput ref={confirmationRef} style={fieldStyle} value={confirmation} onChangeText={setConfirmation} secureTextEntry textContentType="newPassword" placeholder="Re-enter new password" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} returnKeyType="done" onSubmitEditing={submitReset} />
+          <View style={[styles.passwordRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <TextInput ref={confirmationRef} style={[fieldStyle, styles.passwordInput, { borderWidth: 0, backgroundColor: "transparent" }]} value={confirmation} onChangeText={setConfirmation} secureTextEntry={!showConfirmation} textContentType="newPassword" placeholder="Re-enter new password" placeholderTextColor={colors.textSecondary || "#888"} editable={!busy} returnKeyType="done" onSubmitEditing={submitReset} />
+            <TouchableOpacity onPress={() => setShowConfirmation((p) => !p)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name={showConfirmation ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textSecondary || "#888"} />
+            </TouchableOpacity>
+          </View>
         </>}
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
         <TouchableOpacity disabled={busy} onPress={stage === "email" ? requestPin : submitReset} style={[styles.button, { backgroundColor: colors.accent, opacity: busy ? 0.7 : 1 }]}>
@@ -101,6 +153,8 @@ const styles = StyleSheet.create({
   heading: { marginBottom: 28 }, title: { fontSize: 28, fontWeight: "700", marginBottom: 10 }, subtitle: { fontSize: 15, lineHeight: 22 },
   label: { fontSize: 14, fontWeight: "600", marginBottom: 8, marginTop: 16 },
   input: { minHeight: 52, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, fontSize: 16 },
+  passwordRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, minHeight: 52 },
+  passwordInput: { flex: 1, borderWidth: 0, paddingHorizontal: 0, paddingVertical: 0 },
   notice: { fontSize: 14, lineHeight: 20, marginBottom: 8 }, error: { color: "#D64545", marginTop: 14, lineHeight: 20 },
   button: { minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 24 }, buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   resend: { alignItems: "center", padding: 16 }, resendText: { fontSize: 15, fontWeight: "600" },
