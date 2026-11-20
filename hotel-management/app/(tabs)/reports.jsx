@@ -16,6 +16,7 @@ import PayrollReportTab    from "../../components/Reports/PayrollReportTab";
 import AttendanceReportTab from "../../components/Reports/AttendanceReportTab";
 import CreditsReportTab    from "../../components/Reports/CreditsReportTab";
 
+
 const TABS = [
   { key: "sales",      label: "Sales",      icon: "trending-up-outline" },
   { key: "products",   label: "Products",   icon: "cube-outline"        },
@@ -24,6 +25,7 @@ const TABS = [
   { key: "payroll",    label: "Payroll",    icon: "cash-outline"        },
   { key: "attendance", label: "Attendance", icon: "calendar-outline"    },
   { key: "credits",    label: "Credits",    icon: "card-outline"        },
+
 ];
 
 const MONTH_TABS = new Set(["payroll", "attendance"]);

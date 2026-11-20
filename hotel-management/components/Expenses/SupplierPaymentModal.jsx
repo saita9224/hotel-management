@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
-  FlatList, Alert, ActivityIndicator,
+  FlatList, Alert, ActivityIndicator, ScrollView,
 } from "react-native";
 
 import { useExpenses } from "../../context/ExpensesContext";
@@ -60,9 +60,9 @@ export default function SupplierPaymentModal({ visible, onClose, supplierName, u
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.overlay}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20} style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>Pay Supplier</Text>  {/* 👈 removed fontFamily */}
             <TouchableOpacity onPress={handleClose}>
@@ -132,6 +132,7 @@ export default function SupplierPaymentModal({ visible, onClose, supplierName, u
               <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Confirm Payment</Text>
             )}
           </TouchableOpacity>
+          </ScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>

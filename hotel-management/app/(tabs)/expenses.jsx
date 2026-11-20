@@ -147,9 +147,9 @@ export default function ExpensesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16 },
-  tabsWrap: { height: 38, justifyContent: "center", marginBottom: 8 },
+  tabsWrap: { height: 48, justifyContent: "center", marginBottom: 10 },
   tabsRow: { flexDirection: "row", gap: 8 },
-  tab: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8 },
+  tab: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
   fab: { position: "absolute", bottom: 10, right: 10, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },
   sheet: { position: "absolute", bottom: 0, left: 0, right: 0, height: SHEET_HEIGHT, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
