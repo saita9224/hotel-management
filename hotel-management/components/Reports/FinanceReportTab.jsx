@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BarChart } from "react-native-chart-kit";
 import { useTheme } from "../../hooks/useTheme";
 import { useFinance } from "../../hooks/useFinance";
+import { useReports } from "../../context/ReportsContext";
 import StatCard from "./StatCard";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -35,6 +36,16 @@ export default function FinanceReportTab({ startDate, endDate }) {
   const { colors } = useTheme();
   const [subTab, setSubTab] = useState("pnl");
 
+  const reportsContext = useReports();
+  const creditReport = reportsContext?.creditReport;
+  const loadCreditReport = reportsContext?.loadCreditReport;
+
+  React.useEffect(() => {
+    if (subTab === "aging" && loadCreditReport) {
+      loadCreditReport();
+    }
+  }, [subTab, loadCreditReport]);
+
   const {
     pnl,
     balance,
@@ -42,8 +53,6 @@ export default function FinanceReportTab({ startDate, endDate }) {
     loading,
     error,
     permissionDenied,
-    isOfflineData,
-    lastSynced,
     refresh,
   } = useFinance(startDate, endDate);
 
@@ -344,6 +353,62 @@ export default function FinanceReportTab({ startDate, endDate }) {
               </View>
             );
           })}
+
+          {/* Detailed Customer Credit Accounts */}
+          {creditReport?.accounts?.length > 0 && (
+            <View style={{ marginTop: 14, borderTopWidth: 1, borderColor: colors.border, paddingTop: 10 }}>
+              <Text style={[styles.tableLabelBold, { color: colors.text, marginBottom: 8 }]}>
+                Customer Credit Accounts ({creditReport.accounts.length})
+              </Text>
+              {creditReport.accounts.map((item) => (
+                <View
+                  key={item.receipt_number}
+                  style={[
+                    styles.accountItem,
+                    {
+                      backgroundColor: item.is_overdue ? "#FF453A08" : colors.background,
+                      borderColor: item.is_overdue ? "#FF453A" : colors.border,
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontWeight: "700", fontSize: 13 }}>
+                      {item.customer_name}
+                    </Text>
+                    {item.customer_phone ? (
+                      <Text style={{ color: colors.tabBarInactive, fontSize: 11, marginTop: 1 }}>
+                        {item.customer_phone}
+                      </Text>
+                    ) : null}
+                    <Text style={{ color: colors.tabBarInactive, fontSize: 11, marginTop: 1 }}>
+                      {item.receipt_number}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={{ color: colors.text, fontWeight: "700", fontSize: 14 }}>
+                      KES {formatKES(item.credit_amount)}
+                    </Text>
+                    <View style={styles.dueDateRow}>
+                      {item.is_overdue && (
+                        <Ionicons name="alert-circle" size={12} color="#FF453A" />
+                      )}
+                      <Text
+                        style={{
+                          color: item.is_overdue ? "#FF453A" : colors.tabBarInactive,
+                          fontSize: 11,
+                          marginLeft: 4,
+                          fontWeight: item.is_overdue ? "700" : "400",
+                        }}
+                      >
+                        {item.is_overdue ? "OVERDUE · " : "Due: "}
+                        {item.due_date}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Payables Aging Buckets */}
@@ -377,17 +442,6 @@ export default function FinanceReportTab({ startDate, endDate }) {
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} colors={[colors.accent]} />}
     >
-      {/* Offline Status Notice */}
-      {isOfflineData && (
-        <View style={[styles.offlineBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Ionicons name="cloud-offline-outline" size={16} color="#FF9F0A" />
-          <Text style={[styles.offlineText, { color: colors.tabBarInactive }]}>
-            Offline Mode • Showing cached records
-            {lastSynced ? ` (Synced: ${new Date(lastSynced).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : ""}
-          </Text>
-        </View>
-      )}
-
       {/* Segmented Sub-Tab Switcher */}
       <View style={[styles.subTabWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {SUB_TABS.map((tab) => {
@@ -437,20 +491,6 @@ const styles = StyleSheet.create({
   cardRow: {
     flexDirection: "row",
     gap: 10,
-  },
-  offlineBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
-    gap: 8,
-  },
-  offlineText: {
-    fontSize: 12,
-    fontWeight: "500",
   },
   subTabWrap: {
     flexDirection: "row",
@@ -571,5 +611,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
+  },
+  accountItem: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  dueDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
   },
 });

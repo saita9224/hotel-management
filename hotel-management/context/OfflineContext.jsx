@@ -8,6 +8,7 @@ import { SyncQueue } from "../database/syncQueue";
 const OfflineContext = createContext({
   isOnline: true,
   pendingCount: 0,
+  failedCount: 0,
   isSyncing: false,
   syncNow: async () => {},
   refreshQueueCount: async () => {},
@@ -16,11 +17,13 @@ const OfflineContext = createContext({
 export function OfflineProvider({ children }) {
   const isOnline = useNetworkStatus();
   const [pendingCount, setPendingCount] = useState(0);
+  const [failedCount, setFailedCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const refreshQueueCount = useCallback(async () => {
-    const count = await SyncQueue.getCount();
-    setPendingCount(count);
+    const { pending, failed } = await SyncQueue.getStatusCounts();
+    setPendingCount(pending);
+    setFailedCount(failed);
   }, []);
 
   const syncNow = useCallback(async () => {
@@ -54,6 +57,7 @@ export function OfflineProvider({ children }) {
       value={{
         isOnline,
         pendingCount,
+        failedCount,
         isSyncing,
         syncNow,
         refreshQueueCount,

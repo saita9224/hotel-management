@@ -15,7 +15,6 @@ import { useTheme } from "../hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuth } from "../context/AuthContext";
-import OfflineIndicator from "../components/OfflineIndicator";
 
 import HREmployeesTab  from "../components/HR/HREmployeesTab";
 import HRAttendanceTab from "../components/HR/HRAttendanceTab";
@@ -90,7 +89,6 @@ export default function HRScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
-      <OfflineIndicator position="top" />
 
       {/* ── Header ── */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>

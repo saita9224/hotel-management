@@ -13,6 +13,9 @@ import { MutationQueueModel } from './models/MutationQueue';
 import { AttendanceModel } from './models/Attendance';
 import { LeaveRequestModel } from './models/LeaveRequest';
 import { SalaryRecordModel } from './models/SalaryRecord';
+import { PnL } from './models/PnL';
+import { Balance } from './models/Balance';
+import { Aging } from './models/Aging';
 
 const adapter = new SQLiteAdapter({
   schema,
@@ -32,6 +35,9 @@ export const database = new Database({
     AttendanceModel,
     LeaveRequestModel,
     SalaryRecordModel,
+    PnL,
+    Balance,
+    Aging,
   ],
 });
 

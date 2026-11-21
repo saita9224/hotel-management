@@ -183,7 +183,7 @@ export default function ReportsScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.accent} />
           </TouchableOpacity>
         </View>
-      ) : activeTab !== "credits" ? (
+      ) : (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -215,7 +215,7 @@ export default function ReportsScreen() {
             {startDate} → {endDate}
           </Text>
         </ScrollView>
-      ) : null}
+      )}
 
       {/* ── Tab content ── */}
       <View style={{ flex: 1 }}>

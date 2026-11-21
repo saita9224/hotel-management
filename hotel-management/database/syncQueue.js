@@ -86,11 +86,17 @@ export const SyncQueue = {
   },
 
   async getCount() {
+    const { pending, failed } = await this.getStatusCounts();
+    return pending + failed;
+  },
+
+  async getStatusCounts() {
     const collection = database.get('mutation_queue');
-    const count = await collection
-      .query(Q.where('status', 'PENDING'))
-      .fetchCount();
-    return count;
+    const [pending, failed] = await Promise.all([
+      collection.query(Q.where('status', 'PENDING')).fetchCount(),
+      collection.query(Q.where('status', 'FAILED')).fetchCount(),
+    ]);
+    return { pending, failed };
   },
 
   async clearQueue() {

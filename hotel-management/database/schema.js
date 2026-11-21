@@ -2,7 +2,8 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export default appSchema({
-  version: 1,
+  version: 2, // bumped to include finance tables
+
   tables: [
     tableSchema({
       name: 'products',
@@ -127,20 +128,48 @@ export default appSchema({
       ],
     }),
     tableSchema({
+      name: 'pnls',
+      columns: [
+        { name: 'period_start', type: 'string' },
+        { name: 'period_end',   type: 'string' },
+        { name: 'revenue',      type: 'number' },
+        { name: 'cogs',         type: 'number' },
+        { name: 'expenses',     type: 'number' },
+        { name: 'net_income',   type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: 'balances',
+      columns: [
+        { name: 'as_of',        type: 'string' },
+        { name: 'assets',       type: 'string' },
+        { name: 'liabilities',  type: 'string' },
+        { name: 'equity',       type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: 'agings',
+      columns: [
+        { name: 'timestamp', type: 'string' },
+        { name: 'credits',   type: 'string' },
+        { name: 'payables',  type: 'string' },
+      ],
+    }),
+    tableSchema({
       name: 'salary_records',
       columns: [
-        { name: 'employee_id', type: 'string', isIndexed: true },
+        { name: 'employee_id',   type: 'string' },
         { name: 'employee_name', type: 'string' },
-        { name: 'month', type: 'string' },
-        { name: 'year', type: 'number' },
-        { name: 'basic_salary', type: 'number' },
-        { name: 'allowances', type: 'number' },
-        { name: 'deductions', type: 'number' },
-        { name: 'net_salary', type: 'number' },
-        { name: 'status', type: 'string' }, // DRAFT, APPROVED, PAID
-        { name: 'created_at', type: 'number' },
-        { name: 'updated_at', type: 'number' },
-        { name: 'synced', type: 'boolean' },
+        { name: 'month',         type: 'number' },
+        { name: 'year',          type: 'number' },
+        { name: 'basic_salary',  type: 'number' },
+        { name: 'allowances',    type: 'number' },
+        { name: 'deductions',    type: 'number' },
+        { name: 'net_salary',    type: 'number' },
+        { name: 'status',        type: 'string' }, // DRAFT, APPROVED, PAID
+        { name: 'created_at',    type: 'number' }, // Unix timestamp (ms)
+        { name: 'updated_at',    type: 'number' }, // Unix timestamp (ms)
+        { name: 'synced',        type: 'boolean' },
       ],
     }),
   ],
