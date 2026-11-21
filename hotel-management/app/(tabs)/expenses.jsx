@@ -87,17 +87,25 @@ export default function ExpensesScreen() {
     return (
       <TouchableOpacity
         onPress={() => setActiveTab(id)}
-        style={[styles.tab, { backgroundColor: active ? colors.accent : colors.card }]}
+        style={[styles.tab, active && { backgroundColor: colors.accent }]}
+        accessibilityRole="button"
+        accessibilityState={{ selected: active }}
       >
-        <Text style={{ color: active ? "#fff" : colors.text, fontWeight: "600" }}>{label}</Text>
+        <Text
+          numberOfLines={1}
+          style={{ color: active ? "#fff" : colors.text, fontWeight: active ? "700" : "500", fontSize: 13 }}
+        >
+          {label}
+        </Text>
       </TouchableOpacity>
     );
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["bottom"]}>
-      <View style={[styles.tabsWrap, { backgroundColor: colors.background }]}>
-        <View style={styles.tabsRow}>
+      <View style={styles.headerBlock}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Expenses</Text>
+        <View style={[styles.segmentWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Tab id="table" label="Expenses" />
           <Tab id="summary" label="Supplier Debts" />
           <Tab id="supplier" label="Supplier Ledger" />
@@ -147,9 +155,10 @@ export default function ExpensesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16 },
-  tabsWrap: { height: 48, justifyContent: "center", marginBottom: 10 },
-  tabsRow: { flexDirection: "row", gap: 8 },
-  tab: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
+  headerBlock: { marginBottom: 14 },
+  headerTitle: { fontSize: 22, fontWeight: "800", marginBottom: 12 },
+  segmentWrap: { flexDirection: "row", borderRadius: 10, borderWidth: 1, padding: 3 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 10, borderRadius: 8 },
   fab: { position: "absolute", bottom: 10, right: 10, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },
   sheet: { position: "absolute", bottom: 0, left: 0, right: 0, height: SHEET_HEIGHT, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },

@@ -14,18 +14,17 @@ import ExpensesReportTab   from "../../components/Reports/ExpensesReportTab";
 import InventoryReportTab  from "../../components/Reports/InventoryReportTab";
 import PayrollReportTab    from "../../components/Reports/PayrollReportTab";
 import AttendanceReportTab from "../../components/Reports/AttendanceReportTab";
-import CreditsReportTab    from "../../components/Reports/CreditsReportTab";
+import FinanceReportTab    from "../../components/Reports/FinanceReportTab";
 
 
 const TABS = [
   { key: "sales",      label: "Sales",      icon: "trending-up-outline" },
+  { key: "finance",    label: "Finance",    icon: "wallet-outline"      },
   { key: "products",   label: "Products",   icon: "cube-outline"        },
   { key: "expenses",   label: "Expenses",   icon: "receipt-outline"     },
   { key: "inventory",  label: "Inventory",  icon: "layers-outline"      },
   { key: "payroll",    label: "Payroll",    icon: "cash-outline"        },
   { key: "attendance", label: "Attendance", icon: "calendar-outline"    },
-  { key: "credits",    label: "Credits",    icon: "card-outline"        },
-
 ];
 
 const MONTH_TABS = new Set(["payroll", "attendance"]);
@@ -124,12 +123,12 @@ export default function ReportsScreen() {
   const renderTab = () => {
     switch (activeTab) {
       case "sales":      return <SalesReportTab      startDate={startDate} endDate={endDate} />;
+      case "finance":    return <FinanceReportTab    startDate={startDate} endDate={endDate} />;
       case "products":   return <ProductsReportTab   startDate={startDate} endDate={endDate} />;
       case "expenses":   return <ExpensesReportTab   startDate={startDate} endDate={endDate} />;
       case "inventory":  return <InventoryReportTab  startDate={startDate} endDate={endDate} />;
       case "payroll":    return <PayrollReportTab    year={year} month={month} />;
       case "attendance": return <AttendanceReportTab year={year} month={month} />;
-      case "credits":    return <CreditsReportTab />;
       default:           return null;
     }
   };
