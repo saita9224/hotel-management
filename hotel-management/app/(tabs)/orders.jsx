@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   headerToggleBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
     alignItems: "center",

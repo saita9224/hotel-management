@@ -70,7 +70,7 @@ function HeaderToggle({ activeTab, onPress, colors }) {
 
 const toggle = StyleSheet.create({
   wrapper: { flexDirection: "row", borderRadius: 8, borderWidth: 1, padding: 3, gap: 3 },
-  btn:     { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, alignItems: "center", justifyContent: "center" },
+  btn:     { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6, alignItems: "center", justifyContent: "center" },
 });
 
 export default function InventoryScreen() {
