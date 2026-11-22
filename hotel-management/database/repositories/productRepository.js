@@ -20,6 +20,7 @@ const normalizeWatermelonProduct = (p) => {
     current_stock: Number(p.currentStock ?? 0),
     auto_deduct_on_sale: Boolean(p.autoDeductOnSale),
     created_at: createdAtStr,
+    synced: Boolean(p.synced),
   };
 };
 

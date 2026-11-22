@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { Q } from "@nozbe/watermelondb";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { publicRequest } from "../lib/graphql";
 import {
@@ -12,7 +13,8 @@ import {
 } from "../lib/authSession";
 import database from "../database";
 import { SyncQueue } from "../database/syncQueue";
-import { fetchBusinessDetails } from "../services/businessService";
+import { fetchBusinessDetails, normalizeLogoUrl } from "../services/businessService";
+import { getBusinessInfo, saveBusinessInfo } from "../services/businessInfoStore";
 
 const AuthContext = createContext();
 
@@ -100,9 +102,12 @@ export function AuthProvider({ children }) {
   const loadCachedBusiness = async (sName) => {
     if (!sName) return;
     try {
-      const cached = await AsyncStorage.getItem(`@business_info_${sName}`);
+      const cached = await getBusinessInfo(sName);
       if (cached) {
-        setBusiness(JSON.parse(cached));
+        setBusiness({
+          name: cached.name || null,
+          logo: normalizeLogoUrl(cached.logoPending ? cached.logoLocalUri : cached.logo),
+        });
       }
     } catch (e) {
       console.warn("Failed to load cached business details:", e);
@@ -114,23 +119,48 @@ export function AuthProvider({ children }) {
     try {
       const details = await fetchBusinessDetails();
       if (details) {
-        setBusiness(details);
-        await AsyncStorage.setItem(`@business_info_${sName}`, JSON.stringify(details));
+        // Don't clobber a locally-picked logo whose upload is still pending
+        const stored = await getBusinessInfo(sName);
+        const effectiveLogo = normalizeLogoUrl(
+          details.logo ||
+          (stored?.logoPending ? stored.logoLocalUri : stored?.logo) ||
+          null
+        );
+        const merged = { ...details, logo: effectiveLogo };
+        setBusiness(merged);
+        await saveBusinessInfo(sName, {
+          name: merged.name,
+          logo: merged.logo,
+          logoLocalUri: stored?.logoLocalUri || null,
+          logoPending: stored?.logoPending || false,
+        });
       }
     } catch (e) {
-      // If offline, fallback silently to cached info already in state/AsyncStorage
+      // If offline, fallback silently to cached info already in state/WatermelonDB
     }
   };
 
   const updateBusinessLogoState = async (newLogoUrl, isOffline = false, fileObj = null) => {
-    const updated = { ...(business || {}), logo: newLogoUrl };
+    const normalizedUrl = normalizeLogoUrl(newLogoUrl);
+    const updated = { ...(business || {}), logo: normalizedUrl };
     setBusiness(updated);
     if (schemaName) {
-      await AsyncStorage.setItem(`@business_info_${schemaName}`, JSON.stringify(updated));
+      const isLocalUri = (uri) => typeof uri === "string" && (uri.startsWith("file") || uri.startsWith("content"));
+      const prevRemoteLogo = isLocalUri(business?.logo) ? null : business?.logo || null;
+      await saveBusinessInfo(schemaName, {
+        name: updated.name || null,
+        logo: isOffline ? prevRemoteLogo : normalizedUrl,
+        logoLocalUri: isOffline ? normalizedUrl : null,
+        logoPending: isOffline,
+      });
     }
 
     if (isOffline && fileObj) {
-      await SyncQueue.enqueue("UPDATE_BUSINESS_LOGO", fileObj);
+      await SyncQueue.enqueue("UPDATE_BUSINESS_LOGO", {
+        ...fileObj,
+        schema_name: schemaName,
+        local_uri: newLogoUrl,
+      });
     }
   };
 
@@ -178,6 +208,34 @@ export function AuthProvider({ children }) {
       clearSessionState();
     });
   }, []);
+
+  // Observe business_info in WatermelonDB so background logo syncs
+  // (syncService) update the UI without requiring a restart.
+  useEffect(() => {
+    if (!schemaName) return;
+    let subscription;
+    const setup = async () => {
+      try {
+        const observable = database
+          .get("business_info")
+          .query(Q.where("schema_name", schemaName))
+          .observe();
+        subscription = observable.subscribe((records) => {
+          const record = records[0];
+          if (!record) return;
+          setBusiness((prev) => ({
+            ...(prev || {}),
+            name: record.name || prev?.name || null,
+            logo: normalizeLogoUrl(record.logoPending ? record.logoLocalUri : record.logo),
+          }));
+        });
+      } catch (e) {
+        console.warn("business_info observer failed:", e);
+      }
+    };
+    setup();
+    return () => subscription?.unsubscribe();
+  }, [schemaName]);
 
   const applySession = async (result) => {
     const verified = result.isEmailVerified ?? true;

@@ -17,7 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import { useOffline } from "../context/OfflineContext";
 import { useTheme } from "../hooks/useTheme";
-import { uploadBusinessLogoGraphQL } from "../services/businessService";
+import { uploadBusinessLogo } from "../services/businessService";
 
 const AVATAR_PALETTE = [
   "#1E3A8A", // Deep Blue
@@ -113,7 +113,7 @@ function getAvatarColor(name) {
 export default function BusinessLogo({ size = 160, style }) {
   const { colors } = useTheme();
   const { business, permissions, roles, updateBusinessLogoState } = useAuth();
-  const { isOnline } = useOffline();
+  const { isOnline, refreshQueueCount } = useOffline();
   const [uploading, setUploading] = useState(false);
 
   const canManageLogo =
@@ -215,8 +215,9 @@ export default function BusinessLogo({ size = 160, style }) {
       }
 
       if (!isOnline) {
-        // Enqueue offline and update local state persistently via AsyncStorage
+        // Enqueue offline and update local state persistently via WatermelonDB
         await updateBusinessLogoState(localOriginalUri, true, uploadFile);
+        await refreshQueueCount();
         Alert.alert(
           "Saved Offline",
           "Logo updated locally. It will sync automatically when your internet connection is restored."
@@ -224,17 +225,18 @@ export default function BusinessLogo({ size = 160, style }) {
         return;
       }
 
-      // Online upload via GraphQL
+      // Online upload: REST first, GraphQL multipart fallback
       setUploading(true);
       try {
-        const updatedBusiness = await uploadBusinessLogoGraphQL(uploadFile);
-        const newLogoUrl = updatedBusiness?.logo || localOriginalUri;
+        const { logoUrl } = await uploadBusinessLogo(uploadFile);
+        const newLogoUrl = logoUrl || localOriginalUri;
         await updateBusinessLogoState(newLogoUrl, false);
         Alert.alert("Success", "Business logo updated successfully!");
       } catch (err) {
         console.error("Logo upload failed:", err);
         // Fallback to saving locally and queueing if network error occurred mid-upload
         await updateBusinessLogoState(localOriginalUri, true, uploadFile);
+        await refreshQueueCount();
         Alert.alert(
           "Network Error",
           "Upload failed. Saved locally and queued for background synchronization."

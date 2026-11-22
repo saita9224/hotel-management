@@ -2,7 +2,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export default appSchema({
-  version: 2, // bumped to include finance tables
+  version: 3, // bumped to include business_info table
 
   tables: [
     tableSchema({
@@ -153,6 +153,17 @@ export default appSchema({
         { name: 'timestamp', type: 'string' },
         { name: 'credits',   type: 'string' },
         { name: 'payables',  type: 'string' },
+      ],
+    }),
+    tableSchema({
+      name: 'business_info',
+      columns: [
+        { name: 'schema_name',     type: 'string', isIndexed: true },
+        { name: 'name',            type: 'string', isOptional: true },
+        { name: 'logo',            type: 'string', isOptional: true }, // remote URL from server
+        { name: 'logo_local_uri',  type: 'string', isOptional: true }, // local file URI while upload pending
+        { name: 'logo_pending',    type: 'boolean' },
+        { name: 'updated_at',      type: 'number' },
       ],
     }),
     tableSchema({

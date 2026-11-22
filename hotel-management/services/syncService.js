@@ -2,7 +2,8 @@
 
 import { graphqlRequest } from "../lib/graphql";
 import { SyncQueue } from "../database/syncQueue";
-import { uploadBusinessLogoGraphQL } from "./businessService";
+import { uploadBusinessLogo } from "./businessService";
+import { saveBusinessInfo, getBusinessInfo } from "./businessInfoStore";
 import { ProductRepository } from "../database/repositories/productRepository";
 import { ExpenseRepository } from "../database/repositories/expenseRepository";
 import { ReceiptRepository } from "../database/repositories/receiptRepository";
@@ -81,19 +82,18 @@ export async function processOfflineQueue() {
         type: payload.type || "image/png",
       };
 
-      const updatedBusiness = await uploadBusinessLogoGraphQL(fileObj);
-      if (updatedBusiness?.logo) {
-        const schemaName = await AsyncStorage.getItem("schemaName");
-        const cacheKey = `@business_info_${schemaName}`;
-        const existingRaw = await AsyncStorage.getItem(cacheKey);
-        const existing = existingRaw ? JSON.parse(existingRaw) : {};
-        await AsyncStorage.setItem(
-          cacheKey,
-          JSON.stringify({
-            ...existing,
-            ...updatedBusiness,
-          })
-        );
+      const { logoUrl } = await uploadBusinessLogo(fileObj);
+      if (logoUrl) {
+        const schemaName = payload.schema_name || (await AsyncStorage.getItem("schemaName"));
+        if (schemaName) {
+          const stored = await getBusinessInfo(schemaName);
+          await saveBusinessInfo(schemaName, {
+            name: stored?.name || null,
+            logo: logoUrl,
+            logoLocalUri: null,
+            logoPending: false,
+          });
+        }
       }
       await SyncQueue.removeSucceeded([item.clientId]);
       syncedCount++;

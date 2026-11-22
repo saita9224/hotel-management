@@ -26,6 +26,7 @@ const normalizeWatermelonExpense = (e) => {
     balance: Number(e.balance ?? 0),
     is_fully_paid: Boolean(e.isFullyPaid),
     created_at: createdAtStr,
+    synced: Boolean(e.synced),
   };
 };
 

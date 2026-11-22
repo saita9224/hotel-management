@@ -51,25 +51,40 @@ export const ExpensesProvider = ({ children }) => {
       setLoading(true);
       // Try to load from server first if online
       if (isOnline) {
-        const [expenseData, paymentData] = await Promise.all([
-          fetchAllExpenses(),
-          fetchAllPayments(),
-        ]);
-        // Sync server data to local database
-        for (const expense of expenseData) {
-          const existing = await ExpenseRepository.findById(expense.id);
-          if (existing) {
-            await ExpenseRepository.update(expense.id, expense);
-          } else {
-            await ExpenseRepository.create({ ...expense, synced: true });
+        try {
+          const expenseData = await fetchAllExpenses();
+          // Sync server data to local database — isolate per-record failures
+          for (const expense of expenseData) {
+            try {
+              const existing = await ExpenseRepository.findById(expense.id);
+              if (existing) {
+                // Server is source of truth EXCEPT for records with
+                // pending local changes (offline payment/creation) —
+                // those must not be clobbered by a stale server pull.
+                if (existing.synced === false) continue;
+                await ExpenseRepository.update(expense.id, expense);
+              } else {
+                await ExpenseRepository.create({ ...expense, synced: true });
+              }
+            } catch (recordErr) {
+              console.warn("Failed to sync expense record:", expense?.id, recordErr);
+            }
           }
+        } catch (expenseErr) {
+          console.error("Failed to fetch/sync expenses from server:", expenseErr);
         }
-        setPayments(paymentData);
+        try {
+          const paymentData = await fetchAllPayments();
+          setPayments(paymentData);
+        } catch (paymentErr) {
+          console.error("Failed to fetch payments:", paymentErr);
+        }
       }
       // Load from local database
       const localData = await ExpenseRepository.findAll();
       setExpenses(localData);
     } catch (error) {
+      console.error("loadExpenses failed:", error);
       // Fallback to local data if server fails
       try {
         const localData = await ExpenseRepository.findAll();

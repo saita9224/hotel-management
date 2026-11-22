@@ -52,7 +52,6 @@ export const fetchAllExpenses = async () => {
         isFullyPaid
         createdAt
         supplier { id name }
-        product { id name }
       }
     }
   `);
@@ -121,7 +120,6 @@ export const fetchExpensesBySupplier = async (supplierId) => {
         isFullyPaid
         createdAt
         supplier { id name }
-        product { id name }
       }
     }
   `,
@@ -150,7 +148,6 @@ export const fetchExpensesByItem = async (itemName) => {
         isFullyPaid
         createdAt
         supplier { id name }
-        product { id name }
       }
     }
   `,
@@ -179,7 +176,6 @@ export const fetchExpensesByProduct = async (productId) => {
         isFullyPaid
         createdAt
         supplier { id name }
-        product { id name }
       }
     }
   `,
@@ -207,7 +203,6 @@ export const fetchExpenseDetails = async (expenseId) => {
           totalPrice
           createdAt
           supplier { id name }
-          product { id name }
         }
         payments {
           id
@@ -266,7 +261,6 @@ export const createExpenseService = async (input) => {
           isFullyPaid
           createdAt
           supplier { id name }
-          product { id name }
         }
         matchedProduct {
           id

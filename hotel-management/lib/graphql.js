@@ -49,6 +49,9 @@ const PUBLIC_URL = `${PROTOCOL}://${BASE_HOST}/auth/`;
 
 const GRAPHQL_URL = `${PROTOCOL}://${BASE_HOST}/graphql/`;
 
+// Base URL for non-GraphQL REST endpoints (e.g. tenant logo upload)
+export const API_BASE_URL = `${PROTOCOL}://${BASE_HOST}`;
+
 // ─────────────────────────────────────────────────────────────
 // CORE FETCH
 // ─────────────────────────────────────────────────────────────

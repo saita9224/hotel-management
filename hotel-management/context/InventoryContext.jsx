@@ -69,16 +69,21 @@ export const InventoryProvider = ({ children }) => {
                 (p.name && p.name.trim().toLowerCase() === normName)
             );
 
-            if (matches.length > 0) {
+            // Server is source of truth EXCEPT for records with pending
+            // local changes (offline stock moves / creations) — never
+            // clobber or purge those during a pull.
+            const syncedMatches = matches.filter((p) => p.synced !== false);
+
+            if (syncedMatches.length > 0) {
               const primary =
-                matches.find((p) => String(p.id) === prodIdStr) || matches[0];
+                syncedMatches.find((p) => String(p.id) === prodIdStr) || syncedMatches[0];
               await ProductRepository.update(primary.id, {
                 ...product,
                 synced: true,
               });
 
               // Purge extra duplicate local records from WatermelonDB SQLite
-              for (const extra of matches) {
+              for (const extra of syncedMatches) {
                 if (extra.id !== primary.id) {
                   await ProductRepository.delete(extra.id);
                 }

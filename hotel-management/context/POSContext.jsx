@@ -78,6 +78,37 @@ export const POSProvider = ({ children }) => {
 
   // ── Session ───────────────────────────────────────────
 
+  // Server is source of truth, but pending offline receipts
+  // (synced=false in WatermelonDB) must stay visible until pushed.
+  const mergePendingReceipts = async (serverReceipts) => {
+    try {
+      const pending = await ReceiptRepository.getUnsynced();
+      const pendingMapped = pending
+        .filter((r) => !serverReceipts.some((s) => String(s.id) === String(r.id)))
+        .map((r) => ({
+          id:             r.id,
+          receipt_number: r.receiptNumber,
+          subtotal:       Number(r.subtotal ?? 0),
+          discount:       Number(r.discount ?? 0),
+          total:          Number(r.total ?? 0),
+          balance:        Number(r.balance ?? 0),
+          status:         r.status,
+          table_note:     r.tableNote || "",
+          created_at:     r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+          submitted_at:   null,
+          created_by:     null,
+          orders:         [],
+          payments:       [],
+          credit:         null,
+          _pendingSync:   true,
+        }));
+      return [...serverReceipts, ...pendingMapped];
+    } catch (e) {
+      console.warn("Failed to merge pending receipts:", e);
+      return serverReceipts;
+    }
+  };
+
   const loadSession = async () => {
     try {
       setLoading(true);
@@ -85,7 +116,7 @@ export const POSProvider = ({ children }) => {
       setSession(s);
       if (s) {
         const r = await fetchReceiptsBySession(s.id);
-        setReceipts(r);
+        setReceipts(await mergePendingReceipts(r));
       } else {
         setReceipts([]);
       }
@@ -100,7 +131,7 @@ export const POSProvider = ({ children }) => {
     if (!session) return;
     try {
       const r = await fetchReceiptsBySession(session.id);
-      setReceipts(r);
+      setReceipts(await mergePendingReceipts(r));
     } catch (err) {
       // Error handling
     }
