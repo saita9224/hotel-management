@@ -14,6 +14,7 @@ export class ProductModel extends Model {
   @field('unit') unit;
   @field('current_stock') currentStock;
   @field('auto_deduct_on_sale') autoDeductOnSale;
+  @field('packagings') packagings;
   @date('created_at') createdAt;
   @date('updated_at') updatedAt;
   @field('synced') synced;

@@ -63,6 +63,9 @@ export default function ExpenseForm({ onClose }) {
   const [customUnit,       setCustomUnit]       = useState("");
   const [showCustomInput,  setShowCustomInput]  = useState(false);
 
+  // ── Packaging (purchase unit) state ──────────────────
+  const [selectedPackaging, setSelectedPackaging] = useState(null); // label string or null = base unit
+
   // ── POS modal state ──────────────────────────────────
   const [posModalVisible, setPosModalVisible] = useState(false);
   const [pendingPosData,  setPendingPosData]  = useState(null);
@@ -90,6 +93,28 @@ export default function ExpenseForm({ onClose }) {
   const selectedCategory = serverCategories.find(
     (c) => c.id === form.category_id
   ) || null;
+
+  // Live-match the typed item name against inventory so we can
+  // offer purchase-unit (packaging) selection before submit.
+  const matchedProduct = React.useMemo(() => {
+    const name = form.item_name.trim().toLowerCase();
+    if (!name) return null;
+    return products.find((p) => p.name?.trim().toLowerCase() === name) || null;
+  }, [form.item_name, products]);
+
+  const purchasePackagings = React.useMemo(() => {
+    if (!matchedProduct?.packagings) return [];
+    return matchedProduct.packagings.filter((pk) => pk.is_purchase_unit);
+  }, [matchedProduct]);
+
+  const selectedPackagingObj = purchasePackagings.find(
+    (pk) => pk.label === selectedPackaging
+  ) || null;
+
+  // Reset packaging choice when the item name changes
+  React.useEffect(() => {
+    setSelectedPackaging(null);
+  }, [form.item_name]);
 
   // ── Auto-suggest category as item name is typed ──────
   useEffect(() => {
@@ -253,6 +278,7 @@ export default function ExpenseForm({ onClose }) {
         unit_price:    Number(form.unit_price),
         is_overhead:   form.is_overhead,
         amount_paid:   paid,
+        packaging:     matchedProduct ? (selectedPackaging || null) : null,
       };
     if (form.is_overhead) return commitPurchase({ ...purchase, inventory_action: "NONE" });
     const matched = products.find((p) => p.name?.trim().toLowerCase() === form.item_name.trim().toLowerCase());
@@ -498,6 +524,52 @@ export default function ExpenseForm({ onClose }) {
               </View>
             </View>
           </View>
+
+          {/* ── Purchase unit selector (packaging) ── */}
+          {!form.is_overhead && matchedProduct && purchasePackagings.length > 0 && (
+            <>
+              <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
+                Purchase Unit
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => setSelectedPackaging(null)}
+                  style={{
+                    paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1,
+                    backgroundColor: !selectedPackaging ? colors.accent : colors.background,
+                    borderColor: !selectedPackaging ? colors.accent : colors.border,
+                  }}
+                >
+                  <Text style={{ color: !selectedPackaging ? "#fff" : colors.text, fontWeight: "600", fontSize: 13 }}>
+                    {matchedProduct.unit} (base)
+                  </Text>
+                </TouchableOpacity>
+                {purchasePackagings.map((pk) => {
+                  const active = selectedPackaging === pk.label;
+                  return (
+                    <TouchableOpacity
+                      key={pk.id}
+                      onPress={() => setSelectedPackaging(active ? null : pk.label)}
+                      style={{
+                        paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1,
+                        backgroundColor: active ? colors.accent : colors.background,
+                        borderColor: active ? colors.accent : colors.border,
+                      }}
+                    >
+                      <Text style={{ color: active ? "#fff" : colors.text, fontWeight: "600", fontSize: 13 }}>
+                        {pk.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {selectedPackagingObj && Number(form.quantity) > 0 && (
+                <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 6 }}>
+                  {Number(form.quantity)} {selectedPackagingObj.label} = {Number(form.quantity) * selectedPackagingObj.quantity_in_base} {matchedProduct.unit} → stock will increase by {Number(form.quantity) * selectedPackagingObj.quantity_in_base}
+                </Text>
+              )}
+            </>
+          )}
 
           <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
             Amount Paid  <Text style={styles.optionalTag}>(optional)</Text>

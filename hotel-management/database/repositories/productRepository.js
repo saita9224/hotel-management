@@ -2,6 +2,15 @@
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../index';
 
+const parsePackagings = (raw) => {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string' && raw) {
+    try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed : []; }
+    catch { return []; }
+  }
+  return [];
+};
+
 const normalizeWatermelonProduct = (p) => {
   const rawDate = p.createdAt;
   let createdAtStr = new Date().toISOString();
@@ -19,6 +28,7 @@ const normalizeWatermelonProduct = (p) => {
     unit: p.unit || "",
     current_stock: Number(p.currentStock ?? 0),
     auto_deduct_on_sale: Boolean(p.autoDeductOnSale),
+    packagings: parsePackagings(p.packagings),
     created_at: createdAtStr,
     synced: Boolean(p.synced),
   };
@@ -61,6 +71,9 @@ export const ProductRepository = {
         record.unit = productData.unit || '';
         record.currentStock = Number(productData.current_stock ?? productData.currentStock ?? 0);
         record.autoDeductOnSale = Boolean(productData.auto_deduct_on_sale ?? productData.autoDeductOnSale ?? false);
+        if (productData.packagings !== undefined) {
+          record.packagings = JSON.stringify(productData.packagings || []);
+        }
         record.createdAt = isNaN(createdDate) ? Date.now() : createdDate;
         record.updatedAt = Date.now();
         record.synced = Boolean(productData.synced ?? false);
@@ -83,6 +96,9 @@ export const ProductRepository = {
         }
         if (updates.auto_deduct_on_sale !== undefined || updates.autoDeductOnSale !== undefined) {
           r.autoDeductOnSale = Boolean(updates.auto_deduct_on_sale ?? updates.autoDeductOnSale);
+        }
+        if (updates.packagings !== undefined) {
+          r.packagings = JSON.stringify(updates.packagings || []);
         }
         r.updatedAt = Date.now();
         if (updates.synced !== undefined) r.synced = Boolean(updates.synced);

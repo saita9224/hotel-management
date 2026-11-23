@@ -26,6 +26,7 @@ import { useTheme } from "../../hooks/useTheme";
 
 import AddItemSheet      from "../../components/Inventory/AddItemSheet";
 import DeductStockModal  from "../../components/Inventory/DeductStockModal";
+import PackagingSheet    from "../../components/Inventory/PackagingSheet";
 import StockHistorySheet from "../../components/Inventory/StockHistorySheet";
 import StockCountScreen  from "../../components/Inventory/StockCountScreen";
 
@@ -92,6 +93,7 @@ export default function InventoryScreen() {
   const [selectedProduct,  setSelectedProduct]  = useState(null);
   const [showDeduct,       setShowDeduct]       = useState(false);
   const [showHistory,      setShowHistory]      = useState(false);
+  const [showPackaging,    setShowPackaging]    = useState(false);
 
   const slideAnim    = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -144,11 +146,12 @@ export default function InventoryScreen() {
       if (showAddSheet) { closeSheet(); return true; }
       if (showDeduct)   { setShowDeduct(false); return true; }
       if (showHistory)  { setShowHistory(false); return true; }
+      if (showPackaging) { setShowPackaging(false); return true; }
       return false;
     };
     const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
     return () => sub.remove();
-  }, [showAddSheet, showDeduct, showHistory]);
+  }, [showAddSheet, showDeduct, showHistory, showPackaging]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -216,6 +219,18 @@ export default function InventoryScreen() {
 
         <Text style={{ color: stockColor, fontWeight: "700", marginTop: 4 }}>
           {product.current_stock} {product.unit}
+          {(() => {
+            const salePkgs = (product.packagings || []).filter((pk) => pk.is_sale_unit && pk.quantity_in_base > 0);
+            if (!salePkgs.length || !product.current_stock) return null;
+            const eq = salePkgs
+              .map((pk) => {
+                const n = product.current_stock / pk.quantity_in_base;
+                return n >= 1 ? `≈ ${parseFloat(n.toFixed(1))} ${pk.label}` : null;
+              })
+              .filter(Boolean)
+              .join(", ");
+            return eq ? <Text style={{ color: colors.tabBarInactive, fontWeight: "400", fontSize: 12 }}>{"  (" + eq + ")"}</Text> : null;
+          })()}
         </Text>
 
         <View style={styles.actions}>
@@ -230,6 +245,12 @@ export default function InventoryScreen() {
             onPress={() => { setSelectedProduct(product); setShowHistory(true); }}
           >
             <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 12 }}>History</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+            onPress={() => { setSelectedProduct(product); setShowPackaging(true); }}
+          >
+            <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 12 }}>Units</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -330,6 +351,11 @@ export default function InventoryScreen() {
         visible={showDeduct}
         product={selectedProduct}
         onClose={() => { setShowDeduct(false); setSelectedProduct(null); }}
+      />
+      <PackagingSheet
+        visible={showPackaging}
+        product={selectedProduct}
+        onClose={() => { setShowPackaging(false); setSelectedProduct(null); }}
       />
       <StockHistorySheet
         visible={showHistory}

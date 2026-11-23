@@ -1,7 +1,7 @@
 // database/index.js
 import { Database } from '@nozbe/watermelondb';
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
-import { schemaMigrations, createTable } from '@nozbe/watermelondb/Schema/migrations';
+import { schemaMigrations, createTable, addColumns } from '@nozbe/watermelondb/Schema/migrations';
 
 import schema from './schema';
 import { ProductModel } from './models/Product';
@@ -33,6 +33,17 @@ const migrations = schemaMigrations({
             { name: 'logo_local_uri', type: 'string', isOptional: true },
             { name: 'logo_pending',   type: 'boolean' },
             { name: 'updated_at',     type: 'number' },
+          ],
+        }),
+      ],
+    },
+    {
+      toVersion: 4,
+      steps: [
+        addColumns({
+          table: 'products',
+          columns: [
+            { name: 'packagings', type: 'string', isOptional: true },
           ],
         }),
       ],

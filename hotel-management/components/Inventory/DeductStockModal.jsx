@@ -26,12 +26,19 @@ export default function DeductStockModal({ visible, product, onClose }) {
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("COOKING");
   const [notes, setNotes] = useState("");
+  const [packaging, setPackaging] = useState(null); // sale-unit label or null = base
   const [submitting, setSubmitting] = useState(false);
+
+  const salePackagings = (product?.packagings || []).filter((pk) => pk.is_sale_unit);
+  const selectedPk = salePackagings.find((pk) => pk.label === packaging) || null;
+  const factor = selectedPk ? Number(selectedPk.quantity_in_base) || 1 : 1;
+  const maxInUnit = Math.floor((product?.current_stock || 0) / factor);
 
   const handleClose = () => {
     setQuantity("");
     setReason("COOKING");
     setNotes("");
+    setPackaging(null);
     onClose?.();
   };
 
@@ -39,15 +46,15 @@ export default function DeductStockModal({ visible, product, onClose }) {
     const qty = Number(quantity);
     if (!qty || qty <= 0)
       return Alert.alert("Validation", "Enter a valid quantity.");
-    if (qty > product.current_stock)
+    if (qty > maxInUnit)
       return Alert.alert(
         "Insufficient Stock",
-        `Only ${product.current_stock} ${product.unit} available.`
+        `Only ${maxInUnit} ${selectedPk ? selectedPk.label : product.unit} available.`
       );
 
     try {
       setSubmitting(true);
-      await deductStock(product.id, qty, reason, notes || null);
+      await deductStock(product.id, qty, reason, notes || null, packaging);
       handleClose();
     } catch (err) {
       Alert.alert("Error", err?.message || "Failed to deduct stock.");
@@ -90,18 +97,66 @@ export default function DeductStockModal({ visible, product, onClose }) {
             </Text>
           </View>
 
+          {/* Unit selector (sale packagings) */}
+          {salePackagings.length > 0 && (
+            <>
+              <Text style={[styles.label, { color: colors.tabBarInactive }]}>Unit</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                <TouchableOpacity
+                  onPress={() => setPackaging(null)}
+                  style={[
+                    styles.pill,
+                    {
+                      backgroundColor: !packaging ? colors.accent : colors.background,
+                      borderColor: !packaging ? colors.accent : colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={{ color: !packaging ? "#fff" : colors.text, fontWeight: "600" }}>
+                    {product.unit}
+                  </Text>
+                </TouchableOpacity>
+                {salePackagings.map((pk) => {
+                  const active = packaging === pk.label;
+                  return (
+                    <TouchableOpacity
+                      key={pk.id}
+                      onPress={() => setPackaging(active ? null : pk.label)}
+                      style={[
+                        styles.pill,
+                        {
+                          backgroundColor: active ? colors.accent : colors.background,
+                          borderColor: active ? colors.accent : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={{ color: active ? "#fff" : colors.text, fontWeight: "600" }}>
+                        {pk.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          )}
+
           {/* Quantity */}
           <Text style={[styles.label, { color: colors.tabBarInactive }]}>Quantity to Deduct</Text>
           <TextInput
             keyboardType="numeric"
             style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-            placeholder={`Max ${product.current_stock}`}
+            placeholder={`Max ${maxInUnit}`}
             placeholderTextColor={colors.tabBarInactive}
             value={quantity}
             onChangeText={setQuantity}
             returnKeyType="next"
             blurOnSubmit={false}
           />
+          {selectedPk && Number(quantity) > 0 && (
+            <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 4 }}>
+              {Number(quantity)} {selectedPk.label} = {Number(quantity) * factor} {product.unit}
+            </Text>
+          )}
 
           {/* Reason */}
           <Text style={[styles.label, { color: colors.tabBarInactive }]}>Reason</Text>

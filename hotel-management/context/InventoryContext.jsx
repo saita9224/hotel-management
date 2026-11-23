@@ -28,6 +28,8 @@ import {
   submitReconciliationService,
   approveReconciliationService,
   rejectReconciliationService,
+  createProductPackagingService,
+  deleteProductPackagingService,
 } from "../services/inventoryService";
 
 const InventoryContext = createContext();
@@ -36,6 +38,16 @@ export const useInventory = () => useContext(InventoryContext);
 
 const isNetworkError = (error) =>
   /network|failed to fetch|timed?\s*out|unreachable/i.test(String(error?.message || ""));
+
+// Resolve a packaging label to its base-unit factor using the
+// product's cached packagings. Returns 1 when no packaging.
+const packagingFactor = (product, packagingLabel) => {
+  if (!packagingLabel) return 1;
+  const pk = (product?.packagings || []).find(
+    (p) => String(p.label).toLowerCase() === String(packagingLabel).toLowerCase()
+  );
+  return pk ? Number(pk.quantity_in_base) || 1 : 1;
+};
 
 export const InventoryProvider = ({ children }) => {
   const [products,               setProducts]               = useState([]);
@@ -297,7 +309,10 @@ export const InventoryProvider = ({ children }) => {
   // ADD STOCK
   // =====================================================
 
-  const addStock = async (productId, quantity, reason, funded_by_business, notes, forceOffline = false) => {
+  const addStock = async (productId, quantity, reason, funded_by_business, notes, packaging = null, forceOffline = false) => {
+    const product = products.find((p) => String(p.id) === String(productId));
+    const factor = packagingFactor(product, packaging);
+    const baseQty = Number(quantity) * factor;
     if (forceOffline || !isOnline) {
       await enqueueMutation("ADD_STOCK", {
         product_id: productId,
@@ -305,16 +320,17 @@ export const InventoryProvider = ({ children }) => {
         reason,
         funded_by_business,
         notes,
+        packaging: packaging || null,
       });
       await refreshQueueCount();
       
-      // Update local database
-      await ProductRepository.updateStock(productId, Number(quantity));
+      // Update local database (stock is stored in base units)
+      await ProductRepository.updateStock(productId, baseQty);
       
       setProducts((prev) =>
         prev.map((p) =>
           p.id === productId
-            ? { ...p, current_stock: p.current_stock + Number(quantity) }
+            ? { ...p, current_stock: p.current_stock + baseQty }
             : p
         )
       );
@@ -327,10 +343,11 @@ export const InventoryProvider = ({ children }) => {
         reason,
         funded_by_business: funded_by_business ?? true,
         notes,
+        packaging:          packaging || null,
       });
       await loadProducts();
     } catch (error) {
-      if (isNetworkError(error)) return addStock(productId, quantity, reason, funded_by_business, notes, true);
+      if (isNetworkError(error)) return addStock(productId, quantity, reason, funded_by_business, notes, packaging, true);
       throw error;
     }
   };
@@ -339,33 +356,37 @@ export const InventoryProvider = ({ children }) => {
   // DEDUCT STOCK
   // =====================================================
 
-  const deductStock = async (productId, quantity, reason, notes, forceOffline = false) => {
+  const deductStock = async (productId, quantity, reason, notes, packaging = null, forceOffline = false) => {
+    const product = products.find((p) => String(p.id) === String(productId));
+    const factor = packagingFactor(product, packaging);
+    const baseQty = Number(quantity) * factor;
     if (forceOffline || !isOnline) {
       await enqueueMutation("REMOVE_STOCK", {
         product_id: productId,
         quantity: Number(quantity),
         reason,
         notes,
+        packaging: packaging || null,
       });
       await refreshQueueCount();
       
-      // Update local database
-      await ProductRepository.updateStock(productId, -Number(quantity));
+      // Update local database (stock is stored in base units)
+      await ProductRepository.updateStock(productId, -baseQty);
       
       setProducts((prev) =>
         prev.map((p) =>
           p.id === productId
-            ? { ...p, current_stock: Math.max(0, p.current_stock - Number(quantity)) }
+            ? { ...p, current_stock: Math.max(0, p.current_stock - baseQty) }
             : p
         )
       );
       return;
     }
     try {
-      await removeStockService({ product_id: productId, quantity, reason, notes });
+      await removeStockService({ product_id: productId, quantity, reason, notes, packaging: packaging || null });
       await loadProducts();
     } catch (error) {
-      if (isNetworkError(error)) return deductStock(productId, quantity, reason, notes, true);
+      if (isNetworkError(error)) return deductStock(productId, quantity, reason, notes, packaging, true);
       throw error;
     }
   };
@@ -476,21 +497,25 @@ export const InventoryProvider = ({ children }) => {
   // ADD STOCK FROM EXPENSE
   // =====================================================
 
-  const addStockFromExpense = async ({ product_id, quantity, expense_item_id }, forceOffline = false) => {
+  const addStockFromExpense = async ({ product_id, quantity, expense_item_id, packaging = null }, forceOffline = false) => {
+    const product = products.find((p) => String(p.id) === String(product_id));
+    const factor = packagingFactor(product, packaging);
+    const baseQty = Number(quantity) * factor;
     if (forceOffline || !isOnline) {
       await enqueueMutation("ADD_STOCK_FROM_EXPENSE", {
         product_id,
         quantity: Number(quantity),
         expense_item_id,
+        packaging: packaging || null,
       });
       await refreshQueueCount();
 
-      await ProductRepository.updateStock(product_id, Number(quantity));
+      await ProductRepository.updateStock(product_id, baseQty);
 
       setProducts((prev) =>
         prev.map((p) =>
           p.id === product_id
-            ? { ...p, current_stock: p.current_stock + Number(quantity) }
+            ? { ...p, current_stock: p.current_stock + baseQty }
             : p
         )
       );
@@ -501,10 +526,11 @@ export const InventoryProvider = ({ children }) => {
         product_id,
         quantity,
         expense_item_id,
+        packaging: packaging || null,
       });
       await loadProducts();
     } catch (error) {
-      if (isNetworkError(error)) return addStockFromExpense({ product_id, quantity, expense_item_id }, true);
+      if (isNetworkError(error)) return addStockFromExpense({ product_id, quantity, expense_item_id, packaging }, true);
       throw error;
     }
   };
@@ -521,6 +547,7 @@ export const InventoryProvider = ({ children }) => {
       quantity,
       expense_item_id,
       auto_deduct_on_sale,
+      packaging,
     } = args;
     if (forceOffline || !isOnline) {
       const { clientId } = await enqueueMutation("CREATE_PRODUCT_WITH_STOCK", {
@@ -530,6 +557,7 @@ export const InventoryProvider = ({ children }) => {
         quantity: Number(quantity),
         expense_item_id,
         auto_deduct_on_sale: auto_deduct_on_sale ?? false,
+        packaging: packaging || null,
       });
       await refreshQueueCount();
 
@@ -564,6 +592,7 @@ export const InventoryProvider = ({ children }) => {
         quantity,
         expense_item_id,
         auto_deduct_on_sale,
+        packaging: packaging || null,
       });
       await loadProducts();
       return result;
@@ -571,6 +600,27 @@ export const InventoryProvider = ({ children }) => {
       if (isNetworkError(error)) return createProductWithStock(args, true);
       throw error;
     }
+  };
+
+  // =====================================================
+  // PRODUCT PACKAGING (unit conversion)
+  // =====================================================
+
+  const createPackaging = async (productId, { label, quantity_in_base, is_purchase_unit, is_sale_unit }) => {
+    const result = await createProductPackagingService({
+      product_id:        productId,
+      label,
+      quantity_in_base,
+      is_purchase_unit,
+      is_sale_unit,
+    });
+    await loadProducts();
+    return result;
+  };
+
+  const deletePackaging = async (packagingId) => {
+    await deleteProductPackagingService(packagingId);
+    await loadProducts();
   };
 
   const value = useMemo(
@@ -593,6 +643,8 @@ export const InventoryProvider = ({ children }) => {
       submitReconciliation,
       approveReconciliation,
       rejectReconciliation,
+      createPackaging,
+      deletePackaging,
     }),
     [enrichedProducts, categories, serverCategories, loading, pendingReconciliations]
   );

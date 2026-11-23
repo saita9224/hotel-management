@@ -245,6 +245,7 @@ export const createExpenseService = async (input) => {
     autoDeductOnSale: Boolean(input.auto_deduct_on_sale),
     amountPaid: Number(input.amount_paid || 0),
     productClientId: input.product_client_id || null,
+    packaging: input.packaging || null,
   };
 
   const data = await graphqlRequest(

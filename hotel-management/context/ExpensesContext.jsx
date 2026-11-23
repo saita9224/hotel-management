@@ -163,7 +163,21 @@ export const ExpensesProvider = ({ children }) => {
       }
 
       if (input.inventory_action === "ADD_EXISTING" && input.inventory_product_id) {
-        await ProductRepository.updateStock(input.inventory_product_id, Number(input.quantity));
+        // Stock is stored in base units — convert when a packaging
+        // label was selected (e.g. 2 crates × 30 = 60 pieces).
+        let baseQty = Number(input.quantity);
+        if (input.packaging) {
+          try {
+            const prod = await ProductRepository.findById(input.inventory_product_id);
+            const pk = (prod?.packagings || []).find(
+              (p) => String(p.label).toLowerCase() === String(input.packaging).toLowerCase()
+            );
+            if (pk) baseQty = Number(input.quantity) * (Number(pk.quantity_in_base) || 1);
+          } catch (e) {
+            console.warn("Failed to resolve packaging factor:", e);
+          }
+        }
+        await ProductRepository.updateStock(input.inventory_product_id, baseQty);
       } else if (input.inventory_action === "CREATE_PRODUCT") {
         const createdProduct = await ProductRepository.create({
           id: clientId,

@@ -12,6 +12,14 @@ const normalizeCategory = (c) => ({
   name: c.name,
 });
 
+const normalizePackaging = (pk) => ({
+  id:              pk.id,
+  label:           pk.label,
+  quantity_in_base: Number(pk.quantityInBase ?? 0),
+  is_purchase_unit: Boolean(pk.isPurchaseUnit),
+  is_sale_unit:     Boolean(pk.isSaleUnit),
+});
+
 const normalizeProduct = (p) => ({
   id:                  p.id,
   name:                p.name,
@@ -19,6 +27,7 @@ const normalizeProduct = (p) => ({
   unit:                p.unit,
   current_stock:       Number(p.currentStock ?? 0),
   auto_deduct_on_sale: p.autoDeductOnSale ?? false,
+  packagings:          (p.packagings || []).map(normalizePackaging),
   created_at:          p.createdAt,
 });
 
@@ -49,9 +58,14 @@ const CATEGORY_FIELDS = `
   category { id name }
 `;
 
+const PACKAGING_FIELDS = `
+  packagings { id label quantityInBase isPurchaseUnit isSaleUnit }
+`;
+
 const PRODUCT_FIELDS = `
   id name unit currentStock autoDeductOnSale createdAt
   ${CATEGORY_FIELDS}
+  ${PACKAGING_FIELDS}
 `;
 
 const RECONCILIATION_FIELDS = `
@@ -220,6 +234,7 @@ export const addStockFromExpenseService = async ({
   product_id,
   quantity,
   expense_item_id,
+  packaging,
 }) => {
   return graphqlRequest(
     `
@@ -234,6 +249,7 @@ export const addStockFromExpenseService = async ({
         productId:      product_id,
         quantity:       Number(quantity),
         expenseItemId:  expense_item_id,
+        packaging:      packaging || null,
       },
     }
   );
@@ -252,6 +268,7 @@ export const createProductWithStockService = async ({
   quantity,
   expense_item_id,
   auto_deduct_on_sale,
+  packaging,
 }) => {
   return graphqlRequest(
     `
@@ -269,6 +286,7 @@ export const createProductWithStockService = async ({
         quantity:           Number(quantity),
         expenseItemId:      expense_item_id,
         autoDeductOnSale:   auto_deduct_on_sale ?? false,
+        packaging:          packaging || null,
       },
     }
   );
@@ -296,6 +314,7 @@ export const addStockService = async (input) => {
         fundedByBusiness:  input.funded_by_business ?? true,
         expenseItemId:     input.expense_item_id || null,
         notes:             input.notes || null,
+        packaging:         input.packaging || null,
       },
     }
   );
@@ -321,9 +340,57 @@ export const removeStockService = async (input) => {
         quantity:  Number(input.quantity),
         reason:    input.reason,
         notes:     input.notes || null,
+        packaging: input.packaging || null,
       },
     }
   );
+};
+
+
+// ======================================================
+// PRODUCT PACKAGING (unit conversion)
+// createProductPackaging is an upsert by label —
+// reuse it for edits.
+// ======================================================
+
+export const createProductPackagingService = async ({
+  product_id,
+  label,
+  quantity_in_base,
+  is_purchase_unit,
+  is_sale_unit,
+}) => {
+  const data = await graphqlRequest(
+    `
+    mutation($input: CreateProductPackagingInput!) {
+      createProductPackaging(input: $input) {
+        id label quantityInBase isPurchaseUnit isSaleUnit
+      }
+    }
+  `,
+    {
+      input: {
+        productId:       String(product_id),
+        label:           String(label).trim(),
+        quantityInBase:  Number(quantity_in_base),
+        isPurchaseUnit:  Boolean(is_purchase_unit),
+        isSaleUnit:      Boolean(is_sale_unit),
+      },
+    }
+  );
+  return normalizePackaging(data.createProductPackaging);
+};
+
+export const deleteProductPackagingService = async (packagingId) => {
+  await graphqlRequest(
+    `
+    mutation($packagingId: ID!) {
+      deleteProductPackaging(packagingId: $packagingId)
+    }
+  `,
+    { packagingId: String(packagingId) }
+  );
+  return true;
 };
 
 

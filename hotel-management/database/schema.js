@@ -2,7 +2,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export default appSchema({
-  version: 3, // bumped to include business_info table
+  version: 4, // bumped to add products.packagings (JSON)
 
   tables: [
     tableSchema({
@@ -13,6 +13,7 @@ export default appSchema({
         { name: 'unit', type: 'string' },
         { name: 'current_stock', type: 'number' },
         { name: 'auto_deduct_on_sale', type: 'boolean' },
+        { name: 'packagings', type: 'string', isOptional: true }, // JSON array of {id,label,quantity_in_base,is_purchase_unit,is_sale_unit}
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'synced', type: 'boolean' },
