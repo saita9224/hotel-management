@@ -233,13 +233,19 @@ export const InventoryProvider = ({ children }) => {
       funded_by_business,
       notes,
       auto_deduct_on_sale,
+      packaging_def,   // { label, quantity_in_base, is_purchase_unit, is_sale_unit } | null
+      stock_unit,       // packaging label the quantity is expressed in | null = base
     } = args;
+    const pkgFactor = packaging_def && stock_unit === packaging_def.label
+      ? Number(packaging_def.quantity_in_base) || 1
+      : 1;
+    const baseQty = Number(quantity || 0) * pkgFactor;
     if (forceOffline || !isOnline) {
       const { clientId } = await enqueueMutation("CREATE_PRODUCT", {
         name,
         category_id,
         unit,
-        quantity,
+        quantity: baseQty, // base units — packaging defs aren't synced for new offline products
         reason,
         funded_by_business,
         notes,
@@ -252,8 +258,17 @@ export const InventoryProvider = ({ children }) => {
         name,
         category: serverCategories.find((c) => c.id === category_id) || null,
         unit,
-        current_stock: Number(quantity || 0),
+        current_stock: baseQty,
         auto_deduct_on_sale: auto_deduct_on_sale ?? false,
+        packagings: packaging_def
+          ? [{
+              id: `local-${Date.now()}`,
+              label: packaging_def.label,
+              quantity_in_base: Number(packaging_def.quantity_in_base) || 1,
+              is_purchase_unit: Boolean(packaging_def.is_purchase_unit),
+              is_sale_unit: Boolean(packaging_def.is_sale_unit),
+            }]
+          : [],
         created_at: new Date().toISOString(),
       };
       
@@ -263,8 +278,9 @@ export const InventoryProvider = ({ children }) => {
         name,
         category_id,
         unit,
-        current_stock: Number(quantity || 0),
+        current_stock: baseQty,
         auto_deduct_on_sale: auto_deduct_on_sale ?? false,
+        packagings: mockProduct.packagings,
         synced: false,
       });
       
@@ -282,6 +298,22 @@ export const InventoryProvider = ({ children }) => {
       const productId = result?.createProduct?.id;
       if (!productId) throw new Error("Product creation failed");
 
+      // Define packaging BEFORE the stock add so the backend can
+      // resolve the packaging label on addStock.
+      if (packaging_def?.label) {
+        try {
+          await createProductPackagingService({
+            product_id:        productId,
+            label:             packaging_def.label,
+            quantity_in_base:  packaging_def.quantity_in_base,
+            is_purchase_unit:  packaging_def.is_purchase_unit,
+            is_sale_unit:      packaging_def.is_sale_unit,
+          });
+        } catch (pkgErr) {
+          console.warn("Packaging creation failed (stock will use base units):", pkgErr?.message);
+        }
+      }
+
       if (quantity && Number(quantity) > 0) {
         await addStockService({
           product_id:         productId,
@@ -289,6 +321,7 @@ export const InventoryProvider = ({ children }) => {
           reason:             reason || "PURCHASE",
           funded_by_business: funded_by_business ?? true,
           notes:              notes || null,
+          packaging:          stock_unit || null,
         });
       }
 

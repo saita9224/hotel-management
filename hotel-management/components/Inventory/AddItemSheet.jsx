@@ -55,6 +55,13 @@ export default function AddItemSheet({ onClose }) {
   const [newCatName,         setNewCatName]         = useState("");
   const [newCatSaving,       setNewCatSaving]       = useState(false);
 
+  // ── Packaging (optional, defined at creation) ──────
+  const [pkgLabel,       setPkgLabel]       = useState("");
+  const [pkgQtyInBase,   setPkgQtyInBase]   = useState("");
+  const [pkgPurchase,    setPkgPurchase]    = useState(true);
+  const [pkgSale,        setPkgSale]        = useState(true);
+  const [stockUnit,      setStockUnit]      = useState("base"); // "base" | packaging label
+
   const nameRef      = useRef(null);
   const supplierRef  = useRef(null);
   const thresholdRef = useRef(null);
@@ -162,11 +169,31 @@ export default function AddItemSheet({ onClose }) {
 
   // ── Submit ────────────────────────────────────────────
 
+  const pkgLabelTrim = pkgLabel.trim();
+  const pkgQtyNum    = Number(pkgQtyInBase);
+  const hasPackaging = pkgLabelTrim.length > 0;
+  const packagingDef = hasPackaging
+    ? {
+        label:            pkgLabelTrim,
+        quantity_in_base: pkgQtyNum,
+        is_purchase_unit: pkgPurchase,
+        is_sale_unit:     pkgSale,
+      }
+    : null;
+
   const submit = async () => {
     if (!form.name.trim())
       return Alert.alert("Validation", "Item name is required.");
     if (!form.category_id)
       return Alert.alert("Validation", "Please select a category.");
+    if (hasPackaging) {
+      if (!pkgQtyNum || pkgQtyNum <= 0)
+        return Alert.alert("Validation", "Packaging quantity in base units must be greater than zero.");
+      if (pkgLabelTrim.toLowerCase() === String(form.unit).toLowerCase())
+        return Alert.alert("Validation", `Packaging label can't be the same as the base unit (${form.unit}).`);
+      if (!pkgPurchase && !pkgSale)
+        return Alert.alert("Validation", "Enable at least one of Purchase or Sale unit.");
+    }
 
     try {
       setSubmitting(true);
@@ -179,6 +206,8 @@ export default function AddItemSheet({ onClose }) {
         funded_by_business:  form.funded_by_business,
         auto_deduct_on_sale: form.auto_deduct_on_sale,
         notes:               form.notes.trim() || null,
+        packaging_def:       packagingDef,
+        stock_unit:          hasPackaging && stockUnit === pkgLabelTrim ? pkgLabelTrim : null,
       });
       onClose?.();
     } catch (err) {
@@ -371,6 +400,51 @@ export default function AddItemSheet({ onClose }) {
             })}
           </ScrollView>
 
+          {/* ── Packaging (optional) ── */}
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 14 }]}>
+            Packaging <Text style={{ fontSize: 11, fontWeight: "400" }}>(optional — e.g. bag, crate)</Text>
+          </Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TextInput
+              style={[styles.fieldRow, { flex: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+              placeholder='Label (e.g. "bag")'
+              placeholderTextColor={colors.tabBarInactive}
+              value={pkgLabel}
+              onChangeText={setPkgLabel}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={[styles.fieldRow, { width: 110, borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
+              placeholder={`= ? ${form.unit}`}
+              placeholderTextColor={colors.tabBarInactive}
+              keyboardType="decimal-pad"
+              value={pkgQtyInBase}
+              onChangeText={setPkgQtyInBase}
+            />
+          </View>
+          {hasPackaging && (
+            <>
+              <View style={styles.toggleRow}>
+                <Text style={{ color: colors.text, fontSize: 13, flex: 1 }}>Purchase unit</Text>
+                <Switch
+                  value={pkgPurchase}
+                  onValueChange={setPkgPurchase}
+                  trackColor={{ false: colors.border, true: colors.accent + "80" }}
+                  thumbColor={pkgPurchase ? colors.accent : colors.tabBarInactive}
+                />
+              </View>
+              <View style={[styles.toggleRow, { marginTop: 8 }]}>
+                <Text style={{ color: colors.text, fontSize: 13, flex: 1 }}>Sale unit</Text>
+                <Switch
+                  value={pkgSale}
+                  onValueChange={setPkgSale}
+                  trackColor={{ false: colors.border, true: colors.accent + "80" }}
+                  thumbColor={pkgSale ? colors.accent : colors.tabBarInactive}
+                />
+              </View>
+            </>
+          )}
+
           {/* Low Stock Alert */}
           <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <View style={{ flex: 1 }}>
@@ -437,9 +511,44 @@ export default function AddItemSheet({ onClose }) {
           </Text>
 
           {/* ── STOCK QUANTITY — hybrid stepper + direct input ── */}
-          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 14 }]}>
             Stock Quantity
           </Text>
+
+          {/* Unit selector — only when a packaging was defined above */}
+          {hasPackaging && (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+              <TouchableOpacity
+                onPress={() => setStockUnit("base")}
+                style={{
+                  paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1,
+                  backgroundColor: stockUnit === "base" ? colors.accent : colors.background,
+                  borderColor: stockUnit === "base" ? colors.accent : colors.border,
+                }}
+              >
+                <Text style={{ color: stockUnit === "base" ? "#fff" : colors.text, fontWeight: "600", fontSize: 12 }}>
+                  {form.unit}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setStockUnit(pkgLabelTrim)}
+                style={{
+                  paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1,
+                  backgroundColor: stockUnit === pkgLabelTrim ? colors.accent : colors.background,
+                  borderColor: stockUnit === pkgLabelTrim ? colors.accent : colors.border,
+                }}
+              >
+                <Text style={{ color: stockUnit === pkgLabelTrim ? "#fff" : colors.text, fontWeight: "600", fontSize: 12 }}>
+                  {pkgLabelTrim}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {hasPackaging && stockUnit !== "base" && form.quantity > 0 && pkgQtyNum > 0 && (
+            <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginBottom: 6 }}>
+              {form.quantity} {pkgLabelTrim} = {form.quantity * pkgQtyNum} {form.unit}
+            </Text>
+          )}
           <View style={[styles.stepper, { borderColor: colors.border, backgroundColor: colors.background }]}>
 
             {/* Decrement */}
@@ -466,7 +575,7 @@ export default function AddItemSheet({ onClose }) {
 
             {/* Unit label beside the number */}
             <Text style={[styles.stepUnit, { color: colors.tabBarInactive }]}>
-              {form.unit}
+              {hasPackaging && stockUnit !== "base" ? pkgLabelTrim : form.unit}
             </Text>
 
             {/* Increment */}
