@@ -61,6 +61,8 @@ export default function AddItemSheet({ onClose }) {
   const [pkgPurchase,    setPkgPurchase]    = useState(true);
   const [pkgSale,        setPkgSale]        = useState(true);
   const [stockUnit,      setStockUnit]      = useState("base"); // "base" | packaging label
+  const [customUnit,     setCustomUnit]     = useState("");
+  const [showCustomUnit, setShowCustomUnit] = useState(false);
 
   const nameRef      = useRef(null);
   const supplierRef  = useRef(null);
@@ -379,11 +381,11 @@ export default function AddItemSheet({ onClose }) {
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillRow}>
             {UNITS.map((u) => {
-              const active = form.unit === u;
+              const active = !showCustomUnit && form.unit === u;
               return (
                 <TouchableOpacity
                   key={u}
-                  onPress={() => update("unit", u)}
+                  onPress={() => { setShowCustomUnit(false); update("unit", u); }}
                   style={[
                     styles.pill,
                     {
@@ -398,7 +400,39 @@ export default function AddItemSheet({ onClose }) {
                 </TouchableOpacity>
               );
             })}
+            <TouchableOpacity
+              onPress={() => setShowCustomUnit(true)}
+              style={[
+                styles.pill,
+                {
+                  backgroundColor: showCustomUnit ? colors.accent : colors.background,
+                  borderColor:     showCustomUnit ? colors.accent : colors.border,
+                },
+              ]}
+            >
+              <Text style={{ color: showCustomUnit ? "#fff" : colors.text, fontWeight: "600", fontSize: 13 }}>
+                Other
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
+
+          {showCustomUnit && (
+            <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background, marginTop: 8 }]}>
+              <Ionicons name="create-outline" size={15} color={colors.tabBarInactive} style={styles.fieldIcon} />
+              <TextInput
+                style={[styles.fieldInput, { color: colors.text }]}
+                placeholder='Custom unit (e.g. "bunch", "tray", "dozen")'
+                placeholderTextColor={colors.tabBarInactive}
+                value={customUnit}
+                onChangeText={(v) => {
+                  setCustomUnit(v);
+                  update("unit", v.trim() || "pcs");
+                }}
+                autoCapitalize="none"
+                returnKeyType="done"
+              />
+            </View>
+          )}
 
           {/* ── Packaging (optional) ── */}
           <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 14 }]}>
