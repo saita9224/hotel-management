@@ -238,18 +238,21 @@ export default function InventoryScreen() {
             style={[styles.actionBtn, { borderColor: colors.accent, backgroundColor: colors.accent + "15" }]}
             onPress={() => { setSelectedProduct(product); setShowDeduct(true); }}
           >
+            <Ionicons name="remove-circle-outline" size={14} color={colors.accent} />
             <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 12 }}>Deduct</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
             onPress={() => { setSelectedProduct(product); setShowHistory(true); }}
           >
+            <Ionicons name="time-outline" size={14} color={colors.tabBarInactive} />
             <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 12 }}>History</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
             onPress={() => { setSelectedProduct(product); setShowPackaging(true); }}
           >
+            <Ionicons name="pricetags-outline" size={14} color={colors.tabBarInactive} />
             <Text style={{ color: colors.tabBarInactive, fontWeight: "600", fontSize: 12 }}>Units</Text>
           </TouchableOpacity>
         </View>
@@ -319,8 +322,14 @@ export default function InventoryScreen() {
       </SafeAreaView>
 
       {activeTab === "inventory" && (
-        <TouchableOpacity style={[styles.fab, { backgroundColor: colors.accent }]} onPress={openSheet}>
-          <Ionicons name="add" size={28} color="#fff" />
+        <TouchableOpacity
+          style={[styles.fab, styles.fabLabeled, { backgroundColor: colors.accent }]}
+          onPress={openSheet}
+          accessibilityRole="button"
+          accessibilityLabel="Add item"
+        >
+          <Ionicons name="add" size={24} color="#fff" />
+          <Text style={styles.fabLabel}>Add Item</Text>
         </TouchableOpacity>
       )}
 
@@ -380,8 +389,10 @@ const styles = StyleSheet.create({
   posBadge:          { paddingVertical: 2, paddingHorizontal: 6, borderRadius: 6 },
   rowBetween:        { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   actions:           { flexDirection: "row", gap: 8, marginTop: 10 },
-  actionBtn:         { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1 },
-  fab:               { position: "absolute", bottom: 24, right: 16, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
+  actionBtn:         { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1 },
+  fab:               { position: "absolute", bottom: 24, right: 16, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
+  fabLabeled:        { flexDirection: "row", gap: 8, paddingHorizontal: 20 },
+  fabLabel:          { color: "#fff", fontWeight: "700", fontSize: 15 },
   backdrop:          { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },
   sheet:             { position: "absolute", bottom: 0, left: 0, right: 0, height: SHEET_HEIGHT, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
   dragHandleRow:     { alignItems: "center", paddingVertical: 10 },

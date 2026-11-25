@@ -116,6 +116,15 @@ export default function ExpenseForm({ onClose }) {
     setSelectedPackaging(null);
   }, [form.item_name]);
 
+  // Auto-fill category when the typed name exactly matches an
+  // existing inventory product.
+  React.useEffect(() => {
+    const catId = matchedProduct?.category?.id;
+    if (catId && form.category_id !== catId) {
+      set("category_id", catId);
+    }
+  }, [matchedProduct]);
+
   // ── Auto-suggest category as item name is typed ──────
   useEffect(() => {
     if (suggestTimer.current) clearTimeout(suggestTimer.current);
@@ -303,9 +312,7 @@ export default function ExpenseForm({ onClose }) {
             <Ionicons name="arrow-back-outline" size={22} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Add Expense</Text>
-          <TouchableOpacity style={styles.moreBtn}>
-            <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.moreBtn} />
         </View>
 
         {/* ── Live total ── */}
@@ -320,90 +327,6 @@ export default function ExpenseForm({ onClose }) {
               Balance owed: KES {balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
             </Text>
           )}
-        </View>
-
-        {/* ── Category grid — from backend ── */}
-        <Text style={[styles.sectionLabel, { color: colors.text }]}>Category</Text>
-
-        {/* Selected indicator */}
-        {selectedCategory && (
-          <View style={[styles.selectedCatRow, { backgroundColor: colors.accent + "15", borderColor: colors.accent }]}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
-            <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 13, flex: 1, marginLeft: 6 }}>
-              {selectedCategory.name}
-            </Text>
-            <TouchableOpacity onPress={() => set("category_id", null)}>
-              <Ionicons name="close-circle" size={18} color={colors.tabBarInactive} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Suggestion banner */}
-        {suggestionBanner && (
-          <View style={[styles.suggestionBanner, { backgroundColor: colors.accent + "15", borderColor: colors.accent }]}>
-            <Ionicons name="bulb-outline" size={15} color={colors.accent} />
-            <Text style={[styles.suggestionText, { color: colors.accent }]}>
-              Similar to {'"'}{suggestionBanner.matchedName}{'"'} — use{" "}
-              <Text style={{ fontWeight: "700" }}>{suggestionBanner.categoryName}</Text>?
-            </Text>
-            <TouchableOpacity onPress={acceptSuggestion} style={styles.suggestionAccept}>
-              <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 12 }}>Yes</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setSuggestionBanner(null)} style={{ padding: 4 }}>
-              <Ionicons name="close" size={14} color={colors.tabBarInactive} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.categoryGrid}>
-          {serverCategories.map(cat => {
-            const selected = form.category_id === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => set("category_id", selected ? null : cat.id)}
-                style={[
-                  styles.categoryTile,
-                  {
-                    backgroundColor: selected ? "transparent" : colors.card,
-                    borderColor:     selected ? colors.accent : colors.border,
-                    borderWidth:     selected ? 1.5 : 1,
-                  },
-                ]}
-              >
-                <View style={[
-                  styles.categoryIconWrap,
-                  { backgroundColor: selected ? colors.accent + "22" : colors.background },
-                ]}>
-                  <Ionicons
-                    name={selected ? "checkmark-circle" : "folder-outline"}
-                    size={22}
-                    color={selected ? colors.accent : colors.tabBarInactive}
-                  />
-                </View>
-                <Text style={[styles.categoryLabel, { color: selected ? colors.accent : colors.text }]}>
-                  {cat.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-
-          {/* New Category tile */}
-          <TouchableOpacity
-            style={[
-              styles.categoryTile,
-              styles.newCategoryTile,
-              { borderColor: colors.border, backgroundColor: colors.card },
-            ]}
-            onPress={() => setNewCatModalVisible(true)}
-          >
-            <View style={[styles.categoryIconWrap, { backgroundColor: colors.background }]}>
-              <Ionicons name="add-outline" size={22} color={colors.tabBarInactive} />
-            </View>
-            <Text style={[styles.categoryLabel, { color: colors.tabBarInactive }]}>
-              New{"\n"}Category
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* ── Item details card ── */}
@@ -457,7 +380,7 @@ export default function ExpenseForm({ onClose }) {
               placeholderTextColor={colors.tabBarInactive}
               value={form.item_name}
               onChangeText={v => set("item_name", v)}
-              onSubmitEditing={() => supplierRef.current?.focus()}
+              onSubmitEditing={() => quantityRef.current?.focus()}
               blurOnSubmit={false}
               style={[styles.fieldInput, { color: colors.text }]}
               returnKeyType="next"
@@ -465,24 +388,6 @@ export default function ExpenseForm({ onClose }) {
             {suggestLoading && (
               <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 4 }} />
             )}
-          </View>
-
-          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
-            Supplier  <Text style={styles.optionalTag}>(optional)</Text>
-          </Text>
-          <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
-            <Ionicons name="business-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
-            <TextInput
-              ref={supplierRef}
-              placeholder="Supplier name"
-              placeholderTextColor={colors.tabBarInactive}
-              value={form.supplier_name}
-              onChangeText={v => set("supplier_name", v)}
-              onSubmitEditing={() => quantityRef.current?.focus()}
-              blurOnSubmit={false}
-              style={[styles.fieldInput, { color: colors.text }]}
-              returnKeyType="next"
-            />
           </View>
 
           <View style={styles.twoCol}>
@@ -587,6 +492,106 @@ export default function ExpenseForm({ onClose }) {
               returnKeyType="done"
               onSubmitEditing={submit}
             />
+          </View>
+
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 14 }]}>
+            Supplier  <Text style={styles.optionalTag}>(optional)</Text>
+          </Text>
+          <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+            <Ionicons name="business-outline" size={16} color={colors.tabBarInactive} style={styles.fieldIcon} />
+            <TextInput
+              ref={supplierRef}
+              placeholder="Supplier name"
+              placeholderTextColor={colors.tabBarInactive}
+              value={form.supplier_name}
+              onChangeText={v => set("supplier_name", v)}
+              style={[styles.fieldInput, { color: colors.text }]}
+              returnKeyType="done"
+            />
+          </View>
+
+          {/* ── Category — auto-fills when item name matches ── */}
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 14 }]}>
+            Category
+          </Text>
+
+          {selectedCategory && (
+            <View style={[styles.selectedCatRow, { backgroundColor: colors.accent + "15", borderColor: colors.accent }]}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
+              <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 13, flex: 1, marginLeft: 6 }}>
+                {selectedCategory.name}
+              </Text>
+              <TouchableOpacity onPress={() => set("category_id", null)}>
+                <Ionicons name="close-circle" size={18} color={colors.tabBarInactive} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {suggestionBanner && !selectedCategory && (
+            <View style={[styles.suggestionBanner, { backgroundColor: colors.accent + "15", borderColor: colors.accent }]}>
+              <Ionicons name="bulb-outline" size={15} color={colors.accent} />
+              <Text style={[styles.suggestionText, { color: colors.accent }]}>
+                Similar to {'"'}{suggestionBanner.matchedName}{'"'} — use{" "}
+                <Text style={{ fontWeight: "700" }}>{suggestionBanner.categoryName}</Text>?
+              </Text>
+              <TouchableOpacity onPress={acceptSuggestion} style={styles.suggestionAccept}>
+                <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 12 }}>Yes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setSuggestionBanner(null)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={14} color={colors.tabBarInactive} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={styles.categoryGrid}>
+            {serverCategories.map(cat => {
+              const selected = form.category_id === cat.id;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  onPress={() => set("category_id", selected ? null : cat.id)}
+                  style={[
+                    styles.categoryTile,
+                    {
+                      backgroundColor: selected ? "transparent" : colors.background,
+                      borderColor:     selected ? colors.accent : colors.border,
+                      borderWidth:     selected ? 1.5 : 1,
+                    },
+                  ]}
+                >
+                  <View style={[
+                    styles.categoryIconWrap,
+                    { backgroundColor: selected ? colors.accent + "22" : colors.card },
+                  ]}>
+                    <Ionicons
+                      name={selected ? "checkmark-circle" : "folder-outline"}
+                      size={22}
+                      color={selected ? colors.accent : colors.tabBarInactive}
+                    />
+                  </View>
+                  <Text style={[styles.categoryLabel, { color: selected ? colors.accent : colors.text }]}>
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* New Category tile */}
+            <TouchableOpacity
+              style={[
+                styles.categoryTile,
+                styles.newCategoryTile,
+                { borderColor: colors.border, backgroundColor: colors.background },
+              ]}
+              onPress={() => setNewCatModalVisible(true)}
+            >
+              <View style={[styles.categoryIconWrap, { backgroundColor: colors.card }]}>
+                <Ionicons name="add-outline" size={22} color={colors.tabBarInactive} />
+              </View>
+              <Text style={[styles.categoryLabel, { color: colors.tabBarInactive }]}>
+                New{"\n"}Category
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 

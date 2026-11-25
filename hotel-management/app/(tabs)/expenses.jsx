@@ -136,8 +136,14 @@ export default function ExpensesScreen() {
       </SafeAreaView>
 
       {activeTab === "table" && (
-        <TouchableOpacity style={[styles.fab, { backgroundColor: colors.accent }]} onPress={openSheet}>
-          <Ionicons name="add" size={28} color="#fff" />
+        <TouchableOpacity
+          style={[styles.fab, styles.fabLabeled, { backgroundColor: colors.accent }]}
+          onPress={openSheet}
+          accessibilityRole="button"
+          accessibilityLabel="Add expense"
+        >
+          <Ionicons name="add" size={24} color="#fff" />
+          <Text style={styles.fabLabel}>Add Expense</Text>
         </TouchableOpacity>
       )}
 
@@ -172,7 +178,9 @@ export default function ExpensesScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: 16 },
-  fab: { position: "absolute", bottom: 24, right: 16, width: 55, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
+  fab: { position: "absolute", bottom: 24, right: 16, height: 55, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 5, zIndex: 5 },
+  fabLabeled: { flexDirection: "row", gap: 8, paddingHorizontal: 20 },
+  fabLabel: { color: "#fff", fontWeight: "700", fontSize: 15 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 10 },
   sheet: { position: "absolute", bottom: 0, left: 0, right: 0, height: SHEET_HEIGHT, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 11, elevation: 16, paddingHorizontal: 16, paddingBottom: 16 },
   dragHandleRow: { alignItems: "center", paddingVertical: 10 },

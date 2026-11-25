@@ -54,7 +54,7 @@ export default function SupplierExpenses() {
       map[key].paid += Number(e.amount_paid || 0);
       map[key].balance += Number(e.balance || 0);
     });
-    return Object.values(map);
+    return Object.values(map).sort((a, b) => b.balance - a.balance);
   }, [expenses]);
 
   /* ---------------- DERIVED ---------------- */
@@ -98,11 +98,19 @@ export default function SupplierExpenses() {
           {"Paid: KES " + formatKES(item.paid)}
         </Text>
       </View>
-      <View style={[styles.balancePill, { backgroundColor: "#FF453A18" }]}>
-        <Text style={{ color: "#FF453A", fontWeight: "700", fontSize: 13 }}>
-          {"Balance: KES " + formatKES(item.balance)}
-        </Text>
-      </View>
+      {item.balance > 0 ? (
+        <View style={[styles.balancePill, { backgroundColor: "#FF453A18" }]}>
+          <Text style={{ color: "#FF453A", fontWeight: "700", fontSize: 13 }}>
+            {"Balance: KES " + formatKES(item.balance)}
+          </Text>
+        </View>
+      ) : (
+        <View style={[styles.balancePill, { backgroundColor: "#30D15818" }]}>
+          <Text style={{ color: "#30D158", fontWeight: "700", fontSize: 13 }}>
+            Settled
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 

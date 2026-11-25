@@ -29,7 +29,6 @@ import POSScreen from "../../components/POS/POSScreen";
 import ReceiptDetailSheet from "../../components/POS/ReceiptDetailSheet";
 import OpenSessionModal from "../../components/POS/OpenSessionModal";
 import CloseSessionModal from "../../components/POS/CloseSessionModal";
-import MenuManagerSheet from "../../components/POS/MenuManagerSheet";
 import CashierPaymentSheet from "../../components/POS/CashierPaymentSheet";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -74,7 +73,10 @@ function ReceiptCard({ item, onPress, onLongPress, showEditHint = false, colors 
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           {isEditable && (
-            <Ionicons name="create-outline" size={14} color={colors.tabBarInactive} />
+            <View style={[styles.editPill, { backgroundColor: colors.accent + "20", borderColor: colors.accent }]}>
+              <Ionicons name="create-outline" size={12} color={colors.accent} />
+              <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 11 }}>Edit</Text>
+            </View>
           )}
           <View style={[styles.statusBadge, { backgroundColor: statusColor + "20" }]}>
             <Text style={{ color: statusColor, fontWeight: "700", fontSize: 11 }}>
@@ -340,9 +342,12 @@ function CashierView({ colors, onOpenReceipt }) {
 
         <TouchableOpacity
           onPress={() => { loadCashierData(); loadUnsettledCredits(); }}
-          style={{ marginLeft: "auto" }}
+          style={[styles.refreshPill, { borderColor: colors.border }]}
+          accessibilityRole="button"
+          accessibilityLabel="Refresh"
         >
-          <Ionicons name="refresh-outline" size={18} color={colors.tabBarInactive} />
+          <Ionicons name="refresh-outline" size={14} color={colors.tabBarInactive} />
+          <Text style={{ color: colors.tabBarInactive, fontSize: 12, fontWeight: "600" }}>Refresh</Text>
         </TouchableOpacity>
       </View>
 
@@ -441,7 +446,6 @@ export default function OrdersScreen() {
   const [showOpenSession, setShowOpenSession]     = useState(false);
   const [pendingOpenPOS, setPendingOpenPOS]       = useState(false);
   const [showCloseSession, setShowCloseSession]   = useState(false);
-  const [showMenu, setShowMenu]                   = useState(false);
   const [selectedReceipt, setSelectedReceipt]     = useState(null);
   const [draftActionReceipt, setDraftActionReceipt] = useState(null);
   const [deletingDraft, setDeletingDraft]         = useState(false);
@@ -498,14 +502,6 @@ export default function OrdersScreen() {
             </TouchableOpacity>
           ))}
         </View>
-      ),
-      headerRight: () => (
-        <TouchableOpacity
-          style={{ marginRight: 16 }}
-          onPress={() => setShowMenu(true)}
-        >
-          <Ionicons name="settings-outline" size={20} color={colors.tabBarInactive} />
-        </TouchableOpacity>
       ),
     });
   }, [navigation, activeView, colors]);
@@ -594,13 +590,12 @@ export default function OrdersScreen() {
       if (showPOS)            { closePOS(); return true; }
       if (showCashierPayment) { setShowCashierPayment(false); return true; }
       if (showReceipt)        { setShowReceipt(false); return true; }
-      if (showMenu)           { setShowMenu(false); return true; }
       if (draftActionReceipt) { closeDraftActions(); return true; }
       return false;
     };
     const sub = BackHandler.addEventListener("hardwareBackPress", onBack);
     return () => sub.remove();
-  }, [showPOS, showCashierPayment, showReceipt, showMenu, draftActionReceipt, closeDraftActions]);
+  }, [showPOS, showCashierPayment, showReceipt, draftActionReceipt, closeDraftActions]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -626,21 +621,29 @@ export default function OrdersScreen() {
       {activeView === "waiter" && (
         <View style={styles.fabContainer}>
           <TouchableOpacity
-            style={[styles.fab, { backgroundColor: colors.accent }]}
+            style={[styles.fab, styles.fabLabeled, { backgroundColor: colors.accent }]}
             onPress={() => openPOS(null)}
+            accessibilityRole="button"
+            accessibilityLabel="New order"
           >
-            <Ionicons name="add" size={28} color="#fff" />
+            <Ionicons name="add" size={24} color="#fff" />
+            <Text style={styles.fabLabel}>New Order</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.eyeButton, { backgroundColor: colors.card }]}
             onPress={() => session ? setShowCloseSession(true) : setShowOpenSession(true)}
+            accessibilityRole="button"
+            accessibilityLabel={session ? "Close session" : "Open session"}
           >
             <Ionicons
               name={session ? "lock-open-outline" : "eye-outline"}
-              size={24}
+              size={22}
               color={session ? "#30D158" : colors.accent}
             />
+            <Text style={[styles.eyeLabel, { color: session ? "#30D158" : colors.accent }]}>
+              {session ? "Session" : "Open"}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -695,10 +698,6 @@ export default function OrdersScreen() {
         visible={showCloseSession}
         onClose={() => setShowCloseSession(false)}
       />
-      <MenuManagerSheet
-        visible={showMenu}
-        onClose={() => setShowMenu(false)}
-      />
       <DraftReceiptActions
         visible={!!draftActionReceipt}
         receipt={draftActionReceipt}
@@ -752,17 +751,28 @@ const styles = StyleSheet.create({
   receiptCard: { padding: 14, borderRadius: 10, borderWidth: 1, marginBottom: 10 },
   receiptNumber: { fontSize: 16, fontWeight: "600" },
   statusBadge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10 },
+  editPill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1,
+  },
+  refreshPill: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingVertical: 5, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1,
+  },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
 
   fabContainer: { position: "absolute", bottom: 20, right: 20, alignItems: "center" },
   fab: {
-    width: 60, height: 60, borderRadius: 30,
+    height: 60, borderRadius: 30,
     justifyContent: "center", alignItems: "center", elevation: 5,
   },
+  fabLabeled: { flexDirection: "row", gap: 8, paddingHorizontal: 22 },
+  fabLabel: { color: "#fff", fontWeight: "700", fontSize: 15 },
   eyeButton: {
     marginTop: 10, width: 50, height: 50, borderRadius: 25,
     justifyContent: "center", alignItems: "center", elevation: 3,
   },
+  eyeLabel: { fontSize: 9, fontWeight: "700", marginTop: 1 },
 
   backdrop: {
     ...StyleSheet.absoluteFillObject,

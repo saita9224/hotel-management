@@ -29,7 +29,7 @@ const NAV_GROUPS = [
     items: [
       { label: "Business Profile", icon: "id-card-outline", route: "/business-profile" },
       { label: "Users & Roles", icon: "people-outline", soon: true },
-      { label: "Menu Items", icon: "restaurant-outline", soon: true },
+      { label: "Menu Items", icon: "restaurant-outline", route: "/menu-items" },
       { label: "Tables", icon: "grid-outline", soon: true },
     ],
   },

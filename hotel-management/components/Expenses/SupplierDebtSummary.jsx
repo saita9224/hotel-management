@@ -24,7 +24,7 @@ export default function SupplierDebtSummary() {
       map[supplier].total += Number(expense.total_price || 0);
       map[supplier].balance += Number(expense.balance || 0);
     });
-    return Object.values(map);
+    return Object.values(map).sort((a, b) => b.balance - a.balance);
   }, [expenses]);
 
   const totalDebt = summary.reduce((sum, s) => sum + s.balance, 0);
