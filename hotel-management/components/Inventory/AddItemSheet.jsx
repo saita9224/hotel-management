@@ -248,10 +248,10 @@ export default function AddItemSheet({ onClose }) {
           </View>
 
           {/* ══════════════════════════════════════
-              SECTION 1 — PRODUCT DETAILS
+              SECTION 1 — ITEM DETAILS
           ══════════════════════════════════════ */}
           <Text style={[styles.sectionHeader, { color: colors.accent }]}>
-            Product Details
+            Item Details
           </Text>
 
           {/* Item Name */}
@@ -292,24 +292,6 @@ export default function AddItemSheet({ onClose }) {
               </TouchableOpacity>
             </View>
           )}
-
-          {/* Supplier */}
-          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
-            Supplier <Text style={{ fontSize: 11, fontWeight: "400" }}>(optional)</Text>
-          </Text>
-          <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
-            <Ionicons name="business-outline" size={15} color={colors.tabBarInactive} style={styles.fieldIcon} />
-            <TextInput
-              ref={supplierRef}
-              style={[styles.fieldInput, { color: colors.text }]}
-              placeholder="Supplier name"
-              placeholderTextColor={colors.tabBarInactive}
-              value={form.supplier}
-              onChangeText={(v) => update("supplier", v)}
-              returnKeyType="next"
-              blurOnSubmit
-            />
-          </View>
 
           {/* Category */}
           <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
@@ -368,15 +350,26 @@ export default function AddItemSheet({ onClose }) {
             </TouchableOpacity>
           </View>
 
-          {/* ══════════════════════════════════════
-              SECTION 2 — INVENTORY SPECIFICS
-          ══════════════════════════════════════ */}
-          <Text style={[styles.sectionHeader, { color: colors.accent }]}>
-            Inventory Specifics
+          {/* Supplier */}
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
+            Supplier <Text style={{ fontSize: 11, fontWeight: "400" }}>(optional)</Text>
           </Text>
+          <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+            <Ionicons name="business-outline" size={15} color={colors.tabBarInactive} style={styles.fieldIcon} />
+            <TextInput
+              ref={supplierRef}
+              style={[styles.fieldInput, { color: colors.text }]}
+              placeholder="Supplier name"
+              placeholderTextColor={colors.tabBarInactive}
+              value={form.supplier}
+              onChangeText={(v) => update("supplier", v)}
+              returnKeyType="next"
+              blurOnSubmit
+            />
+          </View>
 
           {/* Unit of Measure */}
-          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive }]}>
+          <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
             Unit of Measure
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillRow}>
@@ -434,6 +427,13 @@ export default function AddItemSheet({ onClose }) {
             </View>
           )}
 
+          {/* ══════════════════════════════════════
+              SECTION 2 — STOCK & COST
+          ══════════════════════════════════════ */}
+          <Text style={[styles.sectionHeader, { color: colors.accent, marginTop: 20 }]}>
+            Stock & Cost
+          </Text>
+
           {/* ── Packaging (optional) ── */}
           <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 14 }]}>
             Packaging <Text style={{ fontSize: 11, fontWeight: "400" }}>(optional — e.g. bag, crate)</Text>
@@ -478,71 +478,6 @@ export default function AddItemSheet({ onClose }) {
               </View>
             </>
           )}
-
-          {/* Low Stock Alert */}
-          <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>
-                Low Stock Alert
-              </Text>
-              <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
-                Notify when below threshold
-              </Text>
-            </View>
-            <Switch
-              value={form.low_stock_alert}
-              onValueChange={(v) => update("low_stock_alert", v)}
-              trackColor={{ false: colors.border, true: colors.accent + "80" }}
-              thumbColor={form.low_stock_alert ? colors.accent : colors.tabBarInactive}
-            />
-          </View>
-
-          {form.low_stock_alert && (
-            <>
-              <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
-                Alert Threshold
-              </Text>
-              <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                <Ionicons name="warning-outline" size={15} color={colors.tabBarInactive} style={styles.fieldIcon} />
-                <TextInput
-                  ref={thresholdRef}
-                  keyboardType="numeric"
-                  style={[styles.fieldInput, { color: colors.text }]}
-                  placeholder="10"
-                  placeholderTextColor={colors.tabBarInactive}
-                  value={String(form.alert_threshold)}
-                  onChangeText={(v) => update("alert_threshold", Number(v) || 0)}
-                  returnKeyType="next"
-                  blurOnSubmit
-                />
-              </View>
-            </>
-          )}
-
-          {/* Track as POS Item */}
-          <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background, marginTop: 12 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>
-                Track as POS Item
-              </Text>
-              <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
-                Auto-deduct stock on Point of Sale transactions
-              </Text>
-            </View>
-            <Switch
-              value={form.auto_deduct_on_sale}
-              onValueChange={(v) => update("auto_deduct_on_sale", v)}
-              trackColor={{ false: colors.border, true: colors.accent + "80" }}
-              thumbColor={form.auto_deduct_on_sale ? colors.accent : colors.tabBarInactive}
-            />
-          </View>
-
-          {/* ══════════════════════════════════════
-              SECTION 3 — STOCK & COST
-          ══════════════════════════════════════ */}
-          <Text style={[styles.sectionHeader, { color: colors.accent }]}>
-            Stock & Cost
-          </Text>
 
           {/* ── STOCK QUANTITY — hybrid stepper + direct input ── */}
           <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 14 }]}>
@@ -692,6 +627,71 @@ export default function AddItemSheet({ onClose }) {
               </View>
             </>
           )}
+
+          {/* ══════════════════════════════════════
+              SECTION 3 — SETTINGS
+          ══════════════════════════════════════ */}
+          <Text style={[styles.sectionHeader, { color: colors.accent, marginTop: 20 }]}>
+            Settings
+          </Text>
+
+          {/* Low Stock Alert */}
+          <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background, marginTop: 14 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>
+                Low Stock Alert
+              </Text>
+              <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
+                Notify when below threshold
+              </Text>
+            </View>
+            <Switch
+              value={form.low_stock_alert}
+              onValueChange={(v) => update("low_stock_alert", v)}
+              trackColor={{ false: colors.border, true: colors.accent + "80" }}
+              thumbColor={form.low_stock_alert ? colors.accent : colors.tabBarInactive}
+            />
+          </View>
+
+          {form.low_stock_alert && (
+            <>
+              <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
+                Alert Threshold
+              </Text>
+              <View style={[styles.fieldRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <Ionicons name="warning-outline" size={15} color={colors.tabBarInactive} style={styles.fieldIcon} />
+                <TextInput
+                  ref={thresholdRef}
+                  keyboardType="numeric"
+                  style={[styles.fieldInput, { color: colors.text }]}
+                  placeholder="10"
+                  placeholderTextColor={colors.tabBarInactive}
+                  value={String(form.alert_threshold)}
+                  onChangeText={(v) => update("alert_threshold", Number(v) || 0)}
+                  returnKeyType="next"
+                  blurOnSubmit
+                />
+              </View>
+            </>
+          )}
+
+          {/* Track as POS Item */}
+          <View style={[styles.toggleRow, { borderColor: colors.border, backgroundColor: colors.background, marginTop: 12 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>
+                Track as POS Item
+              </Text>
+              <Text style={{ color: colors.tabBarInactive, fontSize: 12, marginTop: 2 }}>
+                Auto-deduct stock on Point of Sale transactions
+              </Text>
+            </View>
+            <Switch
+              value={form.auto_deduct_on_sale}
+              onValueChange={(v) => update("auto_deduct_on_sale", v)}
+              trackColor={{ false: colors.border, true: colors.accent + "80" }}
+              thumbColor={form.auto_deduct_on_sale ? colors.accent : colors.tabBarInactive}
+            />
+          </View>
 
           {/* Notes */}
           <Text style={[styles.fieldLabel, { color: colors.tabBarInactive, marginTop: 12 }]}>
