@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
@@ -16,10 +15,14 @@ import {
   Switch,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "../../hooks/useTheme";
 import { useMenu } from "../../context/MenuContext";
+import { useAuth } from "../../context/AuthContext";
+import { hasPermission, PERMISSIONS } from "../../utils/permissions";
 import EmojiPicker from "./EmojiPicker";
+import RecipeEditorSheet from "./RecipeEditorSheet";
 
 const formatKES = (v) =>
   Number(v || 0).toLocaleString("en-KE", {
@@ -383,7 +386,7 @@ function AddItemForm({ onDone, categories, colors }) {
 // Normal view: shows name, price, category badge, toggles.
 // Edit view: inline form to update emoji, price, category, pin.
 
-function MenuItemRow({ item, categories, colors }) {
+function MenuItemRow({ item, categories, colors, onOpenRecipe, canManageMenu }) {
   const { updateMenuItem, deleteMenuItem } = useMenu();
 
   const [editing, setEditing]       = useState(false);
@@ -564,6 +567,13 @@ function MenuItemRow({ item, categories, colors }) {
       </View>
 
       <View style={styles.rowControls}>
+        {/* Recipe button */}
+        {canManageMenu && onOpenRecipe && (
+          <TouchableOpacity onPress={() => onOpenRecipe(item)} style={styles.iconBtn}>
+            <Ionicons name="nutrition-outline" size={17} color={item.is_recipe ? colors.accent : colors.tabBarInactive} />
+          </TouchableOpacity>
+        )}
+
         {/* Edit button */}
         <TouchableOpacity onPress={() => setEditing(true)} style={styles.iconBtn}>
           <Ionicons name="pencil-outline" size={17} color={colors.tabBarInactive} />
@@ -592,51 +602,56 @@ function MenuItemRow({ item, categories, colors }) {
 
 // ── MAIN SHEET ────────────────────────────────────────────
 
-export default function MenuManagerSheet({ visible, onClose }) {
+export default function MenuManagerSheet({ onClose }) {
   const { colors } = useTheme();
+  const { permissions } = useAuth();
   const { menuItems, unpricedItems, menuCategories, loading, refreshMenu } = useMenu();
+  const insets = useSafeAreaInsets();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [recipeItem, setRecipeItem] = useState(null);
+  const [showRecipeEditor, setShowRecipeEditor] = useState(false);
+
+  const canManageMenu = hasPermission(permissions, PERMISSIONS.POS_MANAGE_MENU);
 
   const inventoryItems = (menuItems ?? []).filter((m) => m.has_inventory && m.price > 0);
   const manualItems    = (menuItems ?? []).filter((m) => !m.has_inventory);
   const categories     = menuCategories ?? [];
 
+  const handleOpenRecipe = (item) => {
+    setRecipeItem(item);
+    setShowRecipeEditor(true);
+  };
+
+  const handleCloseRecipe = () => {
+    setShowRecipeEditor(false);
+    setRecipeItem(null);
+  };
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-
-          {/* Handle */}
-          <View style={styles.handleRow}>
-            <View style={[styles.handle, { backgroundColor: colors.border }]} />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: insets.top + 12, paddingHorizontal: 20 }]}>
+          <Text style={[styles.title, { color: colors.text }]}>Menu Manager</Text>
+          <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+            <TouchableOpacity onPress={refreshMenu}>
+              <Ionicons name="refresh-outline" size={20} color={colors.tabBarInactive} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={22} color={colors.tabBarInactive} />
+            </TouchableOpacity>
           </View>
+        </View>
 
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Menu Manager</Text>
-            <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-              <TouchableOpacity onPress={refreshMenu}>
-                <Ionicons name="refresh-outline" size={20} color={colors.tabBarInactive} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onClose}>
-                <Ionicons name="close" size={22} color={colors.tabBarInactive} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
-          ) : (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 60 }}
-              keyboardShouldPersistTaps="handled"
-            >
+        {loading ? (
+          <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
+        ) : (
+          <ScrollView
+            style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60 }}
+            keyboardShouldPersistTaps="handled"
+          >
 
               {/* ── NEEDS PRICING ── */}
               {(unpricedItems ?? []).length > 0 && (
@@ -701,7 +716,14 @@ export default function MenuManagerSheet({ visible, onClose }) {
                     FROM INVENTORY
                   </Text>
                   {inventoryItems.map((item) => (
-                    <MenuItemRow key={item.id} item={item} categories={categories} colors={colors} />
+                    <MenuItemRow
+                      key={item.id}
+                      item={item}
+                      categories={categories}
+                      colors={colors}
+                      onOpenRecipe={handleOpenRecipe}
+                      canManageMenu={canManageMenu}
+                    />
                   ))}
                 </>
               )}
@@ -713,7 +735,14 @@ export default function MenuManagerSheet({ visible, onClose }) {
                     MANUAL ITEMS
                   </Text>
                   {manualItems.map((item) => (
-                    <MenuItemRow key={item.id} item={item} categories={categories} colors={colors} />
+                    <MenuItemRow
+                      key={item.id}
+                      item={item}
+                      categories={categories}
+                      colors={colors}
+                      onOpenRecipe={handleOpenRecipe}
+                      canManageMenu={canManageMenu}
+                    />
                   ))}
                 </>
               )}
@@ -726,19 +755,22 @@ export default function MenuManagerSheet({ visible, onClose }) {
 
             </ScrollView>
           )}
-        </View>
       </KeyboardAvoidingView>
-    </Modal>
+
+      {/* Recipe Editor Sheet */}
+      <RecipeEditorSheet
+        visible={showRecipeEditor}
+        item={recipeItem}
+        onClose={handleCloseRecipe}
+      />
+    </View>
   );
 }
 
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" },
-  sheet:   { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, maxHeight: "92%" },
-  handleRow: { alignItems: "center", paddingVertical: 10 },
-  handle:    { width: 40, height: 4, borderRadius: 2 },
+  container: { flex: 1 },
   header:    { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   title:     { fontSize: 20, fontWeight: "700" },
 

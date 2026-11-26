@@ -425,6 +425,37 @@ export const InventoryProvider = ({ children }) => {
   };
 
   // =====================================================
+  // SEARCH PRODUCTS (for recipe ingredient picker)
+  // =====================================================
+
+  const searchProducts = async (search, { autoDeductOnly = false } = {}) => {
+    try {
+      // Use cached products state which includes both server and local DB products.
+      // This ensures offline-created products are searchable before they sync.
+      let filtered = products ?? [];
+
+      // Client-side search filter
+      if (search && search.trim()) {
+        const query = search.trim().toLowerCase();
+        filtered = filtered.filter((p) =>
+          p.name?.toLowerCase().includes(query) ||
+          p.category?.name?.toLowerCase().includes(query)
+        );
+      }
+
+      // Filter by auto_deduct_on_sale if requested
+      if (autoDeductOnly) {
+        filtered = filtered.filter((p) => p.auto_deduct_on_sale);
+      }
+
+      return filtered.slice(0, 50); // Limit results
+    } catch (error) {
+      console.error("Failed to search products:", error);
+      return [];
+    }
+  };
+
+  // =====================================================
   // GET MOVEMENTS FOR A PRODUCT
   // =====================================================
 
@@ -672,6 +703,7 @@ export const InventoryProvider = ({ children }) => {
       addStock,
       addStockFromExpense,
       deductStock,
+      searchProducts,
       getProductMovements,
       submitReconciliation,
       approveReconciliation,

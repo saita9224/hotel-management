@@ -108,6 +108,11 @@ function MenuTile({ item, quantity, onPress, colors, tileWidth, stock }) {
       )}
       <View style={styles.tileTopRow}>
         <Text style={styles.menuEmoji}>{item.emoji || "•"}</Text>
+        {item.is_recipe && (
+          <View style={[styles.recipeBadge, { backgroundColor: colors.accent + "20" }]}>
+            <Ionicons name="nutrition-outline" size={10} color={colors.accent} />
+          </View>
+        )}
         <View style={[styles.quickAddCircle, { backgroundColor: isOutOfStock ? "#8E8E93" : colors.accent }]}>
           <Ionicons name={isOutOfStock ? "close" : "add"} size={16} color="#fff" />
         </View>
@@ -951,6 +956,7 @@ const styles = StyleSheet.create({
   quickAddCircle: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   tileBadge:      { position: "absolute", top: -6, right: -6, minWidth: 25, height: 25, borderRadius: 13, alignItems: "center", justifyContent: "center", paddingHorizontal: 6, zIndex: 2 },
   tileBadgeText:  { color: "#fff", fontSize: 11, fontWeight: "800" },
+  recipeBadge:    { width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", marginLeft: 4 },
   emptyMenu:      { borderWidth: 1, borderRadius: 8, padding: 22, alignItems: "center", marginBottom: 14 },
 
   cartPanel:       { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 4 },

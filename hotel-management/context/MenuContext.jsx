@@ -11,12 +11,16 @@ import React, {
 import {
   fetchAllMenuItems,
   fetchMenuCategories,
+  fetchMenuItemRecipe,
   fetchUnpricedInventoryItems,
   createMenuCategoryService,
   createMenuItemService,
   updateMenuItemService,
   deleteMenuItemService,
+  setMenuItemIngredientsService,
 } from "../services/menuService";
+import { useOffline } from "./OfflineContext";
+import { enqueueMutation } from "../database/syncQueue";
 
 const MenuContext = createContext();
 export const useMenu = () => useContext(MenuContext);
@@ -29,6 +33,7 @@ const DEFAULT_MENU_CATEGORIES = [
 ];
 
 export const MenuProvider = ({ children }) => {
+  const { isOnline, refreshQueueCount } = useOffline();
   const [menuItems, setMenuItems]         = useState([]);
   const [unpricedItems, setUnpricedItems] = useState([]);
   const [menuCategories, setMenuCategories] = useState(DEFAULT_MENU_CATEGORIES);
@@ -97,6 +102,28 @@ export const MenuProvider = ({ children }) => {
     await refreshMenu();
   };
 
+  const getMenuItemRecipe = async (itemId) => {
+    return await fetchMenuItemRecipe(itemId);
+  };
+
+  const setMenuItemIngredients = async ({ item_id, ingredients }) => {
+    if (!isOnline) {
+      await enqueueMutation("SET_MENU_ITEM_INGREDIENTS", {
+        item_id: String(item_id),
+        ingredients: (ingredients ?? []).map((ing) => ({
+          product_id: String(ing.product_id),
+          quantity:  Number(ing.quantity),
+        })),
+      });
+      await refreshQueueCount();
+      return [];
+    }
+
+    const result = await setMenuItemIngredientsService({ item_id, ingredients });
+    await refreshMenu();
+    return result;
+  };
+
   const createMenuCategory = async (name) => {
     const category = await createMenuCategoryService(name);
     await refreshMenu();
@@ -119,6 +146,8 @@ export const MenuProvider = ({ children }) => {
       createMenuItem,
       updateMenuItem,
       deleteMenuItem,
+      getMenuItemRecipe,
+      setMenuItemIngredients,
     }),
     [menuItems, frequentItems, unpricedItems, menuCategories, loading]
   );

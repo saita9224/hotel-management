@@ -96,6 +96,7 @@ export default function RootLayout() {
                   <Stack.Screen name="(security)" options={{ headerShown: false }} />
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                   <Stack.Screen name="hr" options={{ headerShown: false }} />
+                  <Stack.Screen name="recipes" options={{ headerShown: false }} />
                   <Stack.Screen name="menu-modal" options={{ headerShown: false, presentation: 'modal' }} />
                 </Stack>
                 </SafeAreaInsetsContext.Provider>

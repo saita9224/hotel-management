@@ -44,6 +44,7 @@ const priorityMap = {
   SELF_CHECK_IN: 2,
   SELF_CHECK_OUT: 2,
   REQUEST_LEAVE: 2,
+  SET_MENU_ITEM_INGREDIENTS: 3,
 };
 
 function sortQueueByDependency(items) {

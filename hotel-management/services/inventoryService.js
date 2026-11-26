@@ -26,19 +26,24 @@ const normalizeProduct = (p) => ({
   category:            p.category ? normalizeCategory(p.category) : null,
   unit:                p.unit,
   current_stock:       Number(p.currentStock ?? 0),
+  cost_per_unit:       p.costPerUnit != null ? Number(p.costPerUnit) : null,
   auto_deduct_on_sale: p.autoDeductOnSale ?? false,
   packagings:          (p.packagings || []).map(normalizePackaging),
   created_at:          p.createdAt,
 });
 
 const normalizeMovement = (m) => ({
-  id:           m.id,
+  id:            m.id,
   movement_type: m.movementType,
   reason:        m.reason,
   quantity:      Number(m.quantity ?? 0),
   notes:         m.notes || "",
   created_at:    m.createdAt,
   performed_by:  m.performedBy?.name || "Unknown",
+  menu_item_id:  m.menuItemId ?? null,
+  order_item_id: m.orderItemId ?? null,
+  menu_item:     m.menuItem ? { id: m.menuItem.id, name: m.menuItem.name } : null,
+  order_item:    m.orderItem ? { id: m.orderItem.id, product_name: m.orderItem.productName } : null,
 });
 
 const normalizeReconciliation = (r) => ({
@@ -63,7 +68,7 @@ const PACKAGING_FIELDS = `
 `;
 
 const PRODUCT_FIELDS = `
-  id name unit currentStock autoDeductOnSale createdAt
+  id name unit currentStock costPerUnit autoDeductOnSale createdAt
   ${CATEGORY_FIELDS}
   ${PACKAGING_FIELDS}
 `;
@@ -153,7 +158,8 @@ export const suggestCategoryService = async (productName) => {
 // ======================================================
 
 export const fetchProducts = async () => {
-  const data = await graphqlRequest(`
+  const data = await graphqlRequest(
+    `
     query {
       products {
         ${PRODUCT_FIELDS}
@@ -175,6 +181,9 @@ export const fetchStockMovements = async (productId) => {
       stockMovements(productId: $productId) {
         id movementType reason quantity notes createdAt
         performedBy { name }
+        menuItemId orderItemId
+        menuItem { id name }
+        orderItem { id productName }
       }
     }
   `,

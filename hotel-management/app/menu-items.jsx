@@ -6,6 +6,7 @@ import { View, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 
 import { MenuProvider } from "../context/MenuContext";
+import { InventoryProvider } from "../context/InventoryContext";
 import { useTheme } from "../hooks/useTheme";
 import MenuManagerSheet from "../components/POS/MenuManagerSheet";
 
@@ -16,7 +17,9 @@ export default function MenuItemsScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <MenuProvider>
-        <MenuManagerSheet visible onClose={() => router.back()} />
+        <InventoryProvider>
+          <MenuManagerSheet onClose={() => router.back()} />
+        </InventoryProvider>
       </MenuProvider>
     </View>
   );

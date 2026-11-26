@@ -30,6 +30,7 @@ const NAV_GROUPS = [
       { label: "Business Profile", icon: "id-card-outline", route: "/business-profile" },
       { label: "Users & Roles", icon: "people-outline", soon: true },
       { label: "Menu Items", icon: "restaurant-outline", route: "/menu-items" },
+      { label: "Recipes", icon: "nutrition-outline", route: "/recipes" },
       { label: "Tables", icon: "grid-outline", soon: true },
     ],
   },

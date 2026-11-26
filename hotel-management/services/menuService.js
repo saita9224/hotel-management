@@ -5,6 +5,14 @@ import { graphqlRequest } from "../lib/graphql";
 
 // ── Normalizers ──────────────────────────────────────────
 
+const normalizeMenuItemIngredient = (ing) => ({
+  id:           ing.id,
+  product_id:   ing.productId,
+  product_name: ing.productName,
+  unit:         ing.unit ?? "",
+  quantity:     Number(ing.quantity ?? 0),
+});
+
 const normalizeMenuItem = (m) => ({
   id:            m.id,
   name:          m.name,
@@ -16,6 +24,9 @@ const normalizeMenuItem = (m) => ({
   has_inventory: m.hasInventory,
   product_id:    m.productId ?? null,
   order_count:   m.orderCount ?? 0,
+  is_recipe:     m.isRecipe ?? false,
+  recipe_cost:   m.recipeCost != null ? Number(m.recipeCost) : null,
+  ingredients:   (m.ingredients ?? []).map(normalizeMenuItemIngredient),
 });
 
 const normalizeMenuCategory = (c) => ({
@@ -42,6 +53,23 @@ const MENU_ITEM_FIELDS = `
   category
   hasInventory
   productId
+  isRecipe
+  recipeCost
+  ingredients {
+    id
+    productId
+    productName
+    unit
+    quantity
+  }
+`;
+
+const MENU_ITEM_INGREDIENT_FIELDS = `
+  id
+  productId
+  productName
+  unit
+  quantity
 `;
 
 
@@ -67,6 +95,18 @@ export const fetchAllMenuItems = async () => {
     }
   `);
   return (data?.allMenuItems ?? []).map(normalizeMenuItem);
+};
+
+export const fetchMenuItemRecipe = async (itemId) => {
+  const data = await graphqlRequest(
+    `query($itemId: ID!) {
+      menuItemRecipe(itemId: $itemId) {
+        ${MENU_ITEM_INGREDIENT_FIELDS}
+      }
+    }`,
+    { itemId: String(itemId) }
+  );
+  return (data?.menuItemRecipe ?? []).map(normalizeMenuItemIngredient);
 };
 
 export const fetchUnpricedInventoryItems = async () => {
@@ -178,4 +218,24 @@ export const deleteMenuItemService = async (itemId) => {
     { itemId: String(itemId) }
   );
   return data.deleteMenuItem;
+};
+
+export const setMenuItemIngredientsService = async ({ item_id, ingredients }) => {
+  const data = await graphqlRequest(
+    `mutation($input: SetMenuItemIngredientsInput!) {
+      setMenuItemIngredients(input: $input) {
+        ${MENU_ITEM_INGREDIENT_FIELDS}
+      }
+    }`,
+    {
+      input: {
+        itemId: String(item_id),
+        ingredients: (ingredients ?? []).map((ing) => ({
+          productId: String(ing.product_id),
+          quantity:  Number(ing.quantity),
+        })),
+      },
+    }
+  );
+  return (data?.setMenuItemIngredients ?? []).map(normalizeMenuItemIngredient);
 };
